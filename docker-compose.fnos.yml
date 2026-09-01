@@ -1,0 +1,24 @@
+# 飞牛 fnOS 部署配置 —— 放到 /vol1/1000/docker/miaoyu/ 目录后执行：
+#   docker compose up -d
+# 数据（报告/素材/SQLite）保存在同目录 ./data 下，升级不丢。
+# 前提：ghcr 镜像包已设为 Public（或本机已 docker login ghcr.io 且令牌有 read:packages）
+services:
+  yuqing:
+    image: ghcr.io/ruoshui6662/miaoyu-analysis:latest
+    container_name: yuqing
+    ports:
+      - "5000:5000"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      # 数据持久化（按你的要求放在本次 compose 所在目录，即 /vol1/1000/docker/miaoyu/data）
+      - ./data:/app/data
+      # 配置（AI Key / SearXNG 地址）：把本机 .env 复制到本目录
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
