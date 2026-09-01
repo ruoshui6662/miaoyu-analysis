@@ -97,8 +97,15 @@ def quota_state() -> dict:
 
 # ---------- tophubdata 官方 API ----------
 
+_thd_off: str = ""  # 当日官方接口停用（业务错误如余额不足）
+
+
 def _thd(path: str, params: dict | None = None) -> dict | None:
     """官方 API 请求。无 key/超配额/出错 → None（降级）。每次调用记账。"""
+    global _thd_off
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    if _thd_off == today:
+        return None
     if not _thd_key() or not _quota_ok():
         return None
     try:
@@ -112,6 +119,11 @@ def _thd(path: str, params: dict | None = None) -> dict | None:
         return None
     if d.get("error") is False and isinstance(d.get("data"), (dict, list)):
         return d["data"]
+    # 业务错误（余额不足/配额类，status 100300 等）→ 当日暂停官方，避免后续请求白耗配额
+    msg = str(d.get("msg") or "")
+    status = d.get("status")
+    if status in (100300, 100400) or "余额" in msg or "额度" in msg:
+        _thd_off = today
     return None
 
 
