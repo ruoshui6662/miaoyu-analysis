@@ -19,8 +19,20 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory, Response
 
 from config import DATA_DIR_REPORTS, DATA_DIR_TASKS, ROOT, reload as reload_config
-from db import get_all as db_get_all, save as db_save
+from db import (
+    add_source as db_add_source,
+    delete_source as db_delete_source,
+    get_all as db_get_all,
+    list_sources as db_list_sources,
+    save as db_save,
+    seed_sources as db_seed_sources,
+    set_enabled as db_set_enabled,
+)
 from pipeline import run_analysis
+from source_catalog import CATALOG, CATEGORIES
+
+# 启动时播种内置信源目录（表为空才写，幂等）
+db_seed_sources(CATALOG)
 
 app = Flask(
     __name__,
@@ -157,6 +169,60 @@ def api_settings_save():
     n = db_save(items)
     reload_config()  # 保存即生效
     return jsonify({"saved": n, "ok": True})
+
+
+@app.get("/api/sources")
+def api_sources_get():
+    """信源目录（C1b）：按类别分组返回，含勾选状态。"""
+    srcs = db_list_sources()
+    groups = []
+    for key, meta in CATEGORIES.items():
+        items = [
+            {k: s[k] for k in ("id", "name", "host", "level", "stype", "enabled", "manual")}
+            for s in srcs if s["category"] == key
+        ]
+        if not items:
+            continue
+        groups.append({
+            "key": key, "label": meta["label"], "icon": meta["icon"],
+            "enabled_count": sum(1 for it in items if it["enabled"]),
+            "items": items,
+        })
+    return jsonify({"groups": groups, "total": len(srcs),
+                    "enabled_total": sum(1 for s in srcs if s["enabled"])})
+
+
+@app.post("/api/sources/toggle")
+def api_sources_toggle():
+    body = request.get_json(silent=True) or {}
+    ids = [int(i) for i in (body.get("ids") or [])]
+    if not ids or body.get("enabled") is None:
+        return jsonify({"error": "参数缺失"}), 400
+    n = db_set_enabled(ids, bool(body["enabled"]))
+    return jsonify({"ok": True, "updated": n})
+
+
+@app.post("/api/sources/add")
+def api_sources_add():
+    body = request.get_json(silent=True) or {}
+    name = (body.get("name") or "").strip()
+    host = (body.get("host") or "").strip().lower().replace("http://", "").replace("https://", "").split("/")[0]
+    category = (body.get("category") or "portal").strip()
+    level = (body.get("level") or "C").strip().upper()
+    if not name or not host:
+        return jsonify({"error": "名称和域名必填"}), 400
+    if category not in CATEGORIES or level not in ("S", "A", "B", "C", "D"):
+        return jsonify({"error": "类别或等级无效"}), 400
+    sid = db_add_source(name, host, category, level)
+    return jsonify({"ok": True, "id": sid})
+
+
+@app.post("/api/sources/delete")
+def api_sources_delete():
+    body = request.get_json(silent=True) or {}
+    sid = int(body.get("id") or 0)
+    ok = db_delete_source(sid)
+    return jsonify({"ok": ok, "deleted": ok})
 
 
 @app.get("/")

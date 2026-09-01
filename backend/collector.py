@@ -14,6 +14,18 @@ import requests
 from config import DATA_DIR_TASKS, ENABLED_GROUPS, HTTP_TIMEOUT, USER_AGENT
 from searx_client import SearxClient
 
+# 等级 → 三级可信度映射（S/A→high、B→mid、C/D→low）
+_LEVEL_CRED = {"S": "high", "A": "high", "B": "mid", "C": "low", "D": "low"}
+
+
+def _enabled_site_levels() -> dict:
+    """已启用网站类信源 host → level（C1a：勾选信源构成域名白名单与等级）。"""
+    try:
+        from db import enabled_sites
+        return enabled_sites()
+    except Exception:
+        return {}
+
 # ---------- 可信度规则 ----------
 
 OFFICIAL_DOMAINS = (
@@ -316,7 +328,17 @@ def collect_topic(
         time.sleep(0.3)
 
     items: list[dict] = []
+    site_levels = _enabled_site_levels()
+    hosts_sorted = sorted(site_levels, key=len, reverse=True)  # 长域名优先（如 mp.weixin.qq.com 先于 qq.com）
     for r in raw:
+        dom = domain_of(r.get("url", ""))
+        lvl = ""
+        for h in hosts_sorted:
+            if dom == h or dom.endswith("." + h):
+                lvl = site_levels[h]
+                break
+        if site_levels and not lvl:
+            continue  # 已勾选信源白名单，但本条未命中 → 过滤（勾选即聚焦）
         item = {
             "title": r["title"],
             "url": r["url"],
@@ -326,8 +348,11 @@ def collect_topic(
             "credibility": credibility(r.get("url", ""), r.get("engine", "")),
             "group": r.get("group", ""),
             "source_name": source_name(r.get("url", ""), r.get("title", "")),
+            "level": lvl,
             "body": "",
         }
+        if lvl:
+            item["credibility"] = _LEVEL_CRED.get(lvl, item["credibility"])
         if _relevant(item, topic, keywords):
             items.append(item)
 
