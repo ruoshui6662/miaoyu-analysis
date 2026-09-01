@@ -44,7 +44,15 @@ class AIClient:
         self.session.headers.update({"User-Agent": USER_AGENT})
 
     def _resolve(self, provider: str | None) -> tuple[str, str, str, bool]:
-        name = (provider or pick_provider()).lower()
+        from config import AI_PROVIDERS as _AP, AI_PRIMARY_PROVIDER as _APP
+        name = (provider or "").lower().strip()
+        if name in ("", "auto"):
+            name = pick_provider()
+        elif name in ("router", "local", "custom"):
+            # 旧别名 → 注册表中可用自定义服务商（9router，id 可能随迁移变化）
+            customs = [pid for pid, p in _AP.items()
+                       if p.get("custom") and p.get("endpoint") and p.get("model")]
+            name = customs[0] if len(customs) == 1 else (_APP or (customs[0] if customs else pick_provider()))
         ps = _providers()
         if name not in ps:
             raise AIClientError(f"未知 provider: {name}（请在设置页配置服务商）")

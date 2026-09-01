@@ -67,13 +67,16 @@ def _new_task(topic: str, provider: str | None, verify: bool) -> str:
                 verify=verify,
                 progress=_progress,
             )
-            # 报告 JSON 由 pipeline 已落盘 data/reports/*.json（与 docx 同名）
-            docx = rep.get("docx") or ""
-            report_file = docx[:-5] + ".json" if docx.lower().endswith(".docx") else ""
+            # 报告 JSON 由 pipeline 已落盘 data/reports/*.json（优先用报告内的 json 字段，避免时间戳推导错位）
+            rep_json = rep.get("json") or ""
+            report_file = rep_json if rep_json and Path(rep_json).exists() else ""
+            if not report_file and rep.get("docx"):
+                pj = Path(rep["docx"]).with_suffix(".json")
+                report_file = str(pj) if pj.exists() else ""
             summary = {
                 "title": rep.get("title"),
                 "sections": len(rep.get("sections") or []),
-                "docx": docx, "md": rep.get("md", ""),
+                "docx": rep.get("docx") or "", "md": rep.get("md", ""),
                 "elapsed": rep.get("elapsed_sec"),
                 "ai_ready": rep.get("ai_ready"),
             }

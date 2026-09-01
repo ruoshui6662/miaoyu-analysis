@@ -49,8 +49,10 @@ def facts_prompt(topic: str, items: list[dict]) -> list[dict]:
         {"role": "system", "content": (
             SYSTEM_BASE
             + "\n任务：整理事件梗概（引言）、时间线，并输出情感统计与代表性观点。"
+            "每条 timeline 需判断该事件是否被 ≥2 个独立来源/媒体提及："
+            "是则 cross_checked=true 并列出涉及媒体到 sources，否则 cross_checked=false 且 sources 留空列表。"
             '只输出 JSON：{"intro": "一段事件背景概括（100-200字，交代发展脉络与当前状态）",'
-            ' "timeline": [{"date": "2025年7月29日", "event": "（据某媒体/署名报道，谁/何时/何地/发生了什么，80-150字，行文须带媒体名与事实细节，注明观点分歧及各方立场）"}],'
+            ' "timeline": [{"date": "2025年7月29日", "event": "（据某媒体/署名报道，谁/何时/何地/发生了什么，80-150字，行文须带媒体名与事实细节，注明观点分歧及各方立场）", "cross_checked": true, "sources": ["媒体A", "媒体B"]}],'
             ' "emotion": {"positive": 40, "negative": 25, "neutral": 35}（百分比整数，三项合计=100，基于素材整体舆论倾向评估）,'
             ' "quotes": [{"stance": "positive或negative或neutral", "text": "代表性观点（20-60字，压缩转述但保留原意与语气）", "source": "素材媒体名", "url": "素材原文链接"}]（3-6条，尽量覆盖正/负/中立三种立场，优先取自 high/mid 可信度素材，禁止编造）}'
             "时间线按时间正序，3-8条；日期不确定的用“近期/近日”；同一日期的合并。"

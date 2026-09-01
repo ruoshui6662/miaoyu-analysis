@@ -475,6 +475,9 @@
   .file-dl:hover { color: var(--primary); }
   .ed-head { background: #eff6ff; border: 1px solid #dbeafe; color: #1d4ed8; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; margin-bottom: 14px; }
   .ed-sec { border-top: 1px dashed var(--line); margin-top: 16px; padding-top: 12px; }
+  .xmark { font-size: 11px; font-weight: 700; border-radius: 99px; padding: 1px 9px; white-space: nowrap; margin-left: 2px; }
+  .xmark.ok { background: #dcfce7; color: #166534; }
+  .xmark.warn { background: #fef3c7; color: #92400e; }
   .hidden { display: none; }
 
   @media print {
@@ -1157,10 +1160,12 @@ function renderReport(rep, jsonName) {
     html += `<div class="q-block"><div class="ov-title">代表性观点摘录</div><div class="q-grid">`;
     for (const q of ov.quotes.slice(0, 6)) {
       const cls = sc[q.stance] || "neu";
+      const chk = (rep.source_check && rep.source_check.detail && q.url) ? rep.source_check.detail[q.url] : "";
+      const warn = chk === "gone" || chk === "unreachable" ? `<span class="xmark warn">⚠ 原文链接可能失效</span>` : "";
       html += `<div class="q-card ${cls}">
         <span class="q-stance">${sl[q.stance] || "观点"}</span>
         <p>${esc(q.text || "")}</p>
-        <div class="q-src">${esc(q.source || "")}${q.url ? ` · <a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">原文 ↗</a>` : ""}</div>
+        <div class="q-src">${esc(q.source || "")}${q.url ? ` · <a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">原文 ↗</a>` : ""}${warn}</div>
       </div>`;
     }
     html += `</div></div>`;
@@ -1170,20 +1175,39 @@ function renderReport(rep, jsonName) {
   for (const sec of rep.sections || []) {
     html += `<div class="sec"><h3>${esc(sec.heading)}</h3>`;
     for (const p of sec.paragraphs || []) {
-      if (typeof p === "string") html += `<p>${esc(p)}</p>`;
+      if (typeof p === "string") {
+        // D2：交叉验证标记转彩色徽标
+        const t = esc(p)
+          .replace(/（▲多源交叉验证）/g, ' <span class="xmark ok">▲ 多源交叉验证</span>')
+          .replace(/（◐单源，待核）/g, ' <span class="xmark warn">◐ 单源待核</span>');
+        html += `<p>${t}</p>`;
+      }
       else html += `<p>${p.lead ? `<b>${esc(p.lead)}</b>` : ""}${esc(p.body)}</p>`;
     }
     html += `</div>`;
   }
   const st = rep.stats || {};
-  html += `<div class="appendix"><b>数据附录</b><table>
+  let appendix = `<div class="appendix"><b>数据附录</b><table>
     <tr><th>项目</th><th>数值</th></tr>
     <tr><td>搜索原始结果</td><td>${st.total_raw ?? "-"} 条</td></tr>
     <tr><td>去重后保留</td><td>${st.total_after_dedupe ?? "-"} 条</td></tr>
     <tr><td>抓取到正文</td><td>${st.body_fetched ?? "-"} 条</td></tr>
     <tr><td>可信度分布</td><td>高 ${(st.credibility_dist?.high) ?? 0} / 中 ${(st.credibility_dist?.mid) ?? 0} / 低 ${(st.credibility_dist?.low) ?? 0}</td></tr>
-    <tr><td>分析耗时</td><td>${rep.elapsed_sec ?? "-"} s</td></tr>
-  </table></div>`;
+    <tr><td>分析耗时</td><td>${rep.elapsed_sec ?? "-"} s</td></tr>`;
+  // D1：来源链接可达性
+  const sc = rep.source_check;
+  if (sc && sc.summary) {
+    const s = sc.summary;
+    appendix += `<tr><td>来源链接状态</td><td>✅ 可达 ${s.ok ?? 0} · ❌ 失效 ${s.gone ?? 0} · ❓ 无法核实 ${s.unreachable ?? 0}（共 ${s.total ?? 0}）</td></tr>`;
+    if (s.gone || s.unreachable) {
+      const bad = Object.entries(sc.detail || {}).filter(([, v]) => v !== "ok").slice(0, 5);
+      if (bad.length) {
+        appendix += `<tr><td colspan="2">失效/待核链接：${bad.map(([u]) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`).join(" · ")}</td></tr>`;
+      }
+    }
+  }
+  appendix += `</table></div>`;
+  html += appendix;
   $("reportBody").innerHTML = html;
   initReportCharts(rep);
   if (rep.ai_ready === false) {

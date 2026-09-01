@@ -71,7 +71,14 @@ def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: st
                 event = str(tt.get("event", "")).strip()
                 if not event:
                     continue
-                paragraphs.append(f"{date}，{event}" if date else event)
+                # D2：多源交叉验证标记（docx/md/前端通吃）
+                cross = tt.get("cross_checked")
+                if cross:
+                    mark = "（▲多源交叉验证）"
+                else:
+                    mark = "（◐单源，待核）"
+                text = f"{date}，{event}{mark}" if date else f"{event}{mark}"
+                paragraphs.append(text)
             if intro or paragraphs:
                 return intro, paragraphs, {
                     "emotion": data.get("emotion") or {},
@@ -427,6 +434,15 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
         "source_dist": [{"name": n, "value": c} for n, c in src_cnt.most_common(8)],
         "time_dist": [{"date": d, "count": c} for d, c in sorted(time_cnt.items())][-14:],
     }
+
+    # D1：来源 URL 可达性核查（并发 + 当日缓存，不显著增加耗时）
+    try:
+        from url_check import check_urls, summarize
+        urls = [it.get("url") for it in materials["items"] if it.get("url")]
+        check = check_urls(urls)
+        report["source_check"] = {"detail": check, "summary": summarize(check)}
+    except Exception:  # noqa: BLE001 核查失败不影响报告产出
+        report["source_check"] = None
     if ai_stage["facts_paras"]:
         report["sections"].append({"heading": f"一、“{topic}”事件概况梳理", "paragraphs": ai_stage["facts_paras"]})
 
@@ -478,7 +494,8 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
             print(f"       ⚠ 校验失败: {e}")
 
     emit("report", "生成 docx ...")
-    out_docx = DATA_DIR_REPORTS / f"{topic}舆情分析报告-{datetime.now():%m%d_%H%M}.docx"
+    ts = datetime.now().strftime("%m%d_%H%M")
+    out_docx = DATA_DIR_REPORTS / f"{topic}舆情分析报告-{ts}.docx"
     ok = gen_docx(report, str(out_docx))
     report["docx"] = str(out_docx) if ok else ""
     out_md = out_docx.with_suffix(".md")
@@ -488,7 +505,8 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     report["elapsed_sec"] = round(time.time() - t0, 1)
 
     if save:
-        out_json = DATA_DIR_REPORTS / f"{topic}舆情分析报告-{datetime.now():%m%d_%H%M}.json"
+        out_json = out_docx.with_suffix(".json")  # 与 docx/md 同一时间戳，避免跨分钟不同步
+        report["json"] = str(out_json)
         with open(out_json, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False)
         print(f"报告 JSON: {out_json}")
