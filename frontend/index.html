@@ -90,6 +90,26 @@
   select.sel { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid var(--line); border-radius: 9px; outline: none; background: #fff; }
   .pcard { display: none; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 12px; animation: fadeIn .25s; }
   .pcard.show { display: block; }
+
+  /* 设置页：左侧菜单 + 右侧内容 */
+  .set-layout { display: flex; gap: 18px; align-items: flex-start; }
+  .set-menu { width: 168px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 84px; }
+  .set-item {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    padding: 11px 14px; font-size: 14px; border: 1px solid transparent; border-radius: 10px;
+    background: transparent; color: #4b5563; cursor: pointer; transition: all .15s;
+  }
+  .set-item .ico { font-size: 15px; }
+  .set-item:hover { background: #f1f5f9; }
+  .set-item.active { background: #eff6ff; color: var(--primary); border-color: #dbeafe; font-weight: 600; }
+  .set-content { flex: 1; min-width: 0; }
+  .set-footer { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; gap: 12px; align-items: center; }
+  .panel { animation: fadeIn .2s; }
+  @media (max-width: 760px) {
+    .set-layout { flex-direction: column; }
+    .set-menu { width: 100%; flex-direction: row; overflow-x: auto; position: static; }
+    .set-item { white-space: nowrap; width: auto; }
+  }
   .group-title { font-size: 14px; font-weight: 700; color: var(--primary); margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--line); }
   .group-title .badge { font-weight: 600; vertical-align: middle; }
   .checks { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 2px; }
@@ -204,62 +224,76 @@
   <!-- ========== 设置 ========== -->
   <div id="view-settings" class="hidden">
     <div class="card">
-      <div class="section-title">系统设置 <span class="badge done" id="settingsState">配置保存即生效</span></div>
-
-      <span class="f-label">SearXNG 搜索地址</span>
-      <div class="f-grid"><input id="s_searxng" placeholder="https://searxng.example.com"></div>
-      <div class="f-help">公网或内网 SearXNG 实例（JSON API 需开启）。</div>
-
-      <div class="group-title">AI 接口</div>
-      <div class="f-label">接口类型（选择后弹出对应配置）</div>
-      <select class="sel" id="s_provider" onchange="showProvider(this.value)">
-        <option value="">自动选择（使用已配置且可用的接口）</option>
-        <option value="router">本地网关（9router 等 OpenAI 兼容）</option>
-        <option value="deepseek">DeepSeek 官方</option>
-        <option value="qwen">通义千问</option>
-      </select>
-      <div class="f-help" id="autoNote"></div>
-
-      <!-- 本地网关 -->
-      <div id="card-router" class="pcard">
-        <div class="f-label">网关地址（含 /v1）</div>
-        <div class="f-grid">
-          <input id="s_rbase" placeholder="http://192.168.x.x:20128/v1">
-          <input id="s_rmodel" placeholder="模型，建议 flash 快模型，如 ali/deepseek-v4-flash-0731">
+      <div class="set-layout">
+        <div class="set-menu">
+          <button class="set-item active" data-panel="panel-base" onclick="showPanel('panel-base',this)"><span class="ico">⚙️</span>基本设置</button>
+          <button class="set-item" data-panel="panel-ai" onclick="showPanel('panel-ai',this)"><span class="ico">🤖</span>AI 接口</button>
+          <button class="set-item" data-panel="panel-groups" onclick="showPanel('panel-groups',this)"><span class="ico">📡</span>信源采集</button>
+          <!-- 后续新功能在此追加菜单项，如：监测任务 / 报告模板 / 安全 -->
         </div>
-        <div class="f-label" style="margin-top:10px">网关 Key</div>
-        <input class="sel" id="s_rkey" type="password" placeholder="留空表示保持不变">
-      </div>
 
-      <!-- DeepSeek 官方 -->
-      <div id="card-deepseek" class="pcard">
-        <div class="f-label">DeepSeek Key</div>
-        <input class="sel" id="s_dkey" type="password" placeholder="留空表示保持不变">
-        <div class="f-label">模型</div>
-        <input class="sel" id="s_dmodel" placeholder="deepseek-chat">
-      </div>
+        <div class="set-content">
+          <div id="panel-base" class="panel">
+            <div class="section-title">基本设置</div>
+            <span class="f-label">SearXNG 搜索地址</span>
+            <div class="f-grid"><input id="s_searxng" placeholder="https://searxng.example.com"></div>
+            <div class="f-help">公网或内网 SearXNG 实例（JSON API 需开启）。</div>
+          </div>
 
-      <!-- 通义千问（含独有选项 enable_search） -->
-      <div id="card-qwen" class="pcard">
-        <div class="f-label">通义 Key</div>
-        <input class="sel" id="s_qkey" type="password" placeholder="留空表示保持不变">
-        <div class="f-label">模型</div>
-        <input class="sel" id="s_qmodel" placeholder="qwen-plus">
-        <label class="inline-opt" style="margin-top:12px"><input type="checkbox" id="s_qsearch"> 开启自带网络搜索（enable_search，通义独有）</label>
-      </div>
+          <div id="panel-ai" class="panel hidden">
+            <div class="section-title">AI 接口 <span class="badge done" id="settingsState">配置保存即生效</span></div>
+            <span class="f-label">接口类型（选择后弹出对应配置，可多套并存）</span>
+            <select class="sel" id="s_provider" onchange="showProvider(this.value)">
+              <option value="">自动选择（使用已配置且可用的接口）</option>
+              <option value="router">本地网关（9router 等 OpenAI 兼容）</option>
+              <option value="deepseek">DeepSeek 官方</option>
+              <option value="qwen">通义千问</option>
+            </select>
+            <div class="f-help" id="autoNote"></div>
 
-      <div class="group-title">信源组（勾选参与采集的信源）</div>
-      <div class="checks">
-        <label><input type="checkbox" class="grp" value="news"> 新闻</label>
-        <label><input type="checkbox" class="grp" value="wechat"> 微信公众号</label>
-        <label><input type="checkbox" class="grp" value="web"> 主流搜索</label>
-        <label><input type="checkbox" class="grp" value="video"> 视频/百科</label>
-      </div>
-      <div class="f-help">取消勾选的信源将在下次分析时跳过；全不勾 = 全部启用。</div>
+            <div id="card-router" class="pcard">
+              <div class="f-label">网关地址（含 /v1）</div>
+              <div class="f-grid">
+                <input id="s_rbase" placeholder="http://192.168.x.x:20128/v1">
+                <input id="s_rmodel" placeholder="模型，建议 flash 快模型，如 ali/deepseek-v4-flash-0731">
+              </div>
+              <div class="f-label" style="margin-top:10px">网关 Key</div>
+              <input class="sel" id="s_rkey" type="password" placeholder="留空表示保持不变">
+            </div>
 
-      <div style="margin-top:22px; display:flex; gap:12px; align-items:center">
-        <button class="primary" onclick="saveSettings()">保存设置</button>
-        <span class="f-help">保存后立即生效，无需重启服务</span>
+            <div id="card-deepseek" class="pcard">
+              <div class="f-label">DeepSeek Key</div>
+              <input class="sel" id="s_dkey" type="password" placeholder="留空表示保持不变">
+              <div class="f-label">模型</div>
+              <input class="sel" id="s_dmodel" placeholder="deepseek-chat">
+            </div>
+
+            <div id="card-qwen" class="pcard">
+              <div class="f-label">通义 Key</div>
+              <input class="sel" id="s_qkey" type="password" placeholder="留空表示保持不变">
+              <div class="f-label">模型</div>
+              <input class="sel" id="s_qmodel" placeholder="qwen-plus">
+              <label class="inline-opt" style="margin-top:12px"><input type="checkbox" id="s_qsearch"> 开启自带网络搜索（enable_search，通义独有）</label>
+            </div>
+          </div>
+
+          <div id="panel-groups" class="panel hidden">
+            <div class="section-title">信源采集</div>
+            <div class="f-help">勾选参与采集的信源组；取消勾选后下次分析自动跳过。全不勾 = 全部启用。</div>
+            <div class="checks" style="margin-top:12px">
+              <label><input type="checkbox" class="grp" value="news"> 新闻</label>
+              <label><input type="checkbox" class="grp" value="wechat"> 微信公众号</label>
+              <label><input type="checkbox" class="grp" value="web"> 主流搜索</label>
+              <label><input type="checkbox" class="grp" value="video"> 视频/百科</label>
+            </div>
+            <div class="f-help" style="margin-top:8px">当前后端信源组：news(新闻) / wechat(微信) / web(主流搜索) / video(视频百科)。</div>
+          </div>
+
+          <div class="set-footer">
+            <button class="primary" onclick="saveSettings()">保存设置</button>
+            <span class="f-help">保存后立即生效，无需重启服务</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -282,7 +316,19 @@ function showView(v) {
   $("view-settings").classList.toggle("hidden", v !== "settings");
   $("navHome").classList.toggle("active", v === "home");
   $("navSettings").classList.toggle("active", v === "settings");
-  if (v === "settings") loadSettings();
+  if (v === "settings") { openDefaultPanel(); loadSettings(); }
+}
+
+/* 设置页：左侧菜单切换面板（记住上次位置） */
+function showPanel(name, btn) {
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden", p.id !== name));
+  document.querySelectorAll(".set-item").forEach(b => b.classList.toggle("active", b.dataset.panel === name));
+  localStorage.setItem("settings_panel", name);
+}
+function openDefaultPanel() {
+  const last = localStorage.getItem("settings_panel");
+  const def = last && document.querySelector(`.set-item[data-panel="${last}"]`) ? last : "panel-base";
+  showPanel(def, null);
 }
 
 async function api(url, opt) {
