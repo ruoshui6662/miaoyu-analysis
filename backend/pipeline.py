@@ -73,7 +73,10 @@ def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: st
                     continue
                 paragraphs.append(f"{date}，{event}" if date else event)
             if intro or paragraphs:
-                return intro, paragraphs
+                return intro, paragraphs, {
+                    "emotion": data.get("emotion") or {},
+                    "quotes": data.get("quotes") or [],
+                }
             last_err = AIClientError("AI 未返回有效时间线内容")
         except AIClientError as e:
             last_err = e
@@ -269,7 +272,7 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
         emit("ai", "事件概况章节缺失，继续后续分析…")
 
     facts = results["facts"]
-    intro, facts_paras = facts if facts else ("", [])
+    intro, facts_paras, facts_overview = facts if facts else ("", [], {})
     facts_summary = "；".join(facts_paras[:3])[:600] if facts_paras else ""
 
     # 2) 原因分析
@@ -328,6 +331,7 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
         "intro": intro, "facts_paras": facts_paras,
         "causes": results["causes"], "risks": results["risks"],
         "advice": advice_points, "errors": errors,
+        "overview": facts_overview,
         "risk_advice_check": {
             "risk_count": len(risk_ids_map),
             "advice_count": len(advice_points),
@@ -407,6 +411,21 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
         "intro": ai_stage["intro"],
         "sections": [],
         "stats": stats,
+        "overview": ai_stage.get("overview") or {},
+    }
+    # B1 图表数据（规则统计，零 AI 成本）：信源分布 + 时间趋势
+    from collections import Counter
+    src_cnt: Counter = Counter()
+    time_cnt: Counter = Counter()
+    for it in materials["items"]:
+        src = it.get("source_name") or "其他平台"
+        src_cnt[src] += 1
+        pub = (it.get("published") or "")[:10]
+        if pub:
+            time_cnt[pub] += 1
+    report["stats"]["charts"] = {
+        "source_dist": [{"name": n, "value": c} for n, c in src_cnt.most_common(8)],
+        "time_dist": [{"date": d, "count": c} for d, c in sorted(time_cnt.items())][-14:],
     }
     if ai_stage["facts_paras"]:
         report["sections"].append({"heading": f"一、“{topic}”事件概况梳理", "paragraphs": ai_stage["facts_paras"]})

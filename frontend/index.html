@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>舆情分析系统</title>
+<script src="vendor/echarts.min.js"></script>
 <style>
   /* ── 视觉系统：墨色阶，用明度差建立层次，黑色仅保留在少数强调处（对齐墨译） ── */
   :root {
@@ -352,6 +353,21 @@
   }
 
   /* ── 信源面板 ── */
+  .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 4px 0 16px; }
+  .ov-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fcfdff; }
+  .ov-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .ov-chart { height: 190px; }
+  .q-block { margin: 10px 0 20px; }
+  .q-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .q-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; border-left: 4px solid #94a3b8; background: #fff; }
+  .q-card.pos { border-left-color: #16a34a; }
+  .q-card.neg { border-left-color: #dc2626; }
+  .q-card p { font-size: 13.5px; margin: 6px 0 8px; text-indent: 0; color: #374151; line-height: 1.55; }
+  .q-stance { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; color: #fff; background: #94a3b8; }
+  .q-card.pos .q-stance { background: #16a34a; }
+  .q-card.neg .q-stance { background: #dc2626; }
+  .q-src { font-size: 12px; color: var(--muted); }
+
   .pager { display: flex; gap: 6px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
   .pager .pg { padding: 6px 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 13px; cursor: pointer; transition: all .12s; }
   .pager .pg:hover:not(:disabled) { border-color: var(--primary-2); color: var(--primary); }
@@ -1098,6 +1114,40 @@ function renderReport(rep) {
   $("progressState").className = "badge done"; $("progressState").textContent = "完成";
   $("barFill").style.width = "100%";
   let html = `<h2>${esc(rep.title)}</h2>`;
+
+  // B1 概览仪表盘：情感 / 信源分布 / 时间趋势（数据缺失自动隐藏）
+  const charts = (rep.stats || {}).charts;
+  const ov = rep.overview || {};
+  if (charts && (charts.source_dist?.length || charts.time_dist?.length || ov.emotion?.positive !== undefined)) {
+    html += `<div class="ov-grid">`;
+    if (ov.emotion && ov.emotion.positive !== undefined) {
+      html += `<div class="ov-card"><div class="ov-title">情感倾向</div><div id="chartEmotion" class="ov-chart"></div></div>`;
+    }
+    if (charts.source_dist?.length) {
+      html += `<div class="ov-card"><div class="ov-title">信源分布 TOP${Math.min(charts.source_dist.length, 8)}</div><div id="chartSource" class="ov-chart"></div></div>`;
+    }
+    if (charts.time_dist?.length) {
+      html += `<div class="ov-card"><div class="ov-title">时间趋势（按日）</div><div id="chartTime" class="ov-chart"></div></div>`;
+    }
+    html += `</div>`;
+  }
+
+  // B2 代表性观点摘录
+  if (ov.quotes && ov.quotes.length) {
+    const sl = { positive: "正面", negative: "负面", neutral: "中立" };
+    const sc = { positive: "pos", negative: "neg", neutral: "neu" };
+    html += `<div class="q-block"><div class="ov-title">代表性观点摘录</div><div class="q-grid">`;
+    for (const q of ov.quotes.slice(0, 6)) {
+      const cls = sc[q.stance] || "neu";
+      html += `<div class="q-card ${cls}">
+        <span class="q-stance">${sl[q.stance] || "观点"}</span>
+        <p>${esc(q.text || "")}</p>
+        <div class="q-src">${esc(q.source || "")}${q.url ? ` · <a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">原文 ↗</a>` : ""}</div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
   if (rep.intro) html += `<p class="intro">${esc(rep.intro)}</p>`;
   for (const sec of rep.sections || []) {
     html += `<div class="sec"><h3>${esc(sec.heading)}</h3>`;
@@ -1117,6 +1167,7 @@ function renderReport(rep) {
     <tr><td>分析耗时</td><td>${rep.elapsed_sec ?? "-"} s</td></tr>
   </table></div>`;
   $("reportBody").innerHTML = html;
+  initReportCharts(rep);
   if (rep.ai_ready === false) {
     $("reportBody").innerHTML += `<div class="hint"><b>AI 分析未执行。</b><br>${esc(rep.ai_warning || "请在设置页配置 AI 接口后重新分析。")}</div>`;
   }
@@ -1197,6 +1248,65 @@ async function loadReportFiles() {
         <span class="task-meta">${f.kind} · ${(f.size / 1024).toFixed(0)} KB</span>`;
       box.appendChild(li);
     }
+  }
+}
+
+/* B1 报告图表：情感 / 信源 / 时间（ECharts 本地化） */
+function initReportCharts(rep) {
+  if (!window.echarts) return;
+  const charts = (rep.stats || {}).charts || {};
+  const ov = rep.overview || {};
+  const base = {
+    textStyle: { fontFamily: "PingFang SC, Microsoft YaHei, sans-serif", fontSize: 12 },
+    color: ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#0ea5e9", "#f43f5e", "#64748b", "#f59e0b"],
+  };
+  // 情感环形图
+  const emoEl = document.getElementById("chartEmotion");
+  if (emoEl && ov.emotion && ov.emotion.positive !== undefined) {
+    const e = ov.emotion;
+    const total = (e.positive || 0) + (e.negative || 0) + (e.neutral || 0) || 1;
+    echarts.init(emoEl).setOption({
+      ...base,
+      tooltip: { trigger: "item", formatter: "{b}: {c}% ({d}%)" },
+      series: [{
+        type: "pie", radius: ["52%", "76%"], center: ["50%", "52%"],
+        label: { formatter: "{b}\n{c}%" },
+        data: [
+          { name: "正面", value: e.positive || 0, itemStyle: { color: "#16a34a" } },
+          { name: "中立", value: e.neutral || 0, itemStyle: { color: "#94a3b8" } },
+          { name: "负面", value: e.negative || 0, itemStyle: { color: "#dc2626" } },
+        ],
+      }],
+    });
+  }
+  // 信源分布条形
+  const srcEl = document.getElementById("chartSource");
+  if (srcEl && charts.source_dist?.length) {
+    const sd = charts.source_dist.slice(0, 8).reverse();
+    echarts.init(srcEl).setOption({
+      ...base,
+      grid: { left: 8, right: 26, top: 10, bottom: 8, containLabel: true },
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "value", splitLine: { lineStyle: { type: "dashed" } } },
+      yAxis: { type: "category", data: sd.map(d => d.name) },
+      series: [{ type: "bar", data: sd.map(d => d.value), barMaxWidth: 16, itemStyle: { color: "#2563eb", borderRadius: [0, 6, 6, 0] } }],
+    });
+  }
+  // 时间趋势折线
+  const timeEl = document.getElementById("chartTime");
+  if (timeEl && charts.time_dist?.length) {
+    const td = charts.time_dist;
+    echarts.init(timeEl).setOption({
+      ...base,
+      grid: { left: 8, right: 18, top: 14, bottom: 8, containLabel: true },
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "category", data: td.map(d => (d.date || "").slice(5)) },
+      yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { type: "dashed" } } },
+      series: [{ type: "line", data: td.map(d => d.count), smooth: true, symbolSize: 6,
+        lineStyle: { width: 2.5, color: "#2563eb" },
+        itemStyle: { color: "#2563eb" },
+        areaStyle: { opacity: 0.08, color: "#3b82f6" } }],
+    });
   }
 }
 
