@@ -103,11 +103,16 @@ def api_analyze():
 
 @app.get("/api/tasks")
 def api_tasks():
-    items = [{
+    """历史任务列表（支持分页）：?page=1&per=10 → {items, total, page, per_page}"""
+    page = max(1, int(request.args.get("page", 1) or 1))
+    per = min(100, max(1, int(request.args.get("per", 10) or 10)))
+    all_items = [{
         "id": t["id"], "topic": t["topic"], "status": t["status"],
         "created_at": t["created_at"], "step": t["step"], "detail": t["detail"],
-    } for t in db_task_list(100)]
-    return jsonify(items)
+    } for t in db_task_list(500)]
+    total = len(all_items)
+    items = all_items[(page - 1) * per: page * per]
+    return jsonify({"items": items, "total": total, "page": page, "per_page": per})
 
 
 @app.get("/api/tasks/<tid>")
