@@ -59,7 +59,7 @@ def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: st
                    on_chunk: callable | None = None):
     """事实整理（事件概况）。失败/空响应时降级重试：素材减半 + 输出预算降档。"""
     last_err: Exception | None = None
-    for idx, (items, mt) in enumerate(((materials, 6000), (materials[:10], 4000)), 1):
+    for idx, (items, mt) in enumerate(((materials, 8000), (materials[:10], 5000)), 1):
         try:
             data = ai.chat_json(facts_prompt(topic, items), provider=provider, temperature=0.3,
                                 max_tokens=mt, on_chunk=on_chunk)
@@ -82,7 +82,11 @@ def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: st
             if intro or paragraphs:
                 return intro, paragraphs, {
                     "emotion": data.get("emotion") or {},
-                    "quotes": data.get("quotes") or [],
+                    "viewpoints": {
+                        "media": data.get("media_quotes") or [],
+                        "netizen": data.get("netizen_quotes") or [],
+                    },
+                    "quotes": data.get("quotes") or [],  # 兜底：无 media/netizen 时的通用观点
                 }
             last_err = AIClientError("AI 未返回有效时间线内容")
         except AIClientError as e:

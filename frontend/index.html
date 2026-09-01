@@ -364,6 +364,7 @@
   .q-card.neg { border-left-color: #dc2626; }
   .q-card p { font-size: 13.5px; margin: 6px 0 8px; text-indent: 0; color: #374151; line-height: 1.55; }
   .q-stance { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; color: #fff; background: #94a3b8; }
+  .q-title { font-weight: 700; color: #111827 !important; }
   .q-card.pos .q-stance { background: #16a34a; }
   .q-card.neg .q-stance { background: #dc2626; }
   .q-src { font-size: 12px; color: var(--muted); }
@@ -1153,22 +1154,43 @@ function renderReport(rep, jsonName) {
     html += `</div>`;
   }
 
-  // B2 代表性观点摘录
-  if (ov.quotes && ov.quotes.length) {
-    const sl = { positive: "正面", negative: "负面", neutral: "中立" };
-    const sc = { positive: "pos", negative: "neg", neutral: "neu" };
-    html += `<div class="q-block"><div class="ov-title">代表性观点摘录</div><div class="q-grid">`;
-    for (const q of ov.quotes.slice(0, 6)) {
-      const cls = sc[q.stance] || "neu";
-      const chk = (rep.source_check && rep.source_check.detail && q.url) ? rep.source_check.detail[q.url] : "";
-      const warn = chk === "gone" || chk === "unreachable" ? `<span class="xmark warn">⚠ 原文链接可能失效</span>` : "";
-      html += `<div class="q-card ${cls}">
-        <span class="q-stance">${sl[q.stance] || "观点"}</span>
-        <p>${esc(q.text || "")}</p>
-        <div class="q-src">${esc(q.source || "")}${q.url ? ` · <a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">原文 ↗</a>` : ""}${warn}</div>
-      </div>`;
+  // B2 观点摘录：媒体观点（评论文章立场）+ 网友观点（大众原声样本）
+  const vp = ov.viewpoints || {};
+  const hasMedia = vp.media && vp.media.length;
+  const hasNetizen = vp.netizen && vp.netizen.length;
+  const hasGeneric = ov.quotes && ov.quotes.length;
+  if (hasMedia || hasNetizen || hasGeneric) {
+    html += `<div class="q-block"><div class="ov-title">观点摘录</div><div class="q-grid">`;
+    if (hasMedia) {
+      for (const q of vp.media.slice(0, 3)) {
+        const cls = q.stance === "positive" ? "pos" : q.stance === "negative" ? "neg" : "neu";
+        html += `<div class="q-card ${cls}">
+          <span class="q-stance">媒体 · ${["positive", "negative"].includes(q.stance) ? (q.stance === "positive" ? "正面" : "负面") : "中立"}</span>
+          <p class="q-title">${esc(q.title || "")}</p>
+          <p>${esc(q.core_view || "")}</p>
+          <div class="q-src">${esc(q.media || "")}${q.url ? ` · <a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">原文 ↗</a>` : ""}</div>
+        </div>`;
+      }
     }
-    html += `</div></div>`;
+    if (hasNetizen) {
+      for (const q of vp.netizen.slice(0, 3)) {
+        const cls = q.stance === "positive" ? "pos" : q.stance === "negative" ? "neg" : "neu";
+        const sl = { positive: "正面", negative: "负面", neutral: "中立" };
+        html += `<div class="q-card ${cls}">
+          <span class="q-stance">网友 · ${sl[q.stance] || "中立"}</span>
+          <p>“${esc(q.text || "")}”</p>
+          <div class="q-src">${esc(q.platform || q.source || "")}${q.url ? ` · <a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">出处 ↗</a>` : ""}</div>
+        </div>`;
+      }
+    }
+    if (!hasMedia && !hasNetizen && hasGeneric) {
+      for (const q of ov.quotes.slice(0, 4)) {
+        const cls = q.stance === "positive" ? "pos" : q.stance === "negative" ? "neg" : "neu";
+        html += `<div class="q-card ${cls}"><span class="q-stance">观点</span><p>${esc(q.text || "")}</p>
+          <div class="q-src">${esc(q.source || "")}${q.url ? ` · <a href="${esc(q.url)}" target="_blank" rel="noopener noreferrer">原文 ↗</a>` : ""}</div></div>`;
+      }
+    }
+    html += `</div><div class="f-help" style="margin-top:6px">媒体观点＝机构立场（审校论据）；网友观点＝大众情绪共鸣样本（不代表全体网民，不作事实依据）。</div></div>`;
   }
 
   if (rep.intro) html += `<p class="intro">${esc(rep.intro)}</p>`;
