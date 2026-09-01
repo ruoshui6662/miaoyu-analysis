@@ -37,6 +37,10 @@
     --shadow-card: 0 1px 2px rgba(16, 24, 40, .04), 0 6px 20px rgba(16, 24, 40, .04);
     --serif: 'Source Han Sans SC', 'Source Han Sans CN', 'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     --mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+    /* 兼容别名：dashboard 组件统一经 --primary 绑定墨色 accent（不引入独立蓝色系） */
+    --primary: var(--accent);
+    --primary-2: var(--accent-hover);
+    --primary-tint: var(--accent-tint);
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -475,21 +479,21 @@
   /* 单榜独立卡片墙 */
   .bw-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; }
   .bw-card { border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px 14px; background: #fff; transition: all .15s; display: flex; flex-direction: column; }
-  .bw-card:hover { border-color: var(--primary-2, #3b82f6); box-shadow: 0 8px 22px rgba(37,99,235,.09); }
+  .bw-card:hover { border-color: var(--primary-2); box-shadow: var(--shadow-card); }
   .bw-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .bw-name { font-weight: 800; font-size: 15px; letter-spacing: .2px; }
   .bw-cnt { margin-left: auto; font-size: 10.5px; color: #6b7280; background: #f3f4f6; padding: 2px 9px; border-radius: 99px; }
   .bw-list { display: flex; flex-direction: column; flex: 1; }
   .bw-item { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px dashed #edf0f5; font-size: 13px; cursor: pointer; }
   .bw-item:last-child { border-bottom: none; }
-  .bw-item:hover .bw-t { color: var(--primary, #2563eb); }
+  .bw-item:hover .bw-t { color: var(--primary); }
   .bw-rank { color: #9ca3af; font-size: 11px; width: 18px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .bw-hot { font-size: 11px; font-weight: 800; min-width: 46px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .bw-hot.hot-h { color: #dc2626; }
   .bw-hot.hot-m { color: #ea580c; }
   .bw-hot.hot-l { color: #64748b; }
   .bw-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .12s; }
-  .bw-more { text-align: center; font-size: 12px; color: var(--primary, #2563eb); font-weight: 600; padding-top: 8px; cursor: pointer; border-top: 1px dashed #edf0f5; margin-top: 8px; }
+  .bw-more { text-align: center; font-size: 12px; color: var(--primary); font-weight: 600; padding-top: 8px; cursor: pointer; border-top: 1px dashed #edf0f5; margin-top: 8px; }
   .bw-more:hover { text-decoration: underline; }
   .hot-rank { font-size: 12px; font-weight: 800; color: var(--text-3, #6b7280); min-width: 20px; font-variant-numeric: tabular-nums; }
   .hot-v { font-size: 12px; font-weight: 800; min-width: 58px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -500,7 +504,7 @@
   /* 跨榜扩散热词：chips 横排 */
   .spread-chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 13px; border: 1px solid var(--line); border-radius: 99px; font-size: 12.5px; background: #fff; cursor: pointer; transition: all .13s; }
-  .chip:hover { border-color: var(--primary-2, #3b82f6); color: var(--primary, #2563eb); }
+  .chip:hover { border-color: var(--primary-2); color: var(--primary); }
 
   /* ---------- 响应式与呈现细节 ---------- */
   @media (max-width: 1100px) {
@@ -557,6 +561,21 @@
     .report .sec p { font-size: 12pt; text-indent: 2em; }
     .report .sec { page-break-inside: avoid; }
   }
+
+  /* 榜单卡墙：入场 stagger（轻流体，尊重 reduced-motion） */
+  @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .bw-card { animation: cardIn .5s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 60ms); }
+  /* TOP3 排名强调 */
+  .bw-item:nth-child(-n+3) .bw-rank { color: var(--text-strong); font-weight: 800; }
+  /* 新热点一次高亮（数据变化反馈） */
+  @keyframes newHot { 0% { background: var(--primary-tint); } 100% { background: transparent; } }
+  .bw-item.hot-new { animation: newHot 1.4s ease-out; }
+  @media (prefers-reduced-motion: reduce) {
+    .bw-card { animation: none; }
+    .bw-item.hot-new { animation: none; }
+  }
+  /* 移动端：次要模块（趋势占位/概览）折叠 */
+  @media (max-width: 760px) { .dash-side { display: none; } }
 </style>
 </head>
 <body>
@@ -611,7 +630,7 @@
       </div>
       <div class="dash-side">
         <div class="card">
-          <div class="section-title">📈 热度趋势</div>
+          <div class="section-title side-deco-mark" style="display:contents">📈 热度趋势</div>
           <div id="trendPanel" style="height:190px"></div>
           <div class="f-help" style="margin-top:6px">趋势/深度分析接口待接入</div>
         </div>
@@ -1419,6 +1438,12 @@ async function loadHotBoards(force) {
   const d = await api("/api/hot/boards");
   HOT.boards = Array.isArray(d.boards) ? d.boards : [];
   HOT.provider = d.provider || {};
+  // 新热点提示：与上次集合对比（数据变化反馈）
+  const prev = HOT.prevTitles || new Set();
+  HOT.newTitles = new Set();
+  HOT.prevTitles = new Set();
+  for (const b of HOT.boards) for (const it of (b.items || [])) HOT.prevTitles.add(normHotTitle(it.title));
+  for (const t of HOT.prevTitles) if (!prev.has(t)) HOT.newTitles.add(t);
   const p = HOT.provider;
   let src = p && p.provider === "tophubdata"
     ? `<span class="xmark ok">官方API</span> 当日已用 ${p.used}/${p.limit}` : "";
@@ -1457,14 +1482,16 @@ function renderBoardsWall() {
   wall.innerHTML = "";
   const boards = HOT.boards.filter(b => (b.items || []).length);
   if (!boards.length) { wall.innerHTML = '<div class="f-help">暂无榜单数据（榜单接口可能暂不可用）</div>'; return; }
-  for (const b of boards) {
+  boards.forEach((b, idx) => {
     const card = document.createElement("div");
     card.className = "bw-card";
+    card.style.setProperty("--i", String(idx));
     let h = `<div class="bw-head"><span class="bw-name">🔥 ${esc(b.name)}</span>
       <span class="bw-cnt">${(b.items || []).length} 条</span></div><div class="bw-list">`;
     (b.items || []).slice(0, 8).forEach((it, i) => {
       const lvl = "bw-hot " + hotLevel(hotNum(it.hot));
-      h += `<div class="bw-item" title="${it.url ? "点击打开原文" : "点击发起分析"}" onclick="openHotByName('${String(it.title).replace(/'/g, "\\'")}', '${esc(String(it.url || "").replace(/'/g, "\\'"))}', event)">
+      const isNew = (HOT.newTitles || new Set()).has(normHotTitle(it.title)) ? " hot-new" : "";
+      h += `<div class="bw-item${isNew}" title="${it.url ? "点击打开原文" : "点击发起分析"}" onclick="openHotByName('${String(it.title).replace(/'/g, "\\'")}', '${esc(String(it.url || "").replace(/'/g, "\\'"))}', event)">
         <span class="bw-rank">${i + 1}</span>
         <span class="bw-t">${esc(it.title)}</span>
         <span class="${lvl}">${esc(it.hot || "")}</span></div>`;
@@ -1472,7 +1499,7 @@ function renderBoardsWall() {
     h += `</div><div class="bw-more" onclick="analyzebBoard('${esc(b.name)}')">一键分析「${esc(b.name)}」热点 ›</div>`;
     card.innerHTML = h;
     wall.appendChild(card);
-  }
+  });
 }
 
 function openHotByName(title, url, ev) {
@@ -1657,9 +1684,13 @@ function initReportCharts(rep) {
   if (!window.echarts) return;
   const charts = (rep.stats || {}).charts || {};
   const ov = rep.overview || {};
+  // 图表主色跟随墨色 token（亮/暗自适应），状态色沿用语义 token
+  const css = () => getComputedStyle(document.documentElement);
+  const accent = css().getPropertyValue("--accent").trim() || "#23282f";
+  const _tok = (v) => v.startsWith("--") ? (css().getPropertyValue(v).trim() || "#666") : v;
   const base = {
     textStyle: { fontFamily: "PingFang SC, Microsoft YaHei, sans-serif", fontSize: 12 },
-    color: ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#0ea5e9", "#f43f5e", "#64748b", "#f59e0b"],
+    color: [accent, _tok("--green-text"), _tok("--warn"), _tok("--red"), _tok("--text-3"), _tok("--text-2")],
   };
   // 情感环形图
   const emoEl = document.getElementById("chartEmotion");
@@ -1690,7 +1721,7 @@ function initReportCharts(rep) {
       tooltip: { trigger: "axis" },
       xAxis: { type: "value", splitLine: { lineStyle: { type: "dashed" } } },
       yAxis: { type: "category", data: sd.map(d => d.name) },
-      series: [{ type: "bar", data: sd.map(d => d.value), barMaxWidth: 16, itemStyle: { color: "#2563eb", borderRadius: [0, 6, 6, 0] } }],
+      series: [{ type: "bar", data: sd.map(d => d.value), barMaxWidth: 16, itemStyle: { color: accent, borderRadius: [0, 6, 6, 0] } }],
     });
   }
   // 时间趋势折线
@@ -1704,9 +1735,9 @@ function initReportCharts(rep) {
       xAxis: { type: "category", data: td.map(d => (d.date || "").slice(5)) },
       yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { type: "dashed" } } },
       series: [{ type: "line", data: td.map(d => d.count), smooth: true, symbolSize: 6,
-        lineStyle: { width: 2.5, color: "#2563eb" },
-        itemStyle: { color: "#2563eb" },
-        areaStyle: { opacity: 0.08, color: "#3b82f6" } }],
+        lineStyle: { width: 2.5, color: accent },
+        itemStyle: { color: accent },
+        areaStyle: { opacity: 0.08, color: accent } }],
     });
   }
 }
