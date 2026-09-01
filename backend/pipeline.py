@@ -349,6 +349,10 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
         if progress:
             progress(step, detail)
 
+    # 0) 配置热重载（A4：设置页保存后无需重启即生效）
+    from config import reload as reload_config
+    reload_config()
+
     # 1) AI 客户端（可能无 key）
     ai: AIClient | None = None
     if not collect_only:

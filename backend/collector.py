@@ -11,7 +11,7 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 
-from config import DATA_DIR_TASKS, HTTP_TIMEOUT, USER_AGENT
+from config import DATA_DIR_TASKS, ENABLED_GROUPS, HTTP_TIMEOUT, USER_AGENT
 from searx_client import SearxClient
 
 # ---------- 可信度规则 ----------
@@ -225,6 +225,12 @@ def _rank(it: dict) -> int:
 
 # ---------- 编排 ----------
 
+def _enabled_groups() -> list[dict]:
+    """按设置页勾选（ENABLED_GROUPS）过滤信源组；全不勾时保留全部。"""
+    enabled = [g for g in ENGINE_GROUPS if g["name"] in ENABLED_GROUPS]
+    return enabled or ENGINE_GROUPS
+
+
 def _relevant(item: dict, topic: str, add_terms: list[str] | None = None) -> bool:
     """主题相关性过滤：标题+摘要 需命中主题词或其 4-gram 核心片段（适配变体表述）。
 
@@ -276,7 +282,7 @@ def collect_topic(
     - 引擎受限（CAPTCHA/超时）按组记录，报告可声明数据局限
     """
     client = SearxClient()
-    groups = groups or ENGINE_GROUPS
+    groups = groups or _enabled_groups()  # 按设置页勾选过滤（ENABLED_GROUPS）
     query_log: list[dict] = []
     raw: list[dict] = []
 

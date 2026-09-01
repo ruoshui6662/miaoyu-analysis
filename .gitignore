@@ -24,3 +24,5 @@ node_modules/
 Thumbs.db
 .idea/
 .vscode/
+# 调试残留（曾含明文 token，禁止入库）
+backend/gh_watch*

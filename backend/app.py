@@ -18,7 +18,8 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory, Response
 
-from config import DATA_DIR_REPORTS, DATA_DIR_TASKS, ROOT
+from config import DATA_DIR_REPORTS, DATA_DIR_TASKS, ROOT, reload as reload_config
+from db import get_all as db_get_all, save as db_save
 from pipeline import run_analysis
 
 app = Flask(
@@ -124,6 +125,38 @@ def api_report_file(filename: str):
     if (DATA_DIR_REPORTS / safe).exists():
         return send_from_directory(str(DATA_DIR_REPORTS), safe, as_attachment=False)
     return jsonify({"error": "文件不存在"}), 404
+
+
+@app.get("/api/settings")
+def api_settings_get():
+    """返回当前生效配置（.env + 数据库合并）；密钥一律打码。"""
+    from config import (AI_PRIMARY_PROVIDER, AI_ROUTER, DEEPSEEK, ENABLED_GROUPS,
+                        MANAGED_KEYS, QWEN, SEARXNG_URL)
+    merged = {
+        "SEARXNG_URL": SEARXNG_URL,
+        "AI_ROUTER_BASE_URL": AI_ROUTER["base_url"],
+        "AI_ROUTER_API_KEY": AI_ROUTER["api_key"],
+        "AI_ROUTER_MODEL": AI_ROUTER["model"],
+        "DEEPSEEK_API_KEY": DEEPSEEK["api_key"],
+        "DEEPSEEK_MODEL": DEEPSEEK["model"],
+        "QWEN_API_KEY": QWEN["api_key"],
+        "QWEN_MODEL": QWEN["model"],
+        "QWEN_ENABLE_SEARCH": "true" if QWEN["enable_search"] else "false",
+        "AI_PRIMARY_PROVIDER": AI_PRIMARY_PROVIDER,
+        "ENABLED_GROUPS": ",".join(ENABLED_GROUPS),
+    }
+    for k in ("AI_ROUTER_API_KEY", "DEEPSEEK_API_KEY", "QWEN_API_KEY"):
+        merged[k] = "****已配置****" if merged[k] else ""
+    return jsonify({"settings": merged, "managed_keys": list(MANAGED_KEYS)})
+
+
+@app.post("/api/settings")
+def api_settings_save():
+    body = request.get_json(silent=True) or {}
+    items = body.get("settings") or {}
+    n = db_save(items)
+    reload_config()  # 保存即生效
+    return jsonify({"saved": n, "ok": True})
 
 
 @app.get("/")
