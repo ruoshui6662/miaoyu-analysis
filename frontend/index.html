@@ -463,17 +463,22 @@
   }
   .actions a.pri:hover, .actions button.pri:hover { background: var(--accent-hover); }
 
-  /* 态势面板：今日热点 + 趋势/概览 */
-  .dash { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-  @media (max-width: 900px) { .dash { grid-template-columns: 1fr; } }
-  .dash-side { display: flex; flex-direction: column; gap: 20px; }
+  /* 态势面板：分布式多卡栅格（12 列） */
+  .dash { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; align-items: start; }
+  .dash-main { grid-column: span 7; min-width: 0; }
+  .dash-side { grid-column: span 5; display: flex; flex-direction: column; gap: 24px; }
+  .dash-sub { grid-column: span 12; display: grid; grid-template-columns: 5fr 7fr; gap: 24px; }
+  @media (max-width: 980px) {
+    .dash-main, .dash-side, .dash-sub > div { grid-column: span 12 !important; }
+    .dash-sub { grid-template-columns: 1fr; }
+  }
   .hot-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .ht { padding: 6px 13px; border: 1px solid var(--line); border-radius: 99px; background: #fff; font-size: 12.5px; cursor: pointer; transition: all .13s; color: #4b5563; }
   .ht:hover { border-color: var(--primary-2, #3b82f6); }
   .ht.on { background: var(--primary, #2563eb); color: #fff; border-color: var(--primary, #2563eb); font-weight: 600; }
-  .hot-list { display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; }
-  .hot-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; transition: all .13s; background: #fff; }
-  .hot-item:hover { border-color: var(--primary-2, #3b82f6); box-shadow: 0 3px 10px rgba(37,99,235,.08); }
+  .hot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; max-height: 560px; overflow-y: auto; padding-right: 4px; }
+  .hot-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; transition: all .15s; background: #fff; cursor: pointer; }
+  .hot-item:hover { border-color: var(--primary-2, #3b82f6); box-shadow: 0 6px 18px rgba(37,99,235,.10); transform: translateY(-1px); }
   .hot-rank { font-size: 12px; font-weight: 800; color: var(--text-3, #6b7280); min-width: 20px; font-variant-numeric: tabular-nums; }
   .hot-v { font-size: 12px; font-weight: 800; min-width: 58px; text-align: right; font-variant-numeric: tabular-nums; }
   .hot-v.hot-h { color: #dc2626; }
@@ -484,6 +489,15 @@
   .hot-go { border: none; background: none; color: var(--primary, #2563eb); font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .hot-go:hover { text-decoration: underline; }
   .card.thin { padding: 14px 20px; }
+  .spread-item { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px dashed var(--line); font-size: 13.5px; cursor: pointer; }
+  .spread-item:last-child { border-bottom: none; }
+  .spread-item:hover { color: var(--primary, #2563eb); }
+  .pv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+  .pv-board { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fbfcfe; }
+  .pv-name { font-weight: 700; font-size: 13px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .pv-item { font-size: 12.5px; padding: 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text-2, #374151); }
+  .pv-item:hover { color: var(--primary, #2563eb); }
+  .pv-num { font-size: 11px; color: #9ca3af; margin-right: 6px; font-variant-numeric: tabular-nums; }
 
   .section-title { font-size: 13.5px; font-weight: 700; margin-bottom: 12px; color: var(--text-strong); display: flex; justify-content: space-between; align-items: center; }
   .tasks { list-style: none; }
@@ -557,24 +571,34 @@
       <div id="hint"></div>
     </div>
 
-    <!-- 态势主体：今日热点 + 趋势/概览 -->
+    <!-- 态势主体：分布式多卡栅格 -->
     <div class="dash">
       <div class="dash-main">
         <div class="card">
           <div class="section-title"><span>🔥 今日热点 <span class="f-help" id="hotUpdated"></span></span></div>
           <div class="hot-tabs" id="hotTabs"></div>
-          <div class="hot-list" id="hotList"><div class="f-help" style="padding:8px 2px">热点加载中…</div></div>
+          <div class="hot-grid" id="hotList"><div class="f-help" style="padding:8px 2px">热点加载中…</div></div>
         </div>
       </div>
       <div class="dash-side">
         <div class="card">
           <div class="section-title">📈 热度趋势</div>
-          <div id="trendPanel" style="height:210px"></div>
+          <div id="trendPanel" style="height:200px"></div>
           <div class="f-help" style="margin-top:6px">趋势/深度分析接口待接入——你提供接口后这里展示真实热度曲线</div>
         </div>
         <div class="card">
           <div class="section-title">🧭 热度概览</div>
           <div id="hotStats"></div>
+        </div>
+      </div>
+      <div class="dash-sub">
+        <div class="card">
+          <div class="section-title">🔄 扩散热词 <span class="f-help">同时登上多个榜单</span></div>
+          <div id="hotSpread"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">📋 榜单速览 <span class="f-help">各榜 TOP3</span></div>
+          <div id="hotPreview"></div>
         </div>
       </div>
     </div>
@@ -1378,6 +1402,8 @@ async function loadHotBoards(force) {
   renderHotTabs();
   renderHotList();
   renderHotStats();
+  renderHotSpread();
+  renderHotPreview();
   renderTrendPlaceholder();
 }
 
@@ -1433,13 +1459,57 @@ function renderHotList() {
     el.className = "hot-item";
     const title = String(it.title || "").replace(/'/g, "\\'");
     const multi = it.numBoards > 1 ? ` <span class="xmark ok" title="出现在 ${it.numBoards} 个榜单">×${it.numBoards} 榜</span>` : "";
+    el.title = it.url ? "点击打开原文" : "点击发起分析";
+    el.onclick = (ev) => openHot(it, ev);
     el.innerHTML = `<span class="hot-rank">${i + 1}</span>
       <span class="hot-v ${lvl}">${esc(it.hot || "")}</span>
       <span class="hot-t" title="${esc(it.title)}">${esc(it.title)}${multi}</span>
       <span class="hot-badge">${esc(it.board || "")}</span>
-      <button class="hot-go" onclick="analyzeHot('${title}')">分析 ›</button>`;
+      <button class="hot-go" onclick="event.stopPropagation();analyzeHot('${title}')">分析 ›</button>`;
     $("hotList").appendChild(el);
   });
+}
+
+function openHot(it, ev) {
+  if (ev && ev.target.closest && ev.target.closest(".hot-go")) return;  // 分析按钮已自行处理
+  if (it.url) { window.open(it.url, "_blank", "noopener"); } else { analyzeHot(it.title); }
+}
+
+function renderHotSpread() {
+  // 扩散热词：同时登上 ≥2 个榜单的热词（跨榜扩散度），TOP 8
+  const items = allHotItems().filter(x => x.numBoards > 1).slice(0, 8);
+  const box = $("hotSpread");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!items.length) { box.innerHTML = '<div class="f-help">暂无跨榜热词</div>'; return; }
+  for (const it of items) {
+    const el = document.createElement("div");
+    el.className = "spread-item";
+    el.title = it.url ? "打开原文" : "发起分析";
+    el.onclick = (ev) => openHot(it, ev);
+    el.innerHTML = `<span class="xmark ok">×${it.numBoards} 榜</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title)}</span>
+      <span class="hot-v ${hotLevel(hotNum(it.hot))}" style="min-width:44px">${esc(it.hot || "")}</span>`;
+    box.appendChild(el);
+  }
+}
+
+function renderHotPreview() {
+  const box = $("hotPreview");
+  if (!box) return;
+  box.innerHTML = "";
+  const showed = HOT.boards.filter(b => (b.items || []).length).slice(0, 4);
+  if (!showed.length) { box.innerHTML = '<div class="f-help">暂无榜单数据</div>'; return; }
+  let h = `<div class="pv-grid">`;
+  for (const b of showed) {
+    h += `<div class="pv-board"><div class="pv-name">🔥 ${esc(b.name)}</div>`;
+    (b.items || []).slice(0, 3).forEach((it, i) => {
+      h += `<div class="pv-item" title="${esc(it.title)}" onclick="openHot(${JSON.stringify({ title: it.title, url: it.url, hot: it.hot }).replace(/"/g, "&quot;")}, event)">
+        <span class="pv-num">${i + 1}</span>${esc(it.title)}</div>`;
+    });
+    h += `</div>`;
+  }
+  h += `</div>`;
+  box.innerHTML = h;
 }
 
 function analyzeHot(title) {
