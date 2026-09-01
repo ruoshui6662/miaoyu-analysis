@@ -131,13 +131,17 @@ CATALOG: list[dict] = [
      "stype": "feed", "enabled": False,
      "extra": {"url": "https://www.buzzing.cc/feed.json", "filter_site": BUZZ_COMM_SITES}},
 
-    # ---------- 热榜榜单（C，事件发现用） ----------
+    # ---------- 热榜榜单（tophub 聚合解析，2026-09-01 实测 id） ----------
     {"name": "微博热搜", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "weibo"}},
+     "stype": "hotlist", "extra": {"board": "weibo", "tophub_id": "KqndgxeLl9"}},
     {"name": "知乎热榜", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "zhihu"}},
+     "stype": "hotlist", "extra": {"board": "zhihu", "tophub_id": "mproPpoq6O"}},
     {"name": "B站热门", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "bilibili"}},
+     "stype": "hotlist", "extra": {"board": "bilibili", "tophub_id": "74KvxwokxM"}},
     {"name": "百度热搜", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "baidu"}},
+     "stype": "hotlist", "extra": {"board": "baidu", "tophub_id": "Jb0vmloB1G"}},
+    {"name": "抖音热点", "host": "", "category": "hotlist", "level": "C",
+     "stype": "hotlist", "extra": {"board": "douyin", "tophub_id": "DpQvNABoNE"}},
+    {"name": "今日头条热榜", "host": "", "category": "hotlist", "level": "C",
+     "stype": "hotlist", "extra": {"board": "toutiao", "tophub_id": "x9ozB4KoXb"}},
 ]
