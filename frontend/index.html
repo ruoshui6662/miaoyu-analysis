@@ -528,7 +528,7 @@
     </div>
 
     <div class="card">
-      <div class="section-title">历史报告文件 <span class="f-help">（docx / markdown，重启不丢）</span></div>
+      <div class="section-title">最近报告文件 <a href="javascript:void(0)" onclick="showView('history')" style="font-size:12.5px;font-weight:600">查看全部 ›</a></div>
       <ul class="tasks" id="reportFiles"><li style="color:var(--muted)">加载中…</li></ul>
     </div>
   </div>
@@ -1184,12 +1184,14 @@ function openTaskReport(id) {
 async function loadReportFiles() {
   const files = await api("/api/reports/list");
   if (!Array.isArray(files)) return;
-  for (const sel of ["reportFiles", "reportFiles2"]) {
+  // 首页容器只显示 5 条；历史页容器显示完整（最多 60）
+  const slots = [["reportFiles", 5], ["reportFiles2", 60]];
+  for (const [sel, limit] of slots) {
     const box = $(sel);
     if (!box) continue;
     box.innerHTML = "";
     if (!files.length) { box.innerHTML = "<li style='color:var(--muted)'>暂无报告文件</li>"; continue; }
-    for (const f of files.slice(0, 40)) {
+    for (const f of files.slice(0, limit)) {
       const li = document.createElement("li");
       li.innerHTML = `<a href="${f.url}" download>⬇ ${esc(f.name)}</a>
         <span class="task-meta">${f.kind} · ${(f.size / 1024).toFixed(0)} KB</span>`;

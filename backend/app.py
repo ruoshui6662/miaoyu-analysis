@@ -356,8 +356,10 @@ def _server_error(e):
 
 @app.get("/")
 def index():
+    # 开发期禁用缓存，避免浏览器持有旧前端导致"改了看不到"
     return Response((FRONTEND / "index.html").read_text(encoding="utf-8"),
-                    mimetype="text/html; charset=utf-8")
+                    mimetype="text/html; charset=utf-8",
+                    headers={"Cache-Control": "no-store"})
 
 
 @app.get("/healthz")
