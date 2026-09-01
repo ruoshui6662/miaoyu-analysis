@@ -473,6 +473,8 @@
   .file-view.muted:hover { text-decoration: none; }
   .file-dl { margin-left: 10px; color: var(--text-3); font-size: 15px; }
   .file-dl:hover { color: var(--primary); }
+  .ed-head { background: #eff6ff; border: 1px solid #dbeafe; color: #1d4ed8; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; margin-bottom: 14px; }
+  .ed-sec { border-top: 1px dashed var(--line); margin-top: 16px; padding-top: 12px; }
   .hidden { display: none; }
 
   @media print {
@@ -1114,8 +1116,18 @@ function renderProgress(t) {
   $("progressText").innerHTML = `<b>${esc(t.topic)}</b> · ${esc(t.detail || "")}${t.error ? "（" + esc(t.error) + "）" : ""}`;
 }
 
-function renderReport(rep) {
+function renderReport(rep, jsonName) {
   if (!rep) return;
+  // 记录当前报告与来源标识（编辑用）
+  window._curReport = JSON.parse(JSON.stringify(rep));
+  if (jsonName) {
+    window._curReportJson = jsonName;
+  } else if (rep.docx) {
+    const fn = String(rep.docx).replace(/\\/g, "/").split("/").pop();
+    window._curReportJson = fn.replace(/\.docx$/, ".json");
+  } else {
+    window._curReportJson = "";
+  }
   $("reportCard").classList.remove("hidden");
   $("progressState").className = "badge done"; $("progressState").textContent = "完成";
   $("barFill").style.width = "100%";
@@ -1181,7 +1193,77 @@ function renderReport(rep) {
   if (rep.docx) acts += `<a class="pri" href="/api/reports/${encodeURIComponent(rep.docx.split(/[\\/]/).pop())}" download>下载 Word 报告</a>`;
   if (rep.md) acts += `<a class="pri" href="/api/reports/${encodeURIComponent(rep.md.split(/[\\/]/).pop())}" download>下载 Markdown</a>`;
   acts += `<button class="pri" onclick="window.print()">导出 PDF（打印/另存为）</button>`;
+  if (window._curReportJson) acts += `<button class="txt" onclick="enterEdit()">✏️ 编辑内容</button>`;
   $("reportActions").innerHTML = acts;
+}
+
+/* ---------- B4 报告在线编辑（段落级表单） ---------- */
+function escAttr(s) { return esc(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+
+function enterEdit() {
+  const rep = window._curReport;
+  if (!rep) return;
+  if (!window._curReportJson) { toast("该报告缺少文件标识，无法编辑"); return; }
+  const e = JSON.parse(JSON.stringify(rep));   // 编辑副本
+  window._editor = e;
+  let h = `<div class="ed-head"><span class="badge done">编辑模式</span> 修改文本后点保存，Word/Markdown 将就地重新生成</div>`;
+  h += `<label class="f-label">报告标题</label><input class="sel" id="edTitle" value="${escAttr(e.title || "")}">`;
+  h += `<label class="f-label">引言</label><textarea class="input" id="edIntro" rows="3">${esc(e.intro || "")}</textarea>`;
+  e.sections.forEach((sec, si) => {
+    h += `<div class="ed-sec"><label class="f-label">章节标题</label><input class="sel" id="edH_${si}" value="${escAttr(sec.heading || "")}">`;
+    sec.paragraphs.forEach((p, pi) => {
+      if (typeof p === "string") {
+        h += `<label class="f-help" style="margin-top:8px;display:block">段落 ${pi + 1}</label>
+          <textarea class="input" id="edP_${si}_${pi}" rows="3">${esc(p)}</textarea>`;
+      } else {
+        h += `<label class="f-help" style="margin-top:8px;display:block">分论点 ${pi + 1}（句首加粗短语 + 论述）</label>
+          <input class="sel" id="edL_${si}_${pi}" value="${escAttr(p.lead || "")}" placeholder="句首短语，如：（一）原因分析。">
+          <textarea class="input" id="edB_${si}_${pi}" rows="4">${esc(p.body || "")}</textarea>`;
+      }
+    });
+    h += `</div>`;
+  });
+  h += `<div class="actions">
+    <button class="primary" onclick="saveEdit()">保存修改</button>
+    <button class="txt" onclick="cancelEdit()">取消</button>
+    <span class="f-help">当前支持文本修改；增删段落留待后续版本</span>
+  </div>`;
+  $("reportBody").innerHTML = h;
+}
+
+function saveEdit() {
+  const e = window._editor;
+  e.title = $("edTitle").value.trim();
+  e.intro = $("edIntro").value.trim();
+  for (let si = 0; si < e.sections.length; si++) {
+    const sec = e.sections[si];
+    sec.heading = $("edH_" + si).value.trim();
+    for (let pi = 0; pi < sec.paragraphs.length; pi++) {
+      const p = sec.paragraphs[pi];
+      if (typeof p === "string") {
+        sec.paragraphs[pi] = $("edP_" + si + "_" + pi).value.trim();
+      } else {
+        p.lead = $("edL_" + si + "_" + pi).value.trim();
+        p.body = $("edB_" + si + "_" + pi).value.trim();
+      }
+    }
+  }
+  api("/api/report/edit", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ json_name: window._curReportJson, report: e }),
+  }).then(r => {
+    if (r.ok) {
+      toast("已保存：报告已更新，Word/Markdown 已重新生成" + (r.docx_ok ? "" : "（Word 生成失败，仅更新了内容）"));
+      window._curReport = JSON.parse(JSON.stringify(e));
+      renderReport(window._curReport, window._curReportJson);
+    } else {
+      toast("保存失败：" + (r.error || "未知错误"));
+    }
+  });
+}
+
+function cancelEdit() {
+  renderReport(window._curReport, window._curReportJson);
 }
 
 /* 首页：最近任务（默认 5 条）+ 历史二级视图（每页 10 条分页） */
@@ -1253,7 +1335,7 @@ async function previewReportFile(jsonName) {
   showView("home");
   $("progressCard").classList.add("hidden");
   currentTask = null;
-  renderReport(rep);
+  renderReport(rep, jsonName);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 

@@ -34,7 +34,7 @@ from db import (
     task_list as db_task_list,
     task_update as db_task_update,
 )
-from pipeline import run_analysis
+from pipeline import gen_docx as pipeline_gen_docx, render_markdown, run_analysis
 from source_catalog import CATALOG, CATEGORIES
 
 # 启动时播种内置信源目录（表为空才写，幂等）
@@ -151,6 +151,34 @@ def api_reports_list():
                 "json_name": j.name if j.exists() else "",
             })
     return jsonify(files[:100])
+
+
+@app.post("/api/report/edit")
+def api_report_edit():
+    """B4 报告在线编辑：保存修改后的报告结构，就地更新 JSON 并重生成 docx/md。"""
+    body = request.get_json(silent=True) or {}
+    json_name = (body.get("json_name") or "").strip()
+    rep = body.get("report")
+    if not json_name or not isinstance(rep, dict):
+        return jsonify({"error": "参数缺失"}), 400
+    safe = Path(json_name).name
+    jpath = DATA_DIR_REPORTS / safe
+    if not jpath.exists() or jpath.suffix.lower() != ".json":
+        return jsonify({"error": "报告不存在"}), 404
+    if not rep.get("title") or not isinstance(rep.get("sections"), list):
+        return jsonify({"error": "报告结构不完整（缺少标题或章节）"}), 400
+    rep["edited"] = True
+    jpath.write_text(json.dumps(rep, ensure_ascii=False), encoding="utf-8")
+    # 重新生成 md（必做）与 docx（尽力而为）
+    md_path = jpath.with_suffix(".md")
+    md_path.write_text(render_markdown(rep), encoding="utf-8")
+    docx_path = jpath.with_suffix(".docx")
+    try:
+        ok_docx = pipeline_gen_docx(rep, str(docx_path))
+    except Exception:  # noqa: BLE001
+        ok_docx = False
+    return jsonify({"ok": True, "edited": True, "docx_ok": ok_docx,
+                    "docx": str(docx_path), "md": str(md_path)})
 
 
 @app.get("/api/reports/<path:filename>")
