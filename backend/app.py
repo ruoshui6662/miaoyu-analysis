@@ -141,6 +141,23 @@ def api_task(tid: str):
     })
 
 
+@app.get("/api/hot/boards")
+def api_hot_boards():
+    """首页热点榜：tophub 六榜 top 条目（真实数据，失败静默降级为空）。"""
+    from hotlists import hotlists_summary
+    try:
+        boards = hotlists_summary()
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"boards": [], "error": str(e)[:80]})
+    out = []
+    for b in boards:
+        items = [{"title": it.get("title", ""), "url": it.get("url", ""),
+                  "hot": it.get("hot", ""), "published": it.get("published", "")}
+                 for it in (b.get("hot") or [])[:15]]
+        out.append({"name": b["name"], "enabled": b["enabled"], "count": b.get("count", 0), "items": items})
+    return jsonify({"boards": out, "updated": None})
+
+
 @app.get("/api/reports/list")
 def api_reports_list():
     """历史报告文件清单（docx/md，按修改时间倒序）+ 关联 JSON（用于页面内预览）。"""

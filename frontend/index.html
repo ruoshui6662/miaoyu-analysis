@@ -463,6 +463,27 @@
   }
   .actions a.pri:hover, .actions button.pri:hover { background: var(--accent-hover); }
 
+  /* 态势面板：今日热点 + 趋势/概览 */
+  .dash { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .dash { grid-template-columns: 1fr; } }
+  .dash-side { display: flex; flex-direction: column; gap: 20px; }
+  .hot-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ht { padding: 6px 13px; border: 1px solid var(--line); border-radius: 99px; background: #fff; font-size: 12.5px; cursor: pointer; transition: all .13s; color: #4b5563; }
+  .ht:hover { border-color: var(--primary-2, #3b82f6); }
+  .ht.on { background: var(--primary, #2563eb); color: #fff; border-color: var(--primary, #2563eb); font-weight: 600; }
+  .hot-list { display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; }
+  .hot-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; transition: all .13s; background: #fff; }
+  .hot-item:hover { border-color: var(--primary-2, #3b82f6); box-shadow: 0 3px 10px rgba(37,99,235,.08); }
+  .hot-v { font-size: 12px; font-weight: 800; min-width: 58px; text-align: right; font-variant-numeric: tabular-nums; }
+  .hot-v.hot-h { color: #dc2626; }
+  .hot-v.hot-m { color: #ea580c; }
+  .hot-v.hot-l { color: #64748b; }
+  .hot-t { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hot-badge { font-size: 10.5px; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+  .hot-go { border: none; background: none; color: var(--primary, #2563eb); font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .hot-go:hover { text-decoration: underline; }
+  .card.thin { padding: 14px 20px; }
+
   .section-title { font-size: 13.5px; font-weight: 700; margin-bottom: 12px; color: var(--text-strong); display: flex; justify-content: space-between; align-items: center; }
   .tasks { list-style: none; }
   .tasks li { display: flex; gap: 12px; align-items: center; padding: 9px 6px; border-bottom: 1px dashed var(--border); font-size: 13.5px; cursor: pointer; border-radius: 6px; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
@@ -519,13 +540,10 @@
 <div class="wrap">
   <!-- ========== 首页 ========== -->
   <div id="view-home">
-    <div class="card">
-      <div class="hero">
-        <h2>多信源舆情分析</h2>
-        <p>输入主题 → 全网抓取 → AI 四段式分析（事件概况 / 原因 / 风险 / 对策）→ 生成 Word 报告</p>
-      </div>
+    <!-- 紧凑发起条 -->
+    <div class="card qbar">
       <div class="form-row">
-        <input type="text" id="topic" placeholder="输入舆情主题，如：假装上班公司 / 孙宇晨 / 某品牌口碑" autocomplete="off">
+        <input type="text" id="topic" placeholder="输入舆情主题：假装上班公司 / 孙宇晨 / 某品牌事件…" autocomplete="off">
         <select id="provider">
           <option value="">自动选择</option>
           <option value="router">本地网关</option>
@@ -536,6 +554,28 @@
         <button class="primary" id="runBtn" onclick="start()">开始分析</button>
       </div>
       <div id="hint"></div>
+    </div>
+
+    <!-- 态势主体：今日热点 + 趋势/概览 -->
+    <div class="dash">
+      <div class="dash-main">
+        <div class="card">
+          <div class="section-title"><span>🔥 今日热点 <span class="f-help" id="hotUpdated"></span></span></div>
+          <div class="hot-tabs" id="hotTabs"></div>
+          <div class="hot-list" id="hotList"><div class="f-help" style="padding:8px 2px">热点加载中…</div></div>
+        </div>
+      </div>
+      <div class="dash-side">
+        <div class="card">
+          <div class="section-title">📈 热度趋势</div>
+          <div id="trendPanel" style="height:210px"></div>
+          <div class="f-help" style="margin-top:6px">趋势/深度分析接口待接入——你提供接口后这里展示真实热度曲线</div>
+        </div>
+        <div class="card">
+          <div class="section-title">🧭 热度概览</div>
+          <div id="hotStats"></div>
+        </div>
+      </div>
     </div>
 
     <div class="card hidden" id="progressCard">
@@ -550,14 +590,9 @@
       <div class="report" id="reportBody"></div>
     </div>
 
-    <div class="card">
-      <div class="section-title">最近任务 <a href="javascript:void(0)" onclick="showView('history')" style="font-size:12.5px;font-weight:600" id="recentAllLink">查看全部历史 ›</a></div>
+    <div class="card thin">
+      <div class="section-title">最近分析 <a href="javascript:void(0)" onclick="showView('history')" style="font-size:12px;font-weight:600" id="recentAllLink">全部历史 ›</a></div>
       <ul class="tasks" id="taskList"><li style="color:var(--muted)">暂无任务</li></ul>
-    </div>
-
-    <div class="card">
-      <div class="section-title">最近报告文件 <a href="javascript:void(0)" onclick="showView('history')" style="font-size:12.5px;font-weight:600">查看全部 ›</a></div>
-      <ul class="tasks" id="reportFiles"><li style="color:var(--muted)">加载中…</li></ul>
     </div>
   </div>
 
@@ -1316,6 +1351,112 @@ function cancelEdit() {
   renderReport(window._curReport, window._curReportJson);
 }
 
+/* ---------- 今日热点（态势面板） ---------- */
+let HOT = { boards: [], active: "all" };
+
+function hotNum(s) {
+  const m = String(s || "").match(/([\d.]+)\s*(万|亿|w)?/);
+  if (!m) return 0;
+  let v = parseFloat(m[1]);
+  if (m[2] === "万" || m[2] === "w") v *= 10000;
+  if (m[2] === "亿") v *= 1e8;
+  return v;
+}
+
+function hotLevel(n) { return n >= 500000 ? "hot-h" : n >= 100000 ? "hot-m" : "hot-l"; }
+
+async function loadHotBoards() {
+  const d = await api("/api/hot/boards");
+  HOT.boards = Array.isArray(d.boards) ? d.boards : [];
+  $("hotUpdated").textContent = HOT.boards.length ? "更新于刚刚" : "热点数据暂不可用";
+  renderHotTabs();
+  renderHotList();
+  renderHotStats();
+  renderTrendPlaceholder();
+}
+
+function renderHotTabs() {
+  const names = HOT.boards.filter(b => b.enabled !== false).map(b => b.name);
+  let h = `<button class="ht ${HOT.active === "all" ? "on" : ""}" onclick="selectHot('all')">全部</button>`;
+  for (const n of names) {
+    h += `<button class="ht ${HOT.active === n ? "on" : ""}" onclick="selectHot('${esc(n)}')">${esc(n)}</button>`;
+  }
+  $("hotTabs").innerHTML = h;
+}
+
+function allHotItems() {
+  const out = [];
+  for (const b of HOT.boards) {
+    for (const it of (b.items || [])) out.push({ ...it, board: b.name });
+  }
+  return out;
+}
+
+function selectHot(name) {
+  HOT.active = name;
+  document.querySelectorAll(".ht").forEach(b => b.classList.toggle("on", b.textContent === name || (name === "all" && b.textContent === "全部")));
+  renderHotList();
+}
+
+function renderHotList() {
+  let items;
+  if (HOT.active === "all") {
+    items = allHotItems().sort((a, b) => hotNum(b.hot) - hotNum(a.hot));
+  } else {
+    const b = HOT.boards.find(x => x.name === HOT.active);
+    items = (b ? b.items : []).map(it => ({ ...it, board: HOT.active }));
+  }
+  const shown = items.slice(0, 15);
+  $("hotList").innerHTML = "";
+  if (!shown.length) { $("hotList").innerHTML = '<div class="f-help" style="padding:8px 2px">暂无热点数据（榜单接口可能暂不可用）</div>'; return; }
+  for (const it of shown) {
+    const lvl = hotLevel(hotNum(it.hot));
+    const el = document.createElement("div");
+    el.className = "hot-item";
+    const title = String(it.title || "").replace(/'/g, "\\'");
+    el.innerHTML = `<span class="hot-v ${lvl}">${esc(it.hot || "")}</span>
+      <span class="hot-t" title="${esc(it.title)}">${esc(it.title)}</span>
+      <span class="hot-badge">${esc(it.board || "")}</span>
+      <button class="hot-go" onclick="analyzeHot('${title}')">分析 ›</button>`;
+    $("hotList").appendChild(el);
+  }
+}
+
+function analyzeHot(title) {
+  $("topic").value = title;
+  start();
+}
+
+function renderHotStats() {
+  const all = allHotItems();
+  const top = [...all].sort((a, b) => hotNum(b.hot) - hotNum(a.hot)).slice(0, 3);
+  let h = `<table style="width:100%;border-collapse:collapse"><tr><td style="padding:4px 0">覆盖榜单</td><td style="text-align:right;font-weight:700">${HOT.boards.length} 个</td></tr>
+    <tr><td style="padding:4px 0">热点条目</td><td style="text-align:right;font-weight:700">${all.length} 条</td></tr></table>`;
+  if (top.length) {
+    h += `<div class="f-help" style="margin-top:8px">热度 TOP3：</div>`;
+    top.forEach((t, i) => {
+      h += `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px">
+        <span class="hot-v ${hotLevel(hotNum(t.hot))}" style="min-width:44px">${esc(t.hot || "")}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.title)}">${i + 1}. ${esc(t.title)}</span></div>`;
+    });
+  }
+  $("hotStats").innerHTML = h;
+}
+
+function renderTrendPlaceholder() {
+  if (!window.echarts) return;
+  const el = document.getElementById("trendPanel");
+  if (!el) return;
+  const chart = echarts.init(el);
+  chart.setOption({
+    tooltip: { trigger: "axis" },
+    xAxis: { type: "category", data: ["06-01", "06-02", "06-03", "06-04", "06-05", "06-06", "06-07"] },
+    yAxis: { type: "value", splitLine: { lineStyle: { type: "dashed" } } },
+    series: [{ type: "line", data: [null, null, null, null, null, null, null], lineStyle: { opacity: 0.2 }, symbol: "none" }],
+    graphic: [{ type: "text", left: "center", top: "middle", style: { text: "趋势接口待接入", fill: "#9ca3af", fontSize: 13 } }],
+  });
+}
+
 /* 首页：最近任务（默认 5 条）+ 历史二级视图（每页 10 条分页） */
 let histPage = 1, histPages = 1;
 
@@ -1612,9 +1753,11 @@ async function saveSettings() {
 
 refreshTasks();
 loadReportFiles();
+loadHotBoards();
 loadAiProviders();
 setInterval(refreshTasks, 15000);
 setInterval(loadReportFiles, 60000);
+setInterval(loadHotBoards, 300000);
 </script>
 </body>
 </html>
