@@ -878,7 +878,7 @@ function selectAiProvider(id) {
   $("pApiKey").value = p.apiKey || "";
   $("pModel").value = p.model || "";
   $("pSearchRow").hidden = id !== "qwen";
-  $("pSearch").checked = Boolean(p.enable_search);
+  $("pSearch").checked = String(p.enable_search) === "true" || p.enable_search === true;
   $("deleteProvider").hidden = !p.custom;
   const hint = $("modelHint");
   hint.textContent = BUILTIN_META[id] ? `内置服务商默认接口：${BUILTIN_META[id].endpoint}` : "任意 OpenAI 兼容模型名，可点「获取模型」自动拉取";
@@ -913,6 +913,10 @@ function collectProviderForm() {
 
 async function persistSettings() {
   collectProviderForm();
+  // 通义 enable_search 显式从表单同步（不依赖"当前选中服务商"，避免切走后丢失勾选）
+  if (pageProviders.qwen && $("pSearch")) {
+    pageProviders.qwen.enable_search = $("pSearch").checked;
+  }
   const payload = {
     SEARXNG_URL: $("s_searxng").value.trim(),
     AI_PRIMARY_PROVIDER: $("s_provider").value,
