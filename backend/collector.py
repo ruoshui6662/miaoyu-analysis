@@ -12,6 +12,7 @@ from urllib.parse import urlparse, urlunparse
 import requests
 
 from config import DATA_DIR_TASKS, ENABLED_GROUPS, HTTP_TIMEOUT, USER_AGENT
+from hotlists import fetch_for_sources
 from searx_client import SearxClient
 
 # 等级 → 三级可信度映射（S/A→high、B→mid、C/D→low）
@@ -355,6 +356,34 @@ def collect_topic(
         # 任何相关结果都保留（信息完整性）：名单用于标注与优先，不用于排除
         if _relevant(item, topic, keywords):
             items.append(item)
+
+    # C1c：热榜/聚合信源（勾选即采；失败静默降级，不拖垮主线）
+    hot_items: list[dict] = []
+    hot_warns: list[str] = []
+    hot_boards = 0
+    try:
+        from db import list_sources as _ls
+        active = [s for s in _ls() if s["enabled"] and s["stype"] in ("hotlist", "feed")]
+        hot_boards = len(active)
+        if active:
+            hot_res, hot_warns = fetch_for_sources(active)
+            for h in hot_res:
+                it = {
+                    "title": h["title"], "url": h["url"], "snippet": "",
+                    "published": h.get("published", ""), "engine": "hotlist",
+                    "credibility": "mid", "group": "hotlist",
+                    "source_name": h.get("source", ""), "level": h.get("level", "C"),
+                    "body": "",
+                }
+                if _relevant(it, topic, keywords):
+                    hot_items.append(it)
+    except Exception as e:  # noqa: BLE001
+        hot_warns.append(f"热榜信源异常: {str(e)[:60]}")
+    items.extend(hot_items)
+    if hot_boards:
+        query_log.append({"group": "hotlist", "engines": "tophub+buzzing",
+                          "ok_queries": hot_boards, "failed_queries": len(hot_warns),
+                          "unresponsive": hot_warns[:5]})
 
     if not items:
         return {"keywords": keywords, "total_raw": len(raw), "total_after_dedupe": 0,
