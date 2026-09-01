@@ -337,8 +337,6 @@ def collect_topic(
             if dom == h or dom.endswith("." + h):
                 lvl = site_levels[h]
                 break
-        if site_levels and not lvl:
-            continue  # 已勾选信源白名单，但本条未命中 → 过滤（勾选即聚焦）
         item = {
             "title": r["title"],
             "url": r["url"],
@@ -348,11 +346,13 @@ def collect_topic(
             "credibility": credibility(r.get("url", ""), r.get("engine", "")),
             "group": r.get("group", ""),
             "source_name": source_name(r.get("url", ""), r.get("title", "")),
-            "level": lvl,
+            "level": lvl,          # 命中精细名单：S/A/B/C/D；未命中：""（仍保留，按通用规则标注）
             "body": "",
         }
         if lvl:
+            # 名单命中 → 等级覆盖可信度（S/A→high、B→mid、C/D→low）
             item["credibility"] = _LEVEL_CRED.get(lvl, item["credibility"])
+        # 任何相关结果都保留（信息完整性）：名单用于标注与优先，不用于排除
         if _relevant(item, topic, keywords):
             items.append(item)
 
