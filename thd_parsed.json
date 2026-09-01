@@ -1,0 +1,37 @@
+{
+ "title": "榜眼数据API文档 - 今日热榜官方数据开放平台",
+ "urls": [
+  "https://cdn.iappdaily.com/tophubdata/assets/css/application.css",
+  "https://www.clarity.ms/tag/",
+  "https://cdn.iappdaily.com/tophubdata/assets/images/logo-black-xxoo.svg",
+  "https://api.tophubdata.com/",
+  "https://api.tophubdata.com/nodes",
+  "https://api.tophubdata.com/nodes?p=1",
+  "https://tophub.today/",
+  "https://tophub.today/n/mproPpoq6O",
+  "https://api.tophubdata.com/nodes/@hashid",
+  "https://api.tophubdata.com/nodes/mproPpoq6O",
+  "https://www.zhihu.com/question/629047878",
+  "https://pica.zhimg.com/80/v2-00a693d9ac81c601223512d5725cbacd_1440w.png",
+  "https://www.zhihu.com/question/621684259",
+  "https://pic3.zhimg.com/50/v2-0e599dcb44ad61215462fdfbb58d983e_qhd.jpg",
+  "https://api.tophubdata.com/nodes/@hashid/historys",
+  "https://api.tophubdata.com/nodes/mproPpoq6O/historys?date=2023-11-04",
+  "https://api.tophubdata.com/search",
+  "https://api.tophubdata.com/search?q=Apple&amp;hashid=mproPpoq6O&amp;p=1",
+  "https://api.tophubdata.com/hot",
+  "https://api.tophubdata.com/hot?date=2023-11-04",
+  "https://pic3.zhimg.com/80/v2-f33a654b841726108d6e67af33f80c9c_720w.webp",
+  "https://www.zhihu.com/question/628926775",
+  "https://file.ibmwclub.com/tophub/assets/images/media/zhihu.com.png",
+  "https://s.weibo.com/weibo?q=%E5%8C%97%E5%A4%A7%E5%AE%BF%E8%88%8D%E8%81%8A%E5%A4%A9+%E5%A9%9A%E5%A7%BB%E6%AE%8B%E9%85%B7%E7%9C%9F%E7%9B%B8",
+  "https://file.ibmwclub.com/tophub/assets/images/media/s.weibo.com.png"
+ ],
+ "text_hits": {
+  "密钥": " 并 遵循用户协议 。 全局说明 通用请求 请求域名 https://api.tophubdata.com/ 用户认证 请通过 HTTP 授权标头 HEADER 传递应用程序的访问密钥： Authorization: YOUR_ACCESS_KEY 请务必保存好自己的密钥，你可以通过在后台设置中心设置白名单IP来限制请求服务器来源（默认关闭）。 参数名 必选 类型 说明 示例值 Authorization 是 string 用户密钥 e5ff6cf3a14",
+  "调用": "我们在2分钟内会尝试重试3次（间隔30s），不会无限制重试，请确保响应 URL 一直处于无阻塞状态。 值得注意的是，这个功能仅对我们的大客户开放，以确保服务的质量和效率。您无需逐个调用接口获取数据，而是通过回调即可获得所需的信息。 SDK 接入 演示 DEMO 注意，请勿在客户端直接调用 API，务必使用自己的服务器嵌套接口使用，同一 ACCESS_KEY 频繁变化请求 IP 会被系统直接禁用。以下是常见后端开发语言演示 Demo： PHP https:/",
+  "sign": "eloper 开发者 7 university 大学 8 organization 政务 9 blog 博客专栏 10 wxmp 微信公众号 11 epaper 电子报 12 design 设计 13 other 其他 0 widget 小工具 -1 提醒：榜单 hashid 是固定不变并且唯一的。并且和今日热榜官网（ https://tophub.today/ ）是保持一致的。例如： https://tophub.today/n/mproPpoq6O U",
+  "timestamp": "具直接运行。 返回示例 仅获取快照列表（details=0） { \"error\":false, \"status\":200, \"data\": [ { \"ssid\": 12345, \"timestamp\": 1699095601 }, { \"ssid\": 12346, \"timestamp\": 1699099201 } ... ] } 获取快照详细内容（details=1） { \"error\":false, \"status\":200, \"data\": [ { ",
+  "实时": "通用请求 错误码 消耗值 --> 开放接口 全部榜单列表 单个榜单最新详细 单个榜单历史数据集 全网热点内容搜索 今日热榜榜中榜 单个榜单快照列表 单个榜单快照详情 热点日历事件 实时回调 Webhook 回调 SDK 接入 演示 DEMO 无 API 方案 🌟 针对不会使用 API 的用户，我们推出了在线导出 CSV 功能，欢迎注册后在控制台使用。 注意： 我们的数据仅获取对应网站榜单的单一页面， 仅获取上榜内容的标题和链接地址，不会深入去获取链接地址对"
+ }
+}

@@ -474,6 +474,7 @@
   .hot-list { display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow-y: auto; }
   .hot-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; transition: all .13s; background: #fff; }
   .hot-item:hover { border-color: var(--primary-2, #3b82f6); box-shadow: 0 3px 10px rgba(37,99,235,.08); }
+  .hot-rank { font-size: 12px; font-weight: 800; color: var(--text-3, #6b7280); min-width: 20px; font-variant-numeric: tabular-nums; }
   .hot-v { font-size: 12px; font-weight: 800; min-width: 58px; text-align: right; font-variant-numeric: tabular-nums; }
   .hot-v.hot-h { color: #dc2626; }
   .hot-v.hot-m { color: #ea580c; }
@@ -1365,10 +1366,15 @@ function hotNum(s) {
 
 function hotLevel(n) { return n >= 500000 ? "hot-h" : n >= 100000 ? "hot-m" : "hot-l"; }
 
-async function loadHotBoards() {
+async function loadHotBoards(force) {
   const d = await api("/api/hot/boards");
   HOT.boards = Array.isArray(d.boards) ? d.boards : [];
-  $("hotUpdated").textContent = HOT.boards.length ? "更新于刚刚" : "热点数据暂不可用";
+  HOT.provider = d.provider || {};
+  const p = HOT.provider;
+  let src = p && p.provider === "tophubdata"
+    ? `<span class="xmark ok">官方API</span> 当日已用 ${p.used}/${p.limit}` : "";
+  if (!src) src = `<span class="xmark warn">HTML兜底</span>`;
+  $("hotUpdated").innerHTML = `${src} <button class="ht" style="padding:2px 9px" onclick="loadHotBoards(true)" title="刷新">↻ 刷新</button>`;
   renderHotTabs();
   renderHotList();
   renderHotStats();
@@ -1384,12 +1390,24 @@ function renderHotTabs() {
   $("hotTabs").innerHTML = h;
 }
 
+function normHotTitle(t) {
+  return String(t || "").replace(/[\s，。！？、\-—_·…“”"''【】\[\]（）()]/g, "").toLowerCase();
+}
+
 function allHotItems() {
-  const out = [];
+  // 跨榜合并：同一热词出现在多个榜单 → 记录覆盖榜数（扩散度信号）
+  const seen = {};
   for (const b of HOT.boards) {
-    for (const it of (b.items || [])) out.push({ ...it, board: b.name });
+    for (const it of (b.items || [])) {
+      const k = normHotTitle(it.title);
+      if (!k) continue;
+      if (!seen[k]) seen[k] = { title: it.title, url: it.url, hot: it.hot, boards: new Set() };
+      seen[k].boards.add(b.name);
+    }
   }
-  return out;
+  return Object.values(seen)
+    .map(x => ({ title: x.title, url: x.url, hot: x.hot, board: [...x.boards].join("/"), numBoards: x.boards.size }))
+    .sort((a, b) => hotNum(b.hot) - hotNum(a.hot));
 }
 
 function selectHot(name) {
@@ -1401,25 +1419,27 @@ function selectHot(name) {
 function renderHotList() {
   let items;
   if (HOT.active === "all") {
-    items = allHotItems().sort((a, b) => hotNum(b.hot) - hotNum(a.hot));
+    items = allHotItems();
   } else {
     const b = HOT.boards.find(x => x.name === HOT.active);
-    items = (b ? b.items : []).map(it => ({ ...it, board: HOT.active }));
+    items = (b ? b.items : []).map(it => ({ ...it, board: HOT.active, numBoards: 1 }));
   }
   const shown = items.slice(0, 15);
   $("hotList").innerHTML = "";
   if (!shown.length) { $("hotList").innerHTML = '<div class="f-help" style="padding:8px 2px">暂无热点数据（榜单接口可能暂不可用）</div>'; return; }
-  for (const it of shown) {
+  shown.forEach((it, i) => {
     const lvl = hotLevel(hotNum(it.hot));
     const el = document.createElement("div");
     el.className = "hot-item";
     const title = String(it.title || "").replace(/'/g, "\\'");
-    el.innerHTML = `<span class="hot-v ${lvl}">${esc(it.hot || "")}</span>
-      <span class="hot-t" title="${esc(it.title)}">${esc(it.title)}</span>
+    const multi = it.numBoards > 1 ? ` <span class="xmark ok" title="出现在 ${it.numBoards} 个榜单">×${it.numBoards} 榜</span>` : "";
+    el.innerHTML = `<span class="hot-rank">${i + 1}</span>
+      <span class="hot-v ${lvl}">${esc(it.hot || "")}</span>
+      <span class="hot-t" title="${esc(it.title)}">${esc(it.title)}${multi}</span>
       <span class="hot-badge">${esc(it.board || "")}</span>
       <button class="hot-go" onclick="analyzeHot('${title}')">分析 ›</button>`;
     $("hotList").appendChild(el);
-  }
+  });
 }
 
 function analyzeHot(title) {

@@ -143,19 +143,23 @@ def api_task(tid: str):
 
 @app.get("/api/hot/boards")
 def api_hot_boards():
-    """首页热点榜：tophub 六榜 top 条目（真实数据，失败静默降级为空）。"""
-    from hotlists import hotlists_summary
+    """首页热点榜：tophubdata 官方聚合优先 → HTML 兜底；附数据源/配额状态。"""
+    from hotlists import fetch_aggregated, legacy_aggregate_boards, quota_state
     try:
-        boards = hotlists_summary()
+        boards = fetch_aggregated()
+        if not boards:
+            boards = legacy_aggregate_boards()
+        provider = quota_state()
     except Exception as e:  # noqa: BLE001
-        return jsonify({"boards": [], "error": str(e)[:80]})
+        return jsonify({"boards": [], "provider": {"error": str(e)[:80]}})
+    # 单榜条目限 15；为首页聚合去重（多榜标记由前端按标题聚合）
     out = []
     for b in boards:
         items = [{"title": it.get("title", ""), "url": it.get("url", ""),
                   "hot": it.get("hot", ""), "published": it.get("published", "")}
-                 for it in (b.get("hot") or [])[:15]]
-        out.append({"name": b["name"], "enabled": b["enabled"], "count": b.get("count", 0), "items": items})
-    return jsonify({"boards": out, "updated": None})
+                 for it in (b.get("items") or [])[:15]]
+        out.append({"name": b.get("name", "热榜"), "count": len(items), "items": items})
+    return jsonify({"boards": out, "provider": provider, "updated": None})
 
 
 @app.get("/api/reports/list")

@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="榜眼数据">
+  <meta name="application-name" content="榜眼数据">
+  <title>榜眼数据API文档 - 今日热榜官方数据开放平台</title>
+  <meta name="keywords" content="今日热榜API,Tophub,开放平台,API,热榜API,热词API,新闻聚合API,今日热榜官方API">
+  <meta name="description" content="欢迎使用今日热榜官方 API 服务。提供全网全平台热榜聚合服务，专业的新媒体数据服务商，助力追踪全网热点。">
+  <link rel="stylesheet" href="https://cdn.iappdaily.com/tophubdata/assets/css/application.css" media="all" />
+  <script type="text/javascript">(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y)})(window,document,"clarity","script","jyhsii2n00");</script>
+</head>
+<body class="docs-body">
+
+<div class="js-flash-container"></div>
+
+<div class="offset-fixed-navbar  js-global-nav-offset"></div>
+
+<div class="navbar-container navbar-container--fixed">
+    <div class="navbar flex flex-center js-global-nav">
+  <div class="flex-push">
+    <div class="navbar__logo-container flex flex-center">
+    <a href="/" title='榜眼数据 - 今日热榜官方数据开放平台'><img class="navbar__logo " src="https://cdn.iappdaily.com/tophubdata/assets/images/logo-black-xxoo.svg" /></a>
+    <a class="navbar__logo-text" href="/" title='榜眼数据 - 今日热榜官方数据开放平台'>榜眼数据</a>
+    </div>
+  </div>
+
+  <ul class="flex flex-center" style="padding-left: 8px">
+
+    <!-- Mobile -->
+    <li class="navbar__element navbar__element--heading navbar__element--show-on-xs">
+    <div class="dropdown" style="margin-right: 12px;">
+      <a href="javascript:;" class="dropdown-toggle ellipsis-expander flex flex-center" id="admin-dropdown" data-toggle="dropdown">
+      <svg version="1.1" viewBox="0 0 32 32" width="32" height="32" aria-hidden="false">
+        <path d="M7 15.5c0 1.9-1.6 3.5-3.5 3.5s-3.5-1.6-3.5-3.5 1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5zm21.5-3.5c-1.9 0-3.5 1.6-3.5 3.5s1.6 3.5 3.5 3.5 3.5-1.6 3.5-3.5-1.6-3.5-3.5-3.5zm-12.5 0c-1.9 0-3.5 1.6-3.5 3.5s1.6 3.5 3.5 3.5 3.5-1.6 3.5-3.5-1.6-3.5-3.5-3.5z"></path>
+      </svg>
+      </a>
+
+      <ul class="dropdown-menu dropdown-menu-left">
+      <li><a href="/">首页</a></li>
+      <li><a href="/documentation">API文档</a></li>
+      <li><a href="/dataset">数据集</a></li>
+      </ul>
+    </div>
+    </li>
+
+
+    <li class="navbar__element navbar__element--heading hidden-xs active"><a href="/documentation">API文档</a></li>
+    <li class="navbar__element navbar__element--heading hidden-xs"><a href="/dataset">数据集</a></li>
+    
+      <li class="navbar__element navbar__element--last-child"><a class="btn btn-outline btn--small" rel="nofollow" href="/login">登录</a></li>
+      <li class="navbar__element" style="padding-left: 12px;"><a class="btn btn-default btn--small" title="注册" rel="nofollow" href="/register">注册<span class="hide-on-mobile">开始使用</span></a></li>
+  </ul>
+  </div>
+</div>
+
+
+<div class="docs-wrapper">
+  <div class="docs-col-left docs-col hidden-xs">
+    <div class="docs-content">
+      <aside class="docs-aside">
+        <div class="documentation-list">
+          <div class="delta text-weight--bold doc-title">API 文档</div>
+          
+<ul>
+  <li><a href="#入门" class="nav-section-title">入门</a>
+    <ul>
+      <li><a href="#创建帐户">创建帐户</a></li>
+      <li><a href="#指南和条款">指南和条款</a></li>
+    </ul>
+  </li>
+  <li><a href="#全局说明" class="nav-section-title">全局说明</a>
+    <ul>
+      <li><a href="#通用请求">通用请求</a></li>
+      <li><a href="#错误码">错误码</a></li>
+      <!-- <li><a href="#消耗值">消耗值</a></li> -->
+    </ul>
+  </li>
+  <li><a href="#开放接口" class="nav-section-title">开放接口</a>
+    <ul>
+      <li><a href="#全部榜单列表">全部榜单列表</a></li>
+      <li><a href="#单个榜单最新详细">单个榜单最新详细</a></li>
+      <li><a href="#单个榜单历史数据集">单个榜单历史数据集</a></li>
+      <li><a href="#全网热点内容搜索">全网热点内容搜索</a></li>
+      <li><a href="#今日热榜榜中榜">今日热榜榜中榜</a></li>
+      <li><a href="#单个榜单快照列表">单个榜单快照列表</a></li>
+      <li><a href="#单个榜单快照详情">单个榜单快照详情</a></li>
+      <li><a href="#热点日历事件">热点日历事件</a></li>
+    </ul>
+  </li>
+  <li><a href="#实时回调" class="nav-section-title">实时回调</a>
+    <ul>
+      <li><a href="#webhook-回调">Webhook 回调</a></li>
+    </ul>
+  </li>
+  <li><a href="#sdk-接入" class="nav-section-title">SDK 接入</a>
+    <ul>
+      <li><a href="#演示-demo">演示 DEMO</a></li>
+    </ul>
+  </li>
+</ul>
+
+        </div>
+      </aside>
+    </div>
+  </div>
+  <div class="docs-col-right docs-col">
+    
+          
+          
+    <div class="docs-content">
+      <article class="docs-content-inner">
+        
+        
+        <div class="documentation-block code-light js-anchors">
+          
+          <div class="sheet--padding-bottom">
+                  <div class="api-app-card--faded api-legend-container flex" style="background-color:#fff;border:1px solid #FFC107;padding-bottom:0;">
+            
+            <div class="api-legend-item">
+              <div class="api-pill-container">
+                <span class="pill pill--warning">无 API 方案</span>
+              </div>
+              <p>🌟 针对不会使用 API 的用户，我们推出了在线导出 CSV 功能，欢迎注册后在控制台使用。</p>
+            </div>
+          
+          </div>
+          
+                </div>
+          
+          <pre><code>注意：
+我们的数据仅获取对应网站榜单的单一页面，
+仅获取上榜内容的标题和链接地址，不会深入去获取链接地址对应的原始内容。</code></pre>
+<h2>介绍</h2>
+<p>欢迎使用今日热榜官方 API 服务。</p>
+<p>今日热榜是全网最全面的热榜聚合平台，汇集了各大网站的热榜信息，包括微信、今日头条、百度、知乎、V2EX、微博、贴吧、豆瓣、天涯、虎扑、Github、抖音等，基本囊括所有中文互联网平台榜单。使用今日热榜提供的 API，可快速接入热榜数据，助力追踪全网热点。</p>
+<h2>入门</h2>
+<p>本文档描述了构成官方 今日热榜 JSON API 的资源。</p>
+<p>如果您有任何问题或请求，请<a href="mailto:6212359@qq.com">联系我们的 API 团队</a>。</p>
+<h3>创建帐户</h3>
+<p>要访问 今日热榜 API，请首先<a href="/register">注册加入</a>.</p>
+<h3>指南和条款</h3>
+<p>要使用 API，您必须<a href="/privacy">遵守隐私政策条款</a>并<a href="/terms">遵循用户协议</a>。</p>
+<h2>全局说明</h2>
+<h3>通用请求</h3>
+<h4>请求域名</h4>
+<pre><code>https://api.tophubdata.com/</code></pre>
+<h4>用户认证</h4>
+<p>请通过 HTTP 授权标头 HEADER 传递应用程序的访问密钥：<code>Authorization:  YOUR_ACCESS_KEY</code></p>
+<p>请务必保存好自己的密钥，你可以通过在后台设置中心设置白名单IP来限制请求服务器来源（默认关闭）。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">必选</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Authorization</td>
+<td style="text-align: left;">是</td>
+<td style="text-align: left;">string</td>
+<td>用户密钥</td>
+<td>e5ff6cf3a14e1c72deefe8a512469af6</td>
+</tr>
+</tbody>
+</table>
+<h3>错误码</h3>
+<p>错误码及描述</p>
+<table>
+<thead>
+<tr>
+<th>错误码</th>
+<th>描述</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>200</td>
+<td>Success</td>
+<td>成功</td>
+</tr>
+<tr>
+<td>100101</td>
+<td>InvalidParams</td>
+<td>缺少参数或无效的参数</td>
+</tr>
+<tr>
+<td>100201</td>
+<td>Unauthorized</td>
+<td>未授权Authorization错误</td>
+</tr>
+<tr>
+<td>100202</td>
+<td>IpRestricted</td>
+<td>请求 IP 受限，检查白名单</td>
+</tr>
+<tr>
+<td>100300</td>
+<td>InsufficientFunds</td>
+<td>账户余额不足</td>
+</tr>
+<tr>
+<td>100500</td>
+<td>InternalError</td>
+<td>内部错误</td>
+</tr>
+</tbody>
+</table>
+<h2>开放接口</h2>
+<h3>全部榜单列表</h3>
+<h4>描述</h4>
+<p>获得今日热榜全站全部榜单列表。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/nodes</code></pre>
+<h4>方法</h4>
+<p><code>GET</code></p>
+<h4>参数</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">必选</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">p</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">int</td>
+<td>翻页页码，每页100条</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<p>可以递归查询，当返回的条数 &lt;100 的时候中断递归，=100 的时候 p++ 来实现自动翻页获取所有节点。</p>
+<h4>cURL 请求示例</h4>
+<pre><code>curl --location 'https://api.tophubdata.com/nodes?p=1' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<pre><code>  {
+    "error":false,
+    "status":200
+    "data": [
+        {
+            "hashid": "KqndgxeLl9",
+            "name": "微博",
+            "display": "热搜榜",
+            "domain": "weibo.com",
+            "logo": "********",
+            "cid": "1"
+        },
+        {
+            "hashid": "mproPpoq6O",
+            "name": "知乎",
+            "display": "热榜",
+            "domain": "zhihu.com",
+            "logo": "********",
+            "cid": "1"
+        }
+        ...
+    ]
+  }</code></pre>
+<h4>返回参数说明</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">hashid</td>
+<td style="text-align: left;">varchar</td>
+<td>榜单hashid</td>
+<td>mproPpoq6O（注意 hashid 严格区分大小写）</td>
+</tr>
+<tr>
+<td style="text-align: left;">name</td>
+<td style="text-align: left;">varchar</td>
+<td>网站名称</td>
+<td>知乎</td>
+</tr>
+<tr>
+<td style="text-align: left;">display</td>
+<td style="text-align: left;">varchar</td>
+<td>内容类型</td>
+<td>热榜</td>
+</tr>
+<tr>
+<td style="text-align: left;">domain</td>
+<td style="text-align: left;">varchar</td>
+<td>域名</td>
+<td>zhihu.com</td>
+</tr>
+<tr>
+<td style="text-align: left;">logo</td>
+<td style="text-align: left;">varchar</td>
+<td>图标</td>
+<td><strong>**</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;">cid</td>
+<td style="text-align: left;">varchar</td>
+<td>int</td>
+<td>分类id</td>
+</tr>
+</tbody>
+</table>
+<h4>分类 cid 对应的类型</h4>
+<table>
+<thead>
+<tr>
+<th>英文分类</th>
+<th>中文分类</th>
+<th>编号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>news</td>
+<td>综合</td>
+<td>1</td>
+</tr>
+<tr>
+<td>tech</td>
+<td>科技</td>
+<td>2</td>
+</tr>
+<tr>
+<td>ent</td>
+<td>娱乐</td>
+<td>3</td>
+</tr>
+<tr>
+<td>community</td>
+<td>社区</td>
+<td>4</td>
+</tr>
+<tr>
+<td>shopping</td>
+<td>购物</td>
+<td>5</td>
+</tr>
+<tr>
+<td>finance</td>
+<td>财经</td>
+<td>6</td>
+</tr>
+<tr>
+<td>developer</td>
+<td>开发者</td>
+<td>7</td>
+</tr>
+<tr>
+<td>university</td>
+<td>大学</td>
+<td>8</td>
+</tr>
+<tr>
+<td>organization</td>
+<td>政务</td>
+<td>9</td>
+</tr>
+<tr>
+<td>blog</td>
+<td>博客专栏</td>
+<td>10</td>
+</tr>
+<tr>
+<td>wxmp</td>
+<td>微信公众号</td>
+<td>11</td>
+</tr>
+<tr>
+<td>epaper</td>
+<td>电子报</td>
+<td>12</td>
+</tr>
+<tr>
+<td>design</td>
+<td>设计</td>
+<td>13</td>
+</tr>
+<tr>
+<td>other</td>
+<td>其他</td>
+<td>0</td>
+</tr>
+<tr>
+<td>widget</td>
+<td>小工具</td>
+<td>-1</td>
+</tr>
+</tbody>
+</table>
+<p>提醒：榜单 hashid 是固定不变并且唯一的。并且和今日热榜官网（ <a href="https://tophub.today/">https://tophub.today/</a> ）是保持一致的。例如：<a href="https://tophub.today/n/mproPpoq6O">https://tophub.today/n/mproPpoq6O</a> URL上面对应的 <code>mproPpoq6O</code> 即为知乎热榜的 hashid。</p>
+<h3>单个榜单最新详细</h3>
+<h4>描述</h4>
+<p>获得指定榜单的最新榜单或最新更新的内容列表。数据排序即为最新榜单排序。本接口一次性返回最新榜单全部内容，不用翻页。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/nodes/@hashid</code></pre>
+<p>@hashid 为全部榜单列表获取到的 hashid，注意 hashid 严格区分大小写。</p>
+<h5>方法</h5>
+<p><code>GET</code></p>
+<h4>cURL 请求示例</h4>
+<pre><code>curl --location 'https://api.tophubdata.com/nodes/mproPpoq6O' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<pre><code>  {
+    "error":false,
+    "status":200
+    "data": {
+        "hashid": "mproPpoq6O",
+        "name": "知乎",
+        "display": "热榜",
+        "domain": "zhihu.com",
+        "logo": "********",
+        "items": [
+            {
+                "extra": "455 万热度",
+                "url": "https://www.zhihu.com/question/629047878",
+                "thumbnail": "https://pica.zhimg.com/80/v2-00a693d9ac81c601223512d5725cbacd_1440w.png",
+                "description": "美联储加息周期终于似要走到尽头了。 ",
+                "title": "美元大跳水，10 年期美债收益率大跌，离岸人民币大涨 400 点，美股五连阳，美联储加息周期到头了吗？"
+            },
+            {
+                "extra": "206 万热度",
+                "url": "https://www.zhihu.com/question/621684259",
+                "thumbnail": "https://pic3.zhimg.com/50/v2-0e599dcb44ad61215462fdfbb58d983e_qhd.jpg",
+                "description": "感觉老一辈的亲戚总是不知道一些边界感，每次都无下限的打探我的个人问题和生活，弄得我非常的不适。要怎么样才能有礼貌的进行回应呢？",
+                "title": "过节聚餐时总感到亲戚在惯性「侵犯」我的边界，是我太敏感还是「亲戚PTSD」在作祟？"
+            }
+            ...
+        ]
+    }
+  }</code></pre>
+<h4>返回参数说明</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">hashid</td>
+<td style="text-align: left;">varchar</td>
+<td>榜单节点 Hashid</td>
+</tr>
+<tr>
+<td style="text-align: left;">name</td>
+<td style="text-align: left;">varchar</td>
+<td>网站名称</td>
+</tr>
+<tr>
+<td style="text-align: left;">display</td>
+<td style="text-align: left;">varchar</td>
+<td>内容类型</td>
+</tr>
+<tr>
+<td style="text-align: left;">domain</td>
+<td style="text-align: left;">varchar</td>
+<td>域名</td>
+</tr>
+<tr>
+<td style="text-align: left;">logo</td>
+<td style="text-align: left;">varchar</td>
+<td>图标</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/title</td>
+<td style="text-align: left;">varchar</td>
+<td>标题</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/description</td>
+<td style="text-align: left;">varchar</td>
+<td>描叙</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/thumbnail</td>
+<td style="text-align: left;">varchar</td>
+<td>缩略图</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/url</td>
+<td style="text-align: left;">varchar</td>
+<td>地址</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/extra</td>
+<td style="text-align: left;">unknown</td>
+<td>附加内容，可能是任意格式内容</td>
+</tr>
+</tbody>
+</table>
+<h3>单个榜单历史数据集</h3>
+<h4>描述</h4>
+<p>获得榜单指定日期当天上榜的所有历史数据集，需要指定日期，一次性返回当天所有上榜数据，排序为上榜时间从先到后，本接口仅用来获取今天以前的历史日期数据，不返回当天数据。本接口一次性返回当天所有内容，不用翻页。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/nodes/@hashid/historys</code></pre>
+<p>@hashid 为全部榜单列表获取到的 hashid，注意 hashid 严格区分大小写。</p>
+<h4>方法</h4>
+<p><code>GET</code></p>
+<h4>参数</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">必选</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">date</td>
+<td style="text-align: left;">是</td>
+<td style="text-align: left;">String</td>
+<td>日期Y-m-d</td>
+<td>2023-01-01</td>
+</tr>
+</tbody>
+</table>
+<h4>cURL 请求示例</h4>
+<pre><code>curl --location 'https://api.tophubdata.com/nodes/mproPpoq6O/historys?date=2023-11-04' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<pre><code>  {
+    "error":false,
+    "status":200
+    "data": [
+        {
+            "extra": "455 万热度",
+            "url": "https://www.zhihu.com/question/629047878",
+            "thumbnail": "https://pica.zhimg.com/80/v2-00a693d9ac81c601223512d5725cbacd_1440w.png",
+            "description": "美联储加息周期终于似要走到尽头了。 ",
+            "title": "美元大跳水，10 年期美债收益率大跌，离岸人民币大涨 400 点，美股五连阳，美联储加息周期到头了吗？",
+            "time" : 1699095601
+        },
+        {
+            "extra": "206 万热度",
+            "url": "https://www.zhihu.com/question/621684259",
+            "thumbnail": "https://pic3.zhimg.com/50/v2-0e599dcb44ad61215462fdfbb58d983e_qhd.jpg",
+            "description": "感觉老一辈的亲戚总是不知道一些边界感，每次都无下限的打探我的个人问题和生活，弄得我非常的不适。要怎么样才能有礼貌的进行回应呢？",
+            "title": "过节聚餐时总感到亲戚在惯性「侵犯」我的边界，是我太敏感还是「亲戚PTSD」在作祟？",
+            "time" : 1699095601
+        }
+        ...
+    ]
+  }</code></pre>
+<h4>返回参数说明</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">title</td>
+<td style="text-align: left;">varchar</td>
+<td>标题</td>
+</tr>
+<tr>
+<td style="text-align: left;">description</td>
+<td style="text-align: left;">varchar</td>
+<td>描叙</td>
+</tr>
+<tr>
+<td style="text-align: left;">thumbnail</td>
+<td style="text-align: left;">varchar</td>
+<td>缩略图</td>
+</tr>
+<tr>
+<td style="text-align: left;">url</td>
+<td style="text-align: left;">varchar</td>
+<td>地址</td>
+</tr>
+<tr>
+<td style="text-align: left;">extra</td>
+<td style="text-align: left;">unknown</td>
+<td>附加内容，可能是任意格式内容</td>
+</tr>
+<tr>
+<td style="text-align: left;">time</td>
+<td style="text-align: left;">int</td>
+<td>10位时间戳(上榜时间)</td>
+</tr>
+</tbody>
+</table>
+<h3>全网热点内容搜索</h3>
+<h4>描述</h4>
+<p>搜索全站热点或者指定榜单节点内容。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/search</code></pre>
+<h4>方法</h4>
+<p><code>GET</code></p>
+<h4>参数</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">必选</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">q</td>
+<td style="text-align: left;">是</td>
+<td style="text-align: left;">String</td>
+<td>关键词</td>
+<td>苹果</td>
+</tr>
+<tr>
+<td style="text-align: left;">hashid</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">String</td>
+<td>搜索限定节点 hashid</td>
+<td>mproPpoq6O</td>
+</tr>
+<tr>
+<td style="text-align: left;">p</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">Int</td>
+<td>当前页码（每页最多返回50条，默认1）</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<h4>cURL 请求示例</h4>
+<pre><code>curl --location 'https://api.tophubdata.com/search?q=Apple&amp;hashid=mproPpoq6O&amp;p=1' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<pre><code>  {
+    "error":false,
+    "status":200
+    "data": {
+        "p": 1,
+        "pagesize": 50,
+        "totalpage": 2,
+        "totalsize": 99,
+        "items": [
+            {
+                "extra": "455 万热度",
+                "url": "https://www.zhihu.com/question/629047878",
+                "thumbnail": "https://pica.zhimg.com/80/v2-00a693d9ac81c601223512d5725cbacd_1440w.png",
+                "description": "美联储加息周期终于似要走到尽头了。 ",
+                "title": "美元大跳水，10 年期美债收益率大跌，离岸人民币大涨 400 点，美股五连阳，美联储加息周期到头了吗？",
+                "time" : 1699095601
+            },
+            {
+                "extra": "206 万热度",
+                "url": "https://www.zhihu.com/question/621684259",
+                "thumbnail": "https://pic3.zhimg.com/50/v2-0e599dcb44ad61215462fdfbb58d983e_qhd.jpg",
+                "description": "感觉老一辈的亲戚总是不知道一些边界感，每次都无下限的打探我的个人问题和生活，弄得我非常的不适。要怎么样才能有礼貌的进行回应呢？",
+                "title": "过节聚餐时总感到亲戚在惯性「侵犯」我的边界，是我太敏感还是「亲戚PTSD」在作祟？",
+                "time" : 1699095601
+            }
+            ...
+        ]
+    }
+  }</code></pre>
+<h4>返回参数说明</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">p</td>
+<td style="text-align: left;">int</td>
+<td>当前页码</td>
+</tr>
+<tr>
+<td style="text-align: left;">totalsize</td>
+<td style="text-align: left;">int</td>
+<td>总匹配数</td>
+</tr>
+<tr>
+<td style="text-align: left;">pagesize</td>
+<td style="text-align: left;">int</td>
+<td>每页返回记录数</td>
+</tr>
+<tr>
+<td style="text-align: left;">totalpage</td>
+<td style="text-align: left;">int</td>
+<td>总页数</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/title</td>
+<td style="text-align: left;">varchar</td>
+<td>标题</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/description</td>
+<td style="text-align: left;">varchar</td>
+<td>描叙</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/thumbnail</td>
+<td style="text-align: left;">varchar</td>
+<td>缩略图</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/url</td>
+<td style="text-align: left;">varchar</td>
+<td>地址</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/extra</td>
+<td style="text-align: left;">unknown</td>
+<td>附加内容，可能是任意格式内容</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/time</td>
+<td style="text-align: left;">int</td>
+<td>时间戳</td>
+</tr>
+</tbody>
+</table>
+<h3>今日热榜榜中榜</h3>
+<h4>描述</h4>
+<p>获取今日热榜网站实时榜中榜内容，需要指定日期，默认当天，一次性返回当天上榜数据TOP100，不用翻页。当天数据会随时变化，历史日期数据是不变的。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/hot</code></pre>
+<h4>方法</h4>
+<p><code>GET</code></p>
+<h4>参数</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">必选</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">date</td>
+<td style="text-align: left;">是</td>
+<td style="text-align: left;">String</td>
+<td>日期Y-m-d</td>
+<td>2023-01-01</td>
+</tr>
+</tbody>
+</table>
+<h4>cURL 请求示例</h4>
+<pre><code>curl --location 'https://api.tophubdata.com/hot?date=2023-11-04' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<pre><code>  {
+    "error":false,
+    "status":200
+    "data": [
+        {
+          "title": "报告称一包烟 0.5 元的烟叶 9 元的税，利润率超六成，烟农毛收入 0.45 元，哪些信息值得关注？",
+          "description": "吸烟者每吸一包烟，平均消费0.52元的烟叶，为烟草行业职工发了0.87元工资，为国家缴了9.05元的税。有学者建议到2030年烟草制品应提税至78％。 在中国，吸烟者每吸一包烟，平均消费0.52元的烟叶，为烟草行业职工发了0.87元工资，为国家缴了9.05元的税，也即一包烟的税占比为48.4％。 近日，对外经济贸易大学世界卫生组织烟草控制与经济政策合作中心发布《烟草消费税改革暨烟草行业全产业链研究》（下称“报告”）显示，2020年一包卷烟加权平均的零售价格为18.69元，并进一步剖析了一包卷烟在产业链各环",
+          "thumbnail": "https://pic3.zhimg.com/80/v2-f33a654b841726108d6e67af33f80c9c_720w.webp",
+          "url": "https://www.zhihu.com/question/628926775",
+          "time": "1699026261",
+          "domain": "zhihu.com",
+          "sitename": "知乎",
+          "logo": "https://file.ibmwclub.com/tophub/assets/images/media/zhihu.com.png",
+          "views": "2749 万热度"
+        },
+        ...
+        {
+          "title": "北大宿舍聊天 婚姻残酷真相",
+          "description": "",
+          "thumbnail": "",
+          "url": "https://s.weibo.com/weibo?q=%E5%8C%97%E5%A4%A7%E5%AE%BF%E8%88%8D%E8%81%8A%E5%A4%A9+%E5%A9%9A%E5%A7%BB%E6%AE%8B%E9%85%B7%E7%9C%9F%E7%9B%B8",
+          "time": "1699083604",
+          "domain": "s.weibo.com",
+          "sitename": "微博",
+          "logo": "https://file.ibmwclub.com/tophub/assets/images/media/s.weibo.com.png",
+          "views": "740 万热度"
+        }
+        ...
+    ]
+  }</code></pre>
+<h4>返回参数说明</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">title</td>
+<td style="text-align: left;">varchar</td>
+<td>标题</td>
+</tr>
+<tr>
+<td style="text-align: left;">description</td>
+<td style="text-align: left;">varchar</td>
+<td>描叙</td>
+</tr>
+<tr>
+<td style="text-align: left;">thumbnail</td>
+<td style="text-align: left;">varchar</td>
+<td>缩略图</td>
+</tr>
+<tr>
+<td style="text-align: left;">url</td>
+<td style="text-align: left;">varchar</td>
+<td>地址</td>
+</tr>
+<tr>
+<td style="text-align: left;">time</td>
+<td style="text-align: left;">int</td>
+<td>10位时间戳(上榜时间)</td>
+</tr>
+<tr>
+<td style="text-align: left;">domain</td>
+<td style="text-align: left;">varchar</td>
+<td>来源网站域名</td>
+</tr>
+<tr>
+<td style="text-align: left;">sitename</td>
+<td style="text-align: left;">varchar</td>
+<td>来源网站名称</td>
+</tr>
+<tr>
+<td style="text-align: left;">logo</td>
+<td style="text-align: left;">varchar</td>
+<td>LOGO地址</td>
+</tr>
+<tr>
+<td style="text-align: left;">views</td>
+<td style="text-align: left;">varchar</td>
+<td>热度值</td>
+</tr>
+</tbody>
+</table>
+<h3>单个榜单快照列表</h3>
+<h4>描述</h4>
+<p>获取指定榜单某天的所有快照列表，支持两种模式：</p>
+<ol>
+<li><strong>仅获取快照列表</strong>（默认，免费）：返回当天所有快照的 ID 和时间戳信息</li>
+<li><strong>获取快照详细内容</strong>（收费）：一次性返回当天所有快照的完整数据，按快照数量计费</li>
+</ol>
+<p>注意：只有榜单类的节点才有快照。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/nodes/@hashid/snapshots</code></pre>
+<p>@hashid 为全部榜单列表获取到的 hashid，注意 hashid 严格区分大小写。</p>
+<h4>方法</h4>
+<p><code>GET</code></p>
+<h4>参数</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">必选</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">date</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">String</td>
+<td>日期Y-m-d（默认当天）</td>
+<td>2025-11-11</td>
+</tr>
+<tr>
+<td style="text-align: left;">details</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">Int</td>
+<td>是否获取详细内容，默认=0，0=仅列表（免费），1=包含详细内容（收费）</td>
+<td>0 或 1</td>
+</tr>
+</tbody>
+</table>
+<h4>计费说明</h4>
+<ul>
+<li><strong>仅获取快照列表（details=0 或不传）</strong>：免费</li>
+<li><strong>获取快照详细内容（details=1）</strong>：按快照数量计费，1u/个快照。例如当天有20个快照，则消耗20u</li>
+</ul>
+<h4>cURL 请求示例</h4>
+<p><strong>仅获取快照列表（免费）</strong></p>
+<pre><code>curl --location 'https://api.tophubdata.com/nodes/mproPpoq6O/snapshots?date=2025-11-11' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p><strong>获取快照详细内容（收费）</strong></p>
+<pre><code>curl --location 'https://api.tophubdata.com/nodes/mproPpoq6O/snapshots?date=2025-11-11&amp;details=1' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<p><strong>仅获取快照列表（details=0）</strong></p>
+<pre><code>  {
+    "error":false,
+    "status":200,
+    "data": [
+        {
+            "ssid": 12345,
+            "timestamp": 1699095601
+        },
+        {
+            "ssid": 12346,
+            "timestamp": 1699099201
+        }
+        ...
+    ]
+  }</code></pre>
+<p><strong>获取快照详细内容（details=1）</strong></p>
+<pre><code>  {
+    "error":false,
+    "status":200,
+    "data": [
+        {
+            "ssid": 12345,
+            "timestamp": 1699095601,
+            "items": [
+                {
+                    "title": "美元大跳水，10 年期美债收益率大跌",
+                    "description": "美联储加息周期终于似要走到尽头了。",
+                    "thumbnail": "https://pica.zhimg.com/80/v2-00a693d9ac81c601223512d5725cbacd_1440w.png",
+                    "url": "https://www.zhihu.com/question/629047878",
+                    "extra": "455 万热度"
+                }
+                ...
+            ]
+        },
+        {
+            "ssid": 12346,
+            "timestamp": 1699099201,
+            "items": [
+                {
+                    "title": "过节聚餐时总感到亲戚在惯性「侵犯」我的边界",
+                    "description": "感觉老一辈的亲戚总是不知道一些边界感...",
+                    "thumbnail": "https://pic3.zhimg.com/50/v2-0e599dcb44ad61215462fdfbb58d983e_qhd.jpg",
+                    "url": "https://www.zhihu.com/question/621684259",
+                    "extra": "206 万热度"
+                }
+                ...
+            ]
+        }
+        ...
+    ]
+  }</code></pre>
+<h4>返回参数说明</h4>
+<p><strong>仅获取快照列表时：</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">ssid</td>
+<td style="text-align: left;">int</td>
+<td>快照ID</td>
+</tr>
+<tr>
+<td style="text-align: left;">timestamp</td>
+<td style="text-align: left;">int</td>
+<td>10位时间戳（快照时间）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>获取快照详细内容时：</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">ssid</td>
+<td style="text-align: left;">int</td>
+<td>快照ID</td>
+</tr>
+<tr>
+<td style="text-align: left;">timestamp</td>
+<td style="text-align: left;">int</td>
+<td>10位时间戳（快照时间）</td>
+</tr>
+<tr>
+<td style="text-align: left;">items</td>
+<td style="text-align: left;">array</td>
+<td>快照内容列表</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/title</td>
+<td style="text-align: left;">varchar</td>
+<td>标题</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/description</td>
+<td style="text-align: left;">varchar</td>
+<td>描述</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/thumbnail</td>
+<td style="text-align: left;">varchar</td>
+<td>缩略图</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/url</td>
+<td style="text-align: left;">varchar</td>
+<td>地址</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/extra</td>
+<td style="text-align: left;">unknown</td>
+<td>附加内容</td>
+</tr>
+</tbody>
+</table>
+<h3>单个榜单快照详情</h3>
+<h4>描述</h4>
+<p>根据快照 ID 获取指定快照的详细内容，包含该快照时刻的完整榜单数据。需要先通过快照列表接口获取 ssid，然后使用此接口查询快照详情。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/nodes/@hashid/snapshots/@ssid</code></pre>
+<p>@hashid 为全部榜单列表获取到的 hashid，@ssid 为快照列表接口返回的快照 ID。</p>
+<h4>方法</h4>
+<p><code>GET</code></p>
+<h4>参数</h4>
+<p>无需额外参数。</p>
+<h4>cURL 请求示例</h4>
+<pre><code>curl --location 'https://api.tophubdata.com/nodes/mproPpoq6O/snapshots/12345' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<pre><code>  {
+    "error":false,
+    "status":200
+    "data": {
+        "ssid": 12345,
+        "timestamp": 1699095601,
+        "items": [
+            {
+                "title": "美元大跳水，10 年期美债收益率大跌，离岸人民币大涨 400 点，美股五连阳，美联储加息周期到头了吗？",
+                "description": "美联储加息周期终于似要走到尽头了。",
+                "thumbnail": "https://pica.zhimg.com/80/v2-00a693d9ac81c601223512d5725cbacd_1440w.png",
+                "url": "https://www.zhihu.com/question/629047878",
+                "extra": "455 万热度"
+            },
+            {
+                "title": "过节聚餐时总感到亲戚在惯性「侵犯」我的边界，是我太敏感还是「亲戚PTSD」在作祟？",
+                "description": "感觉老一辈的亲戚总是不知道一些边界感，每次都无下限的打探我的个人问题和生活，弄得我非常的不适。要怎么样才能有礼貌的进行回应呢？",
+                "thumbnail": "https://pic3.zhimg.com/50/v2-0e599dcb44ad61215462fdfbb58d983e_qhd.jpg",
+                "url": "https://www.zhihu.com/question/621684259",
+                "extra": "206 万热度"
+            }
+            ...
+        ]
+    }
+  }</code></pre>
+<h4>返回参数说明</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">ssid</td>
+<td style="text-align: left;">int</td>
+<td>快照ID</td>
+</tr>
+<tr>
+<td style="text-align: left;">timestamp</td>
+<td style="text-align: left;">int</td>
+<td>10位时间戳（快照时间）</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/title</td>
+<td style="text-align: left;">varchar</td>
+<td>标题</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/description</td>
+<td style="text-align: left;">varchar</td>
+<td>描叙</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/thumbnail</td>
+<td style="text-align: left;">varchar</td>
+<td>缩略图</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/url</td>
+<td style="text-align: left;">varchar</td>
+<td>地址</td>
+</tr>
+<tr>
+<td style="text-align: left;">items/extra</td>
+<td style="text-align: left;">unknown</td>
+<td>附加内容，可能是任意格式内容</td>
+</tr>
+</tbody>
+</table>
+<h3>热点日历事件</h3>
+<h4>描述</h4>
+<p>获取指定日期范围内的日历事件数据，支持按天、按周、按月查询，支持按分类筛选。本接口采用分级计费模式，不同查询模式费用不同。支持节气、农历节日、公历节日、纪念日、颁奖典礼、影视上映、重要事件、大型展会、互联网热点营销热点案例集锦。</p>
+<h4>地址</h4>
+<pre><code>https://api.tophubdata.com/calendar/events</code></pre>
+<h4>方法</h4>
+<p><code>GET</code></p>
+<h4>参数</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">必选</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">mode</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">String</td>
+<td>查询模式：day(按天)、week(按周)、month(按月)，默认day</td>
+<td>day</td>
+</tr>
+<tr>
+<td style="text-align: left;">date</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">String</td>
+<td>日期Y-m-d，默认当天</td>
+<td>2023-11-04</td>
+</tr>
+<tr>
+<td style="text-align: left;">categories</td>
+<td style="text-align: left;">否</td>
+<td style="text-align: left;">String</td>
+<td>分类ID，多个用逗号分隔，all表示全部，默认all</td>
+<td>1,2,3 或 all</td>
+</tr>
+</tbody>
+</table>
+<h4>分类说明</h4>
+<table>
+<thead>
+<tr>
+<th>分类ID</th>
+<th>分类名称</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>节气</td>
+<td>二十四节气</td>
+</tr>
+<tr>
+<td>2</td>
+<td>公历节日</td>
+<td>公历节日</td>
+</tr>
+<tr>
+<td>3</td>
+<td>农历节日</td>
+<td>农历节日</td>
+</tr>
+<tr>
+<td>4</td>
+<td>国际节日</td>
+<td>国际节日</td>
+</tr>
+<tr>
+<td>5</td>
+<td>纪念日</td>
+<td>各类纪念日</td>
+</tr>
+<tr>
+<td>6</td>
+<td>颁奖典礼</td>
+<td>各类颁奖典礼</td>
+</tr>
+<tr>
+<td>7</td>
+<td>影视上映</td>
+<td>影视作品上映</td>
+</tr>
+<tr>
+<td>8</td>
+<td>互联网科技</td>
+<td>互联网科技事件</td>
+</tr>
+<tr>
+<td>9</td>
+<td>展会活动</td>
+<td>各类展会活动</td>
+</tr>
+<tr>
+<td>10</td>
+<td>品牌日</td>
+<td>品牌营销日</td>
+</tr>
+<tr>
+<td>20</td>
+<td>佛历</td>
+<td>佛教历法</td>
+</tr>
+<tr>
+<td>21</td>
+<td>道历</td>
+<td>道教历法</td>
+</tr>
+<tr>
+<td>22</td>
+<td>回历</td>
+<td>伊斯兰历法</td>
+</tr>
+<tr>
+<td>23</td>
+<td>天象历</td>
+<td>天文现象</td>
+</tr>
+<tr>
+<td>24</td>
+<td>跨境日历</td>
+<td>跨境电商日历</td>
+</tr>
+<tr>
+<td>25</td>
+<td>物候</td>
+<td>物候现象</td>
+</tr>
+</tbody>
+</table>
+<h4>计费说明</h4>
+<p>不同查询模式费用不同：</p>
+<ul>
+<li><strong>按天查询（day）</strong>：20u/次</li>
+<li><strong>按周查询（week）</strong>：100u/次</li>
+<li><strong>按月查询（month）</strong>：300u/次</li>
+</ul>
+<h4>cURL 请求示例</h4>
+<p><strong>按天查询</strong></p>
+<pre><code>curl --location 'https://api.tophubdata.com/calendar/events?mode=day&amp;date=2023-11-04&amp;categories=all' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p><strong>按周查询指定分类</strong></p>
+<pre><code>curl --location 'https://api.tophubdata.com/calendar/events?mode=week&amp;date=2023-11-04&amp;categories=1,2,3' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p><strong>按月查询</strong></p>
+<pre><code>curl --location 'https://api.tophubdata.com/calendar/events?mode=month&amp;date=2023-11-04&amp;categories=all' --header 'Authorization: YOUR_ACCESS_KEY'</code></pre>
+<p>可以复制上面示例到 Postman 这类型调试工具直接运行。</p>
+<h4>返回示例</h4>
+<pre><code>  {
+    "error":false,
+    "status":200,
+    "data": {
+        "mode": "week",
+        "start": "2023-10-30",
+        "end": "2023-11-05",
+        "categories": "1,2,3",
+        "count": 15,
+        "events": [
+            {
+                "cid": 1,
+                "start": "2023-11-04",
+                "end": "2023-11-04",
+                "title": "立冬",
+                "description": "二十四节气之一"
+            },
+            {
+                "cid": 2,
+                "start": "2023-11-01",
+                "end": "2023-11-01",
+                "title": "万圣节",
+                "description": "西方传统节日"
+            },
+            {
+                "cid": 3,
+                "start": "2023-11-03",
+                "end": "2023-11-03",
+                "title": "寒衣节",
+                "description": "农历十月初一"
+            }
+            ...
+        ]
+    }
+  }</code></pre>
+<h4>返回参数说明</h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">参数名</th>
+<th style="text-align: left;">类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">mode</td>
+<td style="text-align: left;">string</td>
+<td>查询模式</td>
+</tr>
+<tr>
+<td style="text-align: left;">start</td>
+<td style="text-align: left;">string</td>
+<td>开始日期</td>
+</tr>
+<tr>
+<td style="text-align: left;">end</td>
+<td style="text-align: left;">string</td>
+<td>结束日期</td>
+</tr>
+<tr>
+<td style="text-align: left;">categories</td>
+<td style="text-align: left;">string</td>
+<td>查询的分类</td>
+</tr>
+<tr>
+<td style="text-align: left;">count</td>
+<td style="text-align: left;">int</td>
+<td>事件总数</td>
+</tr>
+<tr>
+<td style="text-align: left;">events/cid</td>
+<td style="text-align: left;">int</td>
+<td>分类ID</td>
+</tr>
+<tr>
+<td style="text-align: left;">events/start</td>
+<td style="text-align: left;">string</td>
+<td>事件开始日期</td>
+</tr>
+<tr>
+<td style="text-align: left;">events/end</td>
+<td style="text-align: left;">string</td>
+<td>事件结束日期</td>
+</tr>
+<tr>
+<td style="text-align: left;">events/title</td>
+<td style="text-align: left;">string</td>
+<td>事件标题</td>
+</tr>
+<tr>
+<td style="text-align: left;">events/description</td>
+<td style="text-align: left;">string</td>
+<td>事件描述（可选）</td>
+</tr>
+</tbody>
+</table>
+<h4>注意事项</h4>
+<ol>
+<li>按周查询时，会自动计算指定日期所在周的周一到周日</li>
+<li>按月查询时，会自动计算指定日期所在月的第一天到最后一天</li>
+<li>categories 参数支持多个分类ID，用英文逗号分隔，如：1,2,3</li>
+<li>categories 设置为 all 时，返回所有分类的事件</li>
+</ol>
+<h2>实时回调</h2>
+<h3>Webhook 回调</h3>
+<p>当我们的系统更新某个网站的榜单时，我们会立即向您指定的 URL 发送一个回调，包含最新的榜单内容。</p>
+<p>通过这种方式，您可以实时获取最新的数据，确保您获得的数据与我们的系统高度同步，而且不会遗漏任何信息。</p>
+<p>Webhook 通知向您指定的 URL 发送 HTTP POST 请求。请求消息主体是序列化的 JSON 字符串，采用<code>application/json</code>请求头。</p>
+<h4>请求 POST JSON 数据示例</h4>
+<pre><code>  {
+      "hashid": "mproPpoq6O",
+      "name": "知乎",
+      "display": "热榜",
+      "domain": "zhihu.com",
+      "logo": "********",
+      "items": [
+          {
+              "extra": "455 万热度",
+              "url": "https://www.zhihu.com/question/629047878",
+              "thumbnail": "https://pica.zhimg.com/80/v2-00a693d9ac81c601223512d5725cbacd_1440w.png",
+              "description": "美联储加息周期终于似要走到尽头了。 ",
+              "title": "美元大跳水，10 年期美债收益率大跌，离岸人民币大涨 400 点，美股五连阳，美联储加息周期到头了吗？"
+          },
+          {
+              "extra": "206 万热度",
+              "url": "https://www.zhihu.com/question/621684259",
+              "thumbnail": "https://pic3.zhimg.com/50/v2-0e599dcb44ad61215462fdfbb58d983e_qhd.jpg",
+              "description": "感觉老一辈的亲戚总是不知道一些边界感，每次都无下限的打探我的个人问题和生活，弄得我非常的不适。要怎么样才能有礼貌的进行回应呢？",
+              "title": "过节聚餐时总感到亲戚在惯性「侵犯」我的边界，是我太敏感还是「亲戚PTSD」在作祟？"
+          }
+          ...
+      ]
+  }</code></pre>
+<p>您的URL应在几秒钟内响应 2xx 状态代码，否则可能会重试 Webhook。对于失败的响应，我们在2分钟内会尝试重试3次（间隔30s），不会无限制重试，请确保响应 URL 一直处于无阻塞状态。</p>
+<p>值得注意的是，这个功能仅对我们的大客户开放，以确保服务的质量和效率。您无需逐个调用接口获取数据，而是通过回调即可获得所需的信息。</p>
+<h2>SDK 接入</h2>
+<h3>演示 DEMO</h3>
+<p>注意，请勿在客户端直接调用 API，务必使用自己的服务器嵌套接口使用，同一 ACCESS_KEY 频繁变化请求 IP 会被系统直接禁用。以下是常见后端开发语言演示 Demo：</p>
+<ul>
+<li>PHP <a href="https://github.com/ieliwb/tophub-api/blob/master/PHP/tophub.php">https://github.com/ieliwb/tophub-api/blob/master/PHP/tophub.php</a></li>
+<li>JAVA <a href="https://github.com/ieliwb/tophub-api/blob/master/Java/tophub.java">https://github.com/ieliwb/tophub-api/blob/master/Java/tophub.java</a></li>
+<li>Python <a href="https://github.com/ieliwb/tophub-api/blob/master/Python/tophub.py">https://github.com/ieliwb/tophub-api/blob/master/Python/tophub.py</a></li>
+<li>Node.js <a href="https://github.com/ieliwb/tophub-api/blob/master/Nodejs/tophub.js">https://github.com/ieliwb/tophub-api/blob/master/Nodejs/tophub.js</a></li>
+<li>Go <a href="https://github.com/ieliwb/tophub-api/blob/master/Go/tophub.go">https://github.com/ieliwb/tophub-api/blob/master/Go/tophub.go</a></li>
+<li>C# <a href="https://github.com/ieliwb/tophub-api/blob/master/CSsharp/tophub.cs">https://github.com/ieliwb/tophub-api/blob/master/CSsharp/tophub.cs</a></li>
+<li>Ruby <a href="https://github.com/ieliwb/tophub-api/blob/master/Ruby/tophub.rb">https://github.com/ieliwb/tophub-api/blob/master/Ruby/tophub.rb</a></li>
+</ul>
+<p>接口过于简单，大家也可以自己封装。</p>          
+        </div>
+
+      </article>
+    </div>
+  </div>
+</div>
+
+<script src="https://s4.zstatic.net/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="https://s4.zstatic.net/ajax/libs/anchor-js/4.3.1/anchor.min.js"></script>
+<script>
+anchors.options.placement="left",anchors.add(".js-anchors h1, .js-anchors h2, .js-anchors h3, .js-anchors h4");
+
+
+$(document).ready(function() {
+  $(".dropdown").click(function(e) {
+    e.stopPropagation();
+    $(this).toggleClass("open");
+  });
+  
+  $(document).click(function() {
+    $(".dropdown").removeClass("open");
+  });
+});
+</script> 
+
+</body>
+</html>
