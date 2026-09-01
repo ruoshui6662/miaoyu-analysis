@@ -467,6 +467,12 @@
   .tasks li { display: flex; gap: 12px; align-items: center; padding: 9px 6px; border-bottom: 1px dashed var(--border); font-size: 13.5px; cursor: pointer; border-radius: 6px; margin: 0 -6px; padding-left: 6px; padding-right: 6px; }
   .tasks li:hover { background: var(--surface); }
   .task-meta { color: var(--text-3); font-size: 12px; margin-left: auto; }
+  .file-view { color: var(--primary); cursor: pointer; font-size: 13.5px; }
+  .file-view:hover { text-decoration: underline; }
+  .file-view.muted { color: var(--text-3); cursor: default; }
+  .file-view.muted:hover { text-decoration: none; }
+  .file-dl { margin-left: 10px; color: var(--text-3); font-size: 15px; }
+  .file-dl:hover { color: var(--primary); }
   .hidden { display: none; }
 
   @media print {
@@ -1239,6 +1245,18 @@ function openTaskReport(id) {
   poll();
 }
 
+/* 历史报告文件：页面内预览（读取关联 JSON -> 复用报告渲染） */
+async function previewReportFile(jsonName) {
+  const r = await fetch("/api/reports/" + encodeURIComponent(jsonName));
+  if (!r.ok) { toast("预览失败：JSON 不存在"); return; }
+  const rep = await r.json();
+  showView("home");
+  $("progressCard").classList.add("hidden");
+  currentTask = null;
+  renderReport(rep);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 async function loadReportFiles() {
   const files = await api("/api/reports/list");
   if (!Array.isArray(files)) return;
@@ -1253,8 +1271,16 @@ async function loadReportFiles() {
     const sliceN = showAll ? files.length : limit;
     for (const f of files.slice(0, sliceN)) {
       const li = document.createElement("li");
-      li.innerHTML = `<a href="${f.url}" download>⬇ ${esc(f.name)}</a>
-        <span class="task-meta">${f.kind} · ${(f.size / 1024).toFixed(0)} KB</span>`;
+      // 默认主操作 = 页面内预览；下载为次级
+      let inner = "";
+      if (f.json_name) {
+        inner += `<span class="file-view" onclick="previewReportFile('${f.json_name}')">📄 ${esc(f.name)}</span>`;
+      } else {
+        inner += `<span class="file-view muted" title="该文件无 JSON 预览数据，仅可下载">📄 ${esc(f.name)}</span>`;
+      }
+      inner += `<a class="file-dl" href="${f.url}" download title="下载 ${f.kind}">⬇</a>`;
+      inner += `<span class="task-meta">${f.kind} · ${(f.size / 1024).toFixed(0)} KB</span>`;
+      li.innerHTML = inner;
       box.appendChild(li);
     }
     if (expandable && files.length > limit) {

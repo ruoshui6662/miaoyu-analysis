@@ -140,12 +140,16 @@ def api_task(tid: str):
 
 @app.get("/api/reports/list")
 def api_reports_list():
-    """历史报告文件清单（docx/md，按修改时间倒序），B3 补充入口。"""
+    """历史报告文件清单（docx/md，按修改时间倒序）+ 关联 JSON（用于页面内预览）。"""
     files = []
     for p in sorted(DATA_DIR_REPORTS.glob("*.*"), key=lambda x: -x.stat().st_mtime):
         if p.suffix.lower() in (".docx", ".md") and not p.name.startswith("~"):
-            files.append({"name": p.name, "kind": p.suffix.lstrip(".").upper(),
-                          "url": f"/api/reports/{p.name}", "size": p.stat().st_size})
+            j = p.with_suffix(".json")
+            files.append({
+                "name": p.name, "kind": p.suffix.lstrip(".").upper(),
+                "url": f"/api/reports/{p.name}", "size": p.stat().st_size,
+                "json_name": j.name if j.exists() else "",
+            })
     return jsonify(files[:100])
 
 
