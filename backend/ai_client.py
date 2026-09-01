@@ -1,4 +1,4 @@
-"""OpenAI 兼容多后端 AI 客户端：本地 9router / DeepSeek / 通义千问(可开 enable_search)。
+"""OpenAI 兼容多后端 AI 客户端：一套通用服务商注册表（内置品牌 + 自定义，见 config.AI_PROVIDERS）。
 
 用法：
     from ai_client import AIClient
@@ -12,17 +12,26 @@ import time
 
 import requests
 
-from config import AI_ROUTER, DEEPSEEK, QWEN, HTTP_TIMEOUT, USER_AGENT, pick_provider
+from config import USER_AGENT, pick_provider
+import config as _cfg
 
-DEEPSEEK_BASE = "https://api.deepseek.com/v1"
-QWEN_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
-_PROVIDERS = {
-    # name -> (base_url, api_key, default_model, enable_search)
-    "router": (AI_ROUTER["base_url"], AI_ROUTER["api_key"], AI_ROUTER["model"], False),
-    "deepseek": (DEEPSEEK_BASE, DEEPSEEK["api_key"], DEEPSEEK["model"], False),
-    "qwen": (QWEN_BASE, QWEN["api_key"], QWEN["model"], QWEN["enable_search"]),
-}
+def _providers() -> dict:
+    """从 config 注册表动态读取（设置页保存后 reload() 即生效，无需重启）。
+
+    注意必须用 _cfg 模块点访问：config.reload() 会整体替换模块级变量，
+    `from config import X` 的快照不会随之更新。
+    返回 name -> (base_url, api_key, default_model, enable_search)
+    """
+    ps: dict = {}
+    for pid, p in _cfg.AI_PROVIDERS.items():
+        ps[pid] = (
+            p.get("endpoint") or "",
+            p.get("apiKey") or "",
+            p.get("model") or "",
+            bool(p.get("enable_search")),
+        )
+    return ps
 
 
 class AIClientError(RuntimeError):
@@ -36,16 +45,18 @@ class AIClient:
 
     def _resolve(self, provider: str | None) -> tuple[str, str, str, bool]:
         name = (provider or pick_provider()).lower()
-        if name not in _PROVIDERS:
-            raise AIClientError(f"未知 provider: {name}（可选 router/deepseek/qwen）")
-        base, key, model, search = _PROVIDERS[name]
+        ps = _providers()
+        if name not in ps:
+            raise AIClientError(f"未知 provider: {name}（请在设置页配置服务商）")
+        base, key, model, search = ps[name]
+        entry = _cfg.AI_PROVIDERS.get(name, {})
         if not base:
-            raise AIClientError(f"provider '{name}' 未配置 base_url（请检查 .env）")
-        if not key and name in ("deepseek", "qwen"):
+            raise AIClientError(f"provider '{name}' 未配置接口地址（Base URL）")
+        if not model:
+            raise AIClientError(f"provider '{name}' 未配置模型名称")
+        if not key and entry.get("custom") is not True:
             raise AIClientError(f"provider '{name}' 缺少 API key（请填写 .env）")
-        if name == "router" and not key:
-            key = "local"  # 本地网关常不需要 key
-        return base, key, model or "default", search
+        return base, key, model, search
 
     _RETRY_BACKOFF = (2, 5, 10)
 
@@ -188,7 +199,7 @@ class AIClient:
 
 
 def name_check(base: str) -> str:
-    for name, (b, *_rest) in _PROVIDERS.items():
+    for name, (b, *_rest) in _providers().items():
         if b and b.split("/")[-1] in base:
             return name
     return "AI"

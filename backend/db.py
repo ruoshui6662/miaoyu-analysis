@@ -25,11 +25,29 @@ CREATE TABLE IF NOT EXISTS sources (
 )
 """
 
+TASKS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  topic TEXT NOT NULL DEFAULT '',
+  provider TEXT DEFAULT '',
+  verify INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'pending',
+  step TEXT DEFAULT '',
+  detail TEXT DEFAULT '',
+  created_at TEXT DEFAULT '',
+  finished_at TEXT DEFAULT '',
+  report_file TEXT DEFAULT '',
+  report_summary TEXT DEFAULT '',
+  error TEXT DEFAULT ''
+)
+"""
+
 
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(str(SETTINGS_DB))
     conn.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
     conn.execute(SOURCES_SCHEMA)
+    conn.execute(TASKS_SCHEMA)
     return conn
 
 
@@ -165,3 +183,76 @@ def enabled_sites() -> dict[str, str]:
             if h:
                 out[h] = level
     return out
+
+
+# ---------- tasks（B3 历史持久化）----------
+
+def task_create(tid: str, topic: str, provider: str = "", verify: bool = False,
+                created_at: str = "") -> None:
+    conn = _conn()
+    try:
+        conn.execute(
+            "INSERT INTO tasks(id, topic, provider, verify, status, created_at) "
+            "VALUES(?,?,?,?, 'pending', ?)",
+            (tid, topic, provider, 1 if verify else 0, created_at))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def task_update(tid: str, **fields) -> None:
+    """更新任务字段（status/step/detail/report_file/report_summary/error/finished_at）。"""
+    allowed = ("status", "step", "detail", "report_file", "report_summary", "error", "finished_at")
+    items = {k: v for k, v in fields.items() if k in allowed}
+    if not items:
+        return
+    cols = ", ".join(f"{k} = ?" for k in items)
+    conn = _conn()
+    try:
+        conn.execute(f"UPDATE tasks SET {cols} WHERE id = ?", (*items.values(), tid))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def task_list(limit: int = 100) -> list[dict]:
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, topic, provider, verify, status, step, detail, created_at, "
+            "finished_at, report_summary, error FROM tasks "
+            "ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,)).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        _id, topic, provider, verify, status, step, detail, created_at, finished_at, summary, error = r
+        out.append({
+            "id": _id, "topic": topic, "provider": provider, "verify": bool(verify),
+            "status": status, "step": step, "detail": detail,
+            "created_at": created_at, "finished_at": finished_at or "",
+            "report_summary": json.loads(summary) if summary else None, "error": error or "",
+        })
+    return out
+
+
+def task_get(tid: str) -> dict | None:
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, topic, provider, verify, status, step, detail, created_at, "
+            "finished_at, report_file, report_summary, error FROM tasks WHERE id = ?",
+            (tid,)).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return None
+    r = rows[0]
+    _id, topic, provider, verify, status, step, detail, created_at, finished_at, report_file, summary, error = r
+    return {
+        "id": _id, "topic": topic, "provider": provider, "verify": bool(verify),
+        "status": status, "step": step, "detail": detail,
+        "created_at": created_at, "finished_at": finished_at or "",
+        "report_file": report_file or "", "report_summary": json.loads(summary) if summary else None,
+        "error": error or "",
+    }
