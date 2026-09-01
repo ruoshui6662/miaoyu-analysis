@@ -83,11 +83,13 @@
   .f-help { font-size: 12px; color: var(--muted); margin-top: -4px; }
   .f-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
   @media (max-width: 720px) { .f-grid { grid-template-columns: 1fr; } }
-  .f-grid input, textarea.input {
+  .f-grid input, textarea.input, input.sel {
     width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid var(--line); border-radius: 9px; outline: none;
   }
   textarea.input { min-height: 60px; resize: vertical; }
   select.sel { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid var(--line); border-radius: 9px; outline: none; background: #fff; }
+  .pcard { display: none; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-top: 12px; animation: fadeIn .25s; }
+  .pcard.show { display: block; }
   .group-title { font-size: 14px; font-weight: 700; color: var(--primary); margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--line); }
   .group-title .badge { font-weight: 600; vertical-align: middle; }
   .checks { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 2px; }
@@ -209,34 +211,42 @@
       <div class="f-help">公网或内网 SearXNG 实例（JSON API 需开启）。</div>
 
       <div class="group-title">AI 接口</div>
-      <div class="f-label">主模型来源</div>
-      <select class="sel" id="s_provider">
-        <option value="">自动选择（有可用配置者优先）</option>
-        <option value="router">本地网关（9router 等）</option>
+      <div class="f-label">接口类型（选择后弹出对应配置）</div>
+      <select class="sel" id="s_provider" onchange="showProvider(this.value)">
+        <option value="">自动选择（使用已配置且可用的接口）</option>
+        <option value="router">本地网关（9router 等 OpenAI 兼容）</option>
         <option value="deepseek">DeepSeek 官方</option>
         <option value="qwen">通义千问</option>
       </select>
+      <div class="f-help" id="autoNote"></div>
 
-      <div class="f-label">本地网关（OpenAI 兼容）</div>
-      <div class="f-grid">
-        <span><label class="f-help" style="margin:0 0 4px;display:block">网关地址（含 /v1）</label><input id="s_rbase" placeholder="http://192.168.x.x:20128/v1"></span>
-        <span><label class="f-help" style="margin:0 0 4px;display:block">网关 Key</label><input id="s_rkey" type="password" placeholder="留空表示不变"></span>
-        <span><label class="f-help" style="margin:0 0 4px;display:block">模型（建议 flash 快模型）</label><input id="s_rmodel" placeholder="ali/deepseek-v4-flash-0731"></span>
-        <span></span>
+      <!-- 本地网关 -->
+      <div id="card-router" class="pcard">
+        <div class="f-label">网关地址（含 /v1）</div>
+        <div class="f-grid">
+          <input id="s_rbase" placeholder="http://192.168.x.x:20128/v1">
+          <input id="s_rmodel" placeholder="模型，建议 flash 快模型，如 ali/deepseek-v4-flash-0731">
+        </div>
+        <div class="f-label" style="margin-top:10px">网关 Key</div>
+        <input class="sel" id="s_rkey" type="password" placeholder="留空表示保持不变">
       </div>
 
-      <div class="f-label">DeepSeek 官方</div>
-      <div class="f-grid">
-        <span><label class="f-help" style="margin:0 0 4px;display:block">Key</label><input id="s_dkey" type="password" placeholder="留空表示不变"></span>
-        <span><label class="f-help" style="margin:0 0 4px;display:block">模型</label><input id="s_dmodel" placeholder="deepseek-chat"></span>
+      <!-- DeepSeek 官方 -->
+      <div id="card-deepseek" class="pcard">
+        <div class="f-label">DeepSeek Key</div>
+        <input class="sel" id="s_dkey" type="password" placeholder="留空表示保持不变">
+        <div class="f-label">模型</div>
+        <input class="sel" id="s_dmodel" placeholder="deepseek-chat">
       </div>
 
-      <div class="f-label">通义千问（支持 enable_search 自带搜索）</div>
-      <div class="f-grid">
-        <span><label class="f-help" style="margin:0 0 4px;display:block">Key</label><input id="s_qkey" type="password" placeholder="留空表示不变"></span>
-        <span><label class="f-help" style="margin:0 0 4px;display:block">模型</label><input id="s_qmodel" placeholder="qwen-plus"></span>
+      <!-- 通义千问（含独有选项 enable_search） -->
+      <div id="card-qwen" class="pcard">
+        <div class="f-label">通义 Key</div>
+        <input class="sel" id="s_qkey" type="password" placeholder="留空表示保持不变">
+        <div class="f-label">模型</div>
+        <input class="sel" id="s_qmodel" placeholder="qwen-plus">
+        <label class="inline-opt" style="margin-top:12px"><input type="checkbox" id="s_qsearch"> 开启自带网络搜索（enable_search，通义独有）</label>
       </div>
-      <label class="inline-opt" style="margin-top:10px"><input type="checkbox" id="s_qsearch"> 通义千问开启自带搜索（enable_search）</label>
 
       <div class="group-title">信源组（勾选参与采集的信源）</div>
       <div class="checks">
@@ -383,7 +393,21 @@ async function loadSettings() {
   $("s_qsearch").checked = String(s.QWEN_ENABLE_SEARCH) === "true";
   const groups = String(s.ENABLED_GROUPS || "news,wechat,web,video").split(",");
   document.querySelectorAll(".grp").forEach(c => c.checked = groups.includes(c.value));
+  window._settings = s;                    // 供自动选择提示用
+  showProvider($("s_provider").value);
   $("settingsState").textContent = "已加载当前配置";
+}
+
+function showProvider(v) {
+  const map = { router: "card-router", deepseek: "card-deepseek", qwen: "card-qwen" };
+  for (const k in map) $(map[k]).classList.toggle("show", v === k);
+  const s = window._settings || {};
+  if (!v) {
+    const st = (k) => (s[k] && s[k].startsWith("****")) ? "✓ 已配置" : "未配置";
+    $("autoNote").textContent = `自动模式将优先使用已配置接口；当前状态：本地网关 ${st("AI_ROUTER_API_KEY")} ｜ DeepSeek ${st("DEEPSEEK_API_KEY")} ｜ 通义 ${st("QWEN_API_KEY")}`;
+  } else {
+    $("autoNote").textContent = "";
+  }
 }
 
 async function saveSettings() {
