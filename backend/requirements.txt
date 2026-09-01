@@ -1,0 +1,4 @@
+# 舆情分析系统 后端依赖（全部纯 Python，容器内外行为一致）
+flask==3.1.3
+requests==2.32.3
+python-dotenv==1.0.1

@@ -1,0 +1,20 @@
+# Python / Node 构建产物与密钥不入镜像
+.venv/
+venv/
+__pycache__/
+*.pyc
+node_modules/
+backend/scripts/node_modules/
+backend/server_out.txt
+backend/data/
+
+# 数据与配置不随镜像发布
+data/
+.env
+*.log
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

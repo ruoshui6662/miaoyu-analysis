@@ -1,0 +1,23 @@
+services:
+  yuqing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yuqing:latest
+    container_name: yuqing
+    ports:
+      - "5000:5000"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      # 报告/素材/（未来 SQLite）数据持久化
+      - ./data:/app/data
+      # 可选：主机 .env 覆盖容器默认（推荐，含 AI Key / SearXNG 地址）
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

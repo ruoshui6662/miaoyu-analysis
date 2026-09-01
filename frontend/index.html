@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>舆情分析系统</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --line: #e4e8ee; --text: #1f2937;
+    --muted: #6b7280; --accent: #1d4ed8; --accent-2: #3b82f6;
+    --ok: #16a34a; --warn: #d97706; --err: #dc2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, #111c3a, #1d2f63);
+    color: #fff; padding: 20px 32px;
+  }
+  .header h1 { font-size: 20px; letter-spacing: 1px; }
+  .header p { font-size: 13px; opacity: .75; margin-top: 2px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(15,23,42,.05); }
+
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .form-row input[type=text] { flex: 1; min-width: 240px; padding: 10px 14px; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; outline: none; }
+  .form-row input[type=text]:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  select, button { padding: 10px 14px; font-size: 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border: none; font-weight: 600; }
+  button.primary:hover { background: var(--accent-2); }
+  button.primary:disabled { opacity: .55; cursor: not-allowed; }
+  .inline-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+
+  .section-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #374151; display: flex; justify-content: space-between; align-items: center; }
+
+  .tasks { list-style: none; }
+  .tasks li { display: flex; gap: 12px; align-items: center; padding: 8px 4px; border-bottom: 1px dashed var(--line); font-size: 14px; }
+  .badge { font-size: 12px; padding: 2px 10px; border-radius: 99px; font-weight: 600; }
+  .badge.pending { background: #f3f4f6; color: var(--muted); }
+  .badge.running { background: #dbeafe; color: var(--accent); }
+  .badge.done { background: #dcfce7; color: var(--ok); }
+  .badge.error { background: #fee2e2; color: var(--err); }
+  .task-meta { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+  /* 进度 */
+  .progress-box { background: #f9fafb; border: 1px dashed var(--line); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--muted); }
+  .progress-box b { color: var(--text); }
+  .bar { height: 6px; background: #e5e7eb; border-radius: 99px; overflow: hidden; margin-top: 10px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent-2); border-radius: 99px; transition: width .5s; }
+
+  /* 报告 */
+  .report { animation: fadeIn .4s; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+  .report h2 { font-size: 22px; text-align: center; margin-bottom: 14px; }
+  .report .intro { color: #374151; margin-bottom: 16px; }
+  .report .sec { margin-bottom: 18px; }
+  .report .sec h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  .report .sec p { text-indent: 2em; margin-bottom: 8px; font-size: 14.5px; }
+  .report .sec p b { font-weight: 700; }
+  .report .appendix { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .report .appendix table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .report .appendix td, .report .appendix th { border: 1px solid var(--line); padding: 6px 10px; text-align: left; font-size: 12.5px; }
+  .report .appendix th { background: #f9fafb; }
+
+  .actions { display: flex; gap: 10px; margin: 14px 0; }
+  .actions a { text-decoration: none; }
+  .hint { font-size: 12.5px; color: var(--warn); background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 12px; margin-top: 10px; }
+  .hidden { display: none; }
+
+  /* 导出 PDF：打印时只保留报告正文 */
+  @media print {
+    .header, .card:not(#reportCard), .actions, #reportActions, .tasks, .section-title, .hidden { display: none !important; }
+    body { background: #fff; }
+    .wrap { max-width: 100%; padding: 0 20px; }
+    #reportCard { border: none; box-shadow: none; padding: 0; margin: 0; }
+    .report h2 { font-size: 18pt; }
+    .report .sec h3 { font-size: 14pt; }
+    .report .sec p { font-size: 12pt; text-indent: 2em; }
+    .report .appendix { display: block !important; page-break-before: auto; }
+    .report .sec { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>舆情分析系统</h1>
+  <p>主题输入 → SearXNG 多信源采集 → AI 四段式分析 → 对齐公文模板的 Word 报告</p>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="section-title">发起分析</div>
+    <div class="form-row">
+      <input type="text" id="topic" placeholder="输入舆情主题，如：假装上班公司" autocomplete="off">
+      <select id="provider">
+        <option value="">自动选择</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="qwen">通义千问（自带搜索）</option>
+        <option value="router">本地 9router</option>
+      </select>
+      <label class="inline-opt"><input type="checkbox" id="verify"> 事实校验轮</label>
+      <button class="primary" id="runBtn" onclick="start()">开始分析</button>
+    </div>
+    <div class="hint hidden" id="hint"></div>
+  </div>
+
+  <div class="card hidden" id="progressCard">
+    <div class="section-title">进度 <span id="progressState" class="badge pending">排队中</span></div>
+    <div class="progress-box" id="progressText">任务已创建...</div>
+    <div class="bar"><div id="barFill"></div></div>
+  </div>
+
+  <div class="card hidden" id="reportCard">
+    <div class="section-title">分析报告</div>
+    <div class="actions" id="reportActions"></div>
+    <div class="report" id="reportBody"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">历史任务</div>
+    <ul class="tasks" id="taskList"><li style="color:var(--muted)">暂无任务</li></ul>
+  </div>
+</div>
+
+<script>
+let currentTask = null;
+const $ = (id) => document.getElementById(id);
+
+async function api(url, opt) {
+  try {
+    const r = await fetch(url, opt);
+    return await r.json();
+  } catch (e) {
+    return { error: "无法连接后端服务（" + e.message + "）" };
+  }
+}
+
+(async function checkProtocol() {
+  if (location.protocol === "file:") {
+    $("hint").innerHTML =
+      "<b>页面是以本地文件方式打开的，无法连接后端。</b><br>请改用浏览器访问 <code>http://localhost:5000</code>（局域网其他设备用 <code>http://&lt;本机IP&gt;:5000</code>）。";
+    $("hint").classList.remove("hidden");
+  }
+})();
+
+async function start() {
+  const topic = $("topic").value.trim();
+  if (!topic) { $("hint").textContent = "请先输入舆情主题"; $("hint").classList.remove("hidden"); return; }
+  $("hint").classList.add("hidden");
+
+  const body = { topic, provider: $("provider").value, verify: $("verify").checked };
+  const r = await api("/api/analyze", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (r.error && !r.task_id) { $("hint").innerHTML = "请求失败：" + r.error; $("hint").classList.remove("hidden"); return; }
+  if (!r.task_id) { $("hint").innerHTML = r.error || "创建任务失败"; $("hint").classList.remove("hidden"); return; }
+  currentTask = r.task_id;
+  $("runBtn").disabled = true;
+  $("progressCard").classList.remove("hidden");
+  $("reportCard").classList.add("hidden");
+  poll();
+}
+
+async function poll() {
+  if (!currentTask) return;
+  const t = await api("/api/tasks/" + currentTask);
+  renderProgress(t);
+  if (t.status === "done") { renderReport(t.report); refreshTasks(); currentTask = null; $("runBtn").disabled = false; }
+  else if (t.status === "error") { $("progressState").textContent = "失败"; $("progressState").className = "badge error"; $("runBtn").disabled = false; refreshTasks(); }
+  else setTimeout(poll, 2000);
+}
+
+function renderProgress(t) {
+  const steps = { prepare: 10, keywords: 25, collect: 55, ai: 85, report: 95, done: 100 };
+  const pct = steps[t.step] ?? 10;
+  $("progressState").textContent = t.status === "done" ? "完成" : t.status === "error" ? "失败" : "进行中";
+  $("progressState").className = "badge " + t.status;
+  $("barFill").style.width = pct + "%";
+  let txt = `<b>${t.topic}</b> · ${t.detail || ""}`;
+  if (t.error) txt += `（${t.error}）`;
+  $("progressText").innerHTML = txt;
+}
+
+function esc(s) { return (s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function renderReport(rep) {
+  if (!rep) return;
+  $("reportCard").classList.remove("hidden");
+  $("progressState").className = "badge done";
+  $("progressState").textContent = "完成";
+  $("barFill").style.width = "100%";
+
+  let html = `<h2>${esc(rep.title)}</h2>`;
+  if (rep.intro) html += `<p class="intro">${esc(rep.intro)}</p>`;
+  for (const sec of rep.sections || []) {
+    html += `<div class="sec"><h3>${esc(sec.heading)}</h3>`;
+    for (const p of sec.paragraphs || []) {
+      if (typeof p === "string") html += `<p>${esc(p)}</p>`;
+      else html += `<p>${p.lead ? `<b>${esc(p.lead)}</b>` : ""}${esc(p.body)}</p>`;
+    }
+    html += `</div>`;
+  }
+  // 附录：数据情况
+  const st = rep.stats || {};
+  html += `<div class="appendix"><b>数据附录</b>`;
+  html += `<table><tr><th>项目</th><th>数值</th></tr>`;
+  html += `<tr><td>搜索原始结果</td><td>${st.total_raw ?? "-"} 条</td></tr>`;
+  html += `<tr><td>去重后保留</td><td>${st.total_after_dedupe ?? "-"} 条</td></tr>`;
+  html += `<tr><td>抓取到正文</td><td>${st.body_fetched ?? "-"} 条</td></tr>`;
+  const dist = st.credibility_dist || {};
+  html += `<tr><td>可信度分布</td><td>高 ${dist.high ?? 0} / 中 ${dist.mid ?? 0} / 低 ${dist.low ?? 0}</td></tr>`;
+  html += `<tr><td>分析耗时</td><td>${rep.elapsed_sec ?? "-"} s</td></tr>`;
+  html += `</table><div>关键词：${esc((rep.stats?.keywords || []).join("、"))}</div></div>`;
+  $("reportBody").innerHTML = html;
+
+  // AI 未配置提示
+  if (rep.ai_ready === false) {
+    $("reportBody").innerHTML += `<div class="hint"><b>AI 分析未执行。</b><br>${esc(rep.ai_warning || "请在 .env 中配置 AI 接口后重新分析。")}</div>`;
+  }
+
+  // 动作按钮：下载 Word / Markdown / 导出 PDF（浏览器打印）
+  let acts = "";
+  if (rep.docx) acts += `<a class="primary btn-dl" href="/api/reports/${encodeURIComponent(rep.docx.split(/[\\/]/).pop())}" download>下载 Word 报告</a>`;
+  if (rep.md) acts += `<a class="primary btn-dl" href="/api/reports/${encodeURIComponent(rep.md.split(/[\\/]/).pop())}" download>下载 Markdown</a>`;
+  acts += `<button class="primary btn-dl" onclick="window.print()">导出 PDF（打印/另存为）</button>`;
+  $("reportActions").innerHTML = acts;
+  if (rep.verify_issues && rep.verify_issues.length) {
+    $("reportActions").innerHTML += `<span class="hint">校验轮发现 ${rep.verify_issues.length} 处存疑论断，详见下载的报告。</span>`;
+  }
+}
+
+async function refreshTasks() {
+  const list = await api("/api/tasks");
+  $("taskList").innerHTML = "";
+  if (!list.length) { $("taskList").innerHTML = "<li style='color:var(--muted)'>暂无任务</li>"; return; }
+  for (const t of list.slice(0, 20)) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="badge ${t.status}">${t.status === 'done' ? '完成' : t.status === 'error' ? '失败' : '进行中'}</span>
+      <span>${esc(t.topic)}</span>
+      <span class="task-meta">${esc(t.created_at)} · ${esc(t.detail || '')}</span>`;
+    li.onclick = () => { if (t.status === "done") { currentTask = t.id; poll(); } };
+    li.style.cursor = t.status === "done" ? "pointer" : "default";
+    $("taskList").appendChild(li);
+  }
+}
+
+refreshTasks();
+setInterval(refreshTasks, 15000);
+</script>
+</body>
+</html>
