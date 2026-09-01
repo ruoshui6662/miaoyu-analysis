@@ -1188,11 +1188,18 @@ async function refreshTasks() {
   $("recentAllLink").textContent = total > 5 ? `查看全部历史（${total} 条） ›` : "查看全部历史 ›";
   $("taskList").innerHTML = "";
   if (!list.length) { $("taskList").innerHTML = "<li style='color:var(--muted)'>暂无任务</li>"; return; }
+  // 同主题计数（首页+历史页一致）
+  const all = await api("/api/tasks?page=1&per=10");
+  const allList = Array.isArray(all) ? all : (all.items || []);
+  const cnt = {};
+  allList.forEach(t => { cnt[t.topic] = (cnt[t.topic] || 0) + 1; });
   for (const t of list) {
+    const dup = cnt[t.topic] > 1 ? ` <span class="badge pending" title="该主题共 ${cnt[t.topic]} 次">×${cnt[t.topic]}</span>` : "";
     const li = document.createElement("li");
     li.innerHTML = `<span class="badge ${t.status}">${t.status === 'done' ? '完成' : t.status === 'error' ? '失败' : '进行中'}</span>
-      <span>${esc(t.topic)}</span><span class="task-meta">${esc(t.created_at)}</span>`;
+      <span>${esc(t.topic)}</span>${dup}<span class="task-meta">${esc(t.created_at)}</span>`;
     li.style.cursor = t.status === "done" ? "pointer" : "default";
+    li.title = t.status === "done" ? "点击查看报告" : "";
     li.onclick = () => { if (t.status === "done") openTaskReport(t.id); };
     $("taskList").appendChild(li);
   }
@@ -1235,18 +1242,27 @@ function openTaskReport(id) {
 async function loadReportFiles() {
   const files = await api("/api/reports/list");
   if (!Array.isArray(files)) return;
-  // 首页容器只显示 5 条；历史页容器显示完整（最多 60）
-  const slots = [["reportFiles", 5], ["reportFiles2", 60]];
-  for (const [sel, limit] of slots) {
+  // 首页：5 个；历史页：默认 10 个 + "显示全部"展开
+  const slotConfig = [["reportFiles", 5, 0], ["reportFiles2", 10, 1]];
+  for (const [sel, limit, expandable] of slotConfig) {
     const box = $(sel);
     if (!box) continue;
     box.innerHTML = "";
     if (!files.length) { box.innerHTML = "<li style='color:var(--muted)'>暂无报告文件</li>"; continue; }
-    for (const f of files.slice(0, limit)) {
+    const showAll = box.dataset.expanded === "1";
+    const sliceN = showAll ? files.length : limit;
+    for (const f of files.slice(0, sliceN)) {
       const li = document.createElement("li");
       li.innerHTML = `<a href="${f.url}" download>⬇ ${esc(f.name)}</a>
         <span class="task-meta">${f.kind} · ${(f.size / 1024).toFixed(0)} KB</span>`;
       box.appendChild(li);
+    }
+    if (expandable && files.length > limit) {
+      const more = document.createElement("li");
+      more.style.cssText = "justify-content:center; color:var(--primary); cursor:pointer; font-weight:600";
+      more.textContent = showAll ? `收起（显示前 ${limit} 个）` : `显示全部 ${files.length} 个文件 ▼`;
+      more.onclick = () => { box.dataset.expanded = showAll ? "" : "1"; loadReportFiles(); };
+      box.appendChild(more);
     }
   }
 }
