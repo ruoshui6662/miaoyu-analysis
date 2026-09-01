@@ -169,22 +169,42 @@ def gen_docx(report: dict, out_path: str) -> bool:
             pass
 
 
-def _validate_risk_advice(risk_points: list[dict], advice_points: list[dict]) -> tuple[list[dict], list[str]]:
+def _validate_risk_advice(risk_points: list[dict], advice_points: list[dict],
+                          allow_position_fallback: bool = True) -> tuple[list[dict], list[str]]:
     """硬校验对策-风险对应：advice.for_id 必须指向存在的风险 id；每个风险至少一条对策。
 
-    返回 (清洗后的对策点, 校验告警列表)。违规对策被剔除，不会进入报告。
+    当模型漏填 for_id 时（实测常见），若 allow_position_fallback，按
+    "对策输出顺序 ↔ 风险清单顺序"自动回填（保留告警说明），避免整批对策被误杀。
+    返回 (清洗后的对策点, 告警列表)。
     """
-    risk_ids = {str(p.get("id", "")).strip() for p in risk_points if p.get("id")}
+    risk_ids = [str(p.get("id", "")).strip() for p in risk_points if p.get("id")]
+    risk_ids_set = set(risk_ids)
     warnings: list[str] = []
     kept: list[dict] = []
+
+    # 第一轮：按显式 for_id 匹配
+    explicit_used = set()
     for adv in advice_points:
         for_id = str(adv.get("for_id", "")).strip()
-        if for_id not in risk_ids:
-            warnings.append(f"对策“{adv.get('title', '')[:20]}”引用不存在的风险 id “{for_id}”，已剔除")
-            continue
-        kept.append(adv)
-    used = {str(a.get("for_id", "")).strip() for a in kept}
-    for rid in sorted(risk_ids):
+        if for_id in risk_ids_set:
+            kept.append({**adv, "for_id": for_id})
+            explicit_used.add(for_id)
+        else:
+            kept.append({**adv, "for_id": None})  # 待回填
+            if for_id:
+                warnings.append(f"对策“{adv.get('title', '')[:20]}”引用不存在的风险 id “{for_id}”，按顺序回填处理")
+
+    if allow_position_fallback:
+        unused = [rid for rid in risk_ids if rid not in explicit_used]
+        no_id = [a for a in kept if not a.get("for_id")]
+        for a, rid in zip(no_id, unused):
+            a["for_id"] = rid
+            warnings.append(f"对策“{a.get('title', '')[:20]}”未标注对应风险，已按输出顺序推定对应风险“{rid}”")
+        # 未被对应到任何风险的对策 → 剔除
+        kept = [a for a in kept if a.get("for_id")]
+
+    used = {str(a.get("for_id", "")) for a in kept}
+    for rid in risk_ids:
         if rid not in used:
             warnings.append(f"风险点 “{rid}” 没有对应的对策，存在遗漏")
     return kept, warnings
@@ -245,6 +265,8 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
     except Exception as e:
         errors["facts"] = str(e)
         print(f"       ⚠ 事实整理失败: {e}")
+        emit("ai", f"AI 事实整理失败：{str(e)[:80]}")
+        emit("ai", "事件概况章节缺失，继续后续分析…")
 
     facts = results["facts"]
     intro, facts_paras = facts if facts else ("", [])
@@ -261,6 +283,7 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
     except Exception as e:
         errors["causes"] = str(e)
         print(f"       ⚠ 原因分析失败: {e}")
+        emit("ai", f"AI 原因分析失败：{str(e)[:80]}")
 
     # 3) 风险分析（保留 id 供对策引用）
     emit("ai", "AI 风险分析…")
@@ -275,6 +298,7 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
     except Exception as e:
         errors["risks"] = str(e)
         print(f"       ⚠ 风险分析失败: {e}")
+        emit("ai", f"AI 风险分析失败：{str(e)[:80]}")
 
     risk_ids_map = {str(p.get("id", "")).strip(): (p.get("title") or "")
                     for p in results["risk_points"] if p.get("id")}
@@ -296,6 +320,7 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
         except Exception as e:
             errors["advice"] = str(e)
             print(f"       ⚠ 对策建议失败: {e}")
+            emit("ai", f"AI 对策建议失败：{str(e)[:80]}")
     else:
         advice_warnings.append("风险环节未产出风险点，对策无法对应生成")
 

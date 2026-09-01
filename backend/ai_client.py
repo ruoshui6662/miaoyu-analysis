@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 import requests
 
@@ -93,8 +94,19 @@ class AIClient:
         except (KeyError, IndexError, ValueError):
             raise AIClientError(f"响应格式异常: {resp.text[:300]}")
         if not content.strip():
-            # 网关对长请求偶发返回 200+空内容 → 显式报错供上层降级重试
-            raise AIClientError("模型返回空内容（网关偶发行为，已触发降级重试）")
+            # 网关对长请求偶发/频发返回 200+空内容：自动退避重试（3s/6s），仍空才报错
+            for _delay in (3, 6):
+                time.sleep(_delay)
+                resp2 = self._request(url, headers, json.dumps(body, ensure_ascii=False),
+                                      timeout, stream=False)
+                if resp2.status_code == 200:
+                    try:
+                        content = resp2.json()["choices"][0]["message"]["content"] or ""
+                    except (KeyError, IndexError, ValueError):
+                        content = ""
+                    if content.strip():
+                        return content
+            raise AIClientError("模型连续返回空内容（网关不稳定，非配置错误）")
         return content
 
     def chat_stream(
