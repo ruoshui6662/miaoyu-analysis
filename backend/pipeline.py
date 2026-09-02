@@ -91,9 +91,8 @@ def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: st
             last_err = AIClientError("AI 未返回有效时间线内容")
         except AIClientError as e:
             last_err = e
-            if "缺少 API key" in str(e) or "未配置" in str(e):
-                raise  # 配置类错误不重试
-            print(f"       ⚠ 事实整理第{idx}档失败: {e}")
+            # 通道级失败也继续降档重试：素材减半后 prompt 更小，可能恰好能过抖动网关
+            print(f"       ⚠ 事实整理第{idx}档失败: {str(e)[:150]}")
     raise last_err or AIClientError("事实整理失败")
 
 
@@ -225,7 +224,7 @@ def _validate_risk_advice(risk_points: list[dict], advice_points: list[dict],
 
 
 def _points_to_paragraphs(points: list[dict]) -> list[dict]:
-    """原始 points（含 id/title/body）→ 报告段落（{lead, body}）。"""
+    """原始 points（含 id/title/body）→ 报告段落（{lead, body}）；对策的 for_id 透传。"""
     paragraphs = []
     for p in points or []:
         title = str(p.get("title", "")).strip()
@@ -234,7 +233,10 @@ def _points_to_paragraphs(points: list[dict]) -> list[dict]:
             continue
         if not title.endswith(("。", "！", "？")):
             title += "。"
-        paragraphs.append({"lead": title, "body": body})
+        para = {"lead": title, "body": body}
+        if p.get("for_id"):
+            para["for_id"] = p["for_id"]
+        paragraphs.append(para)
     return paragraphs
 
 
@@ -251,9 +253,8 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
     errors: dict = {}
 
     def _new_ai() -> AIClient:
-        a = AIClient()
-        a._resolve(provider)
-        return a
+        # 不做严格预校验：指定服务商失效时由 AIClient.chat 故障转移链接管
+        return AIClient()
 
     def _chunk_progress(label: str):
         state = {"n": 0, "last": 0}
@@ -368,17 +369,20 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     from config import reload as reload_config
     reload_config()
 
-    # 1) AI 客户端（可能无 key）
+    # 1) AI 客户端 + 连通性预检（单 token 冒烟，走故障转移链）。
+    #    全通道不可用 → 快速失败：不让死通道拖着采集跑完、最终产出四个空章节报告。
     ai: AIClient | None = None
     if not collect_only:
+        ai = AIClient()
+        emit("prepare", "AI 通道连通性预检…")
         try:
-            ai = AIClient()
-            ai._resolve(provider)  # 预检配置
+            used = ai.preflight(provider)
+            provider = used  # 固定可用通道贯穿全程（跳过死通道/冷却通道）
+            emit("prepare", f"AI 通道正常：{used}")
         except AIClientError as e:
-            print("[提示] 未配置可用 AI 接口:", e)
-            print("       → 请编辑 .env 填写 DEEPSEEK_API_KEY / QWEN_API_KEY，"
-                  "或配置 AI_ROUTER_BASE_URL（本地 9router）后重跑。")
-            ai = None
+            raise AIClientError(
+                f"AI 通道预检失败，任务终止：{e}。请到「设置 → AI 接口」核对服务商 "
+                f"Base URL / API Key / 模型名后重试。") from e
 
     # 2) 关键词扩展
     emit("keywords", f"关键词扩展：{topic}")
@@ -462,7 +466,8 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     })
     advice = ai_stage["advice"]
     if advice:
-        report["sections"].append({"heading": "四、对策建议", "paragraphs": advice})
+        # 对策原始点（title/body/for_id）统一转段落格式（{lead, body}），与原因/风险一致
+        report["sections"].append({"heading": "四、对策建议", "paragraphs": _points_to_paragraphs(advice)})
     elif ai_stage["errors"].get("advice"):
         report["sections"].append({"heading": "四、对策建议",
                                    "paragraphs": _placeholder_section(ai_stage["errors"]["advice"])})

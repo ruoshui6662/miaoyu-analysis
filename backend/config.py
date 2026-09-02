@@ -100,6 +100,10 @@ def _parse_providers(raw: str) -> dict:
         api_key = str(entry.get("apiKey") or "")
         model = str(entry.get("model") or "").strip()
         enable_search = str(entry.get("enable_search") or "").lower() in ("1", "true", "yes")
+        # 后备模型表（同一网关内轮替，主模型上游故障时由 ai_client 故障转移使用）
+        fb_raw = entry.get("fallback_models") or entry.get("fallbackModels") or []
+        fallback_models = [str(x).strip() for x in fb_raw if isinstance(x, str) and x.strip()][:5] \
+            if isinstance(fb_raw, list) else []
         if pid in BUILTIN_PROVIDER_META:
             meta = BUILTIN_PROVIDER_META[pid]
             out[pid] = {
@@ -109,11 +113,13 @@ def _parse_providers(raw: str) -> dict:
                 "model": model or meta["model"],
                 "custom": False,
                 "enable_search": enable_search,
+                "fallback_models": fallback_models,
             }
         else:
             out[pid] = {
                 "name": name, "endpoint": endpoint, "apiKey": api_key,
                 "model": model, "custom": True, "enable_search": enable_search,
+                "fallback_models": fallback_models,
             }
     return out
 
