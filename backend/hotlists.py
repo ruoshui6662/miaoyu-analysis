@@ -38,12 +38,9 @@ def _thd_key() -> str:
 def _hot_limit() -> int:
     return int(os.getenv("HOT_DAILY_LIMIT", "900") or 900)
 
-_UA_BROWSER = USER_AGENT
-
 _session = requests.Session()
 _session.headers.update({"User-Agent": _UA_BROWSER})
 
-_nodeid_cache: dict[str, int] = {}
 _cache: dict[str, tuple[str, list[dict]]] = {}  # key -> (date, items)，当日缓存
 
 
@@ -151,42 +148,34 @@ def _parse_thd_items(container) -> list[dict]:
 
 # ---------- tophub.today HTML 兜底 ----------
 
-def _tophub_nodeid(hashid: str) -> int | None:
-    if hashid in _nodeid_cache:
-        return _nodeid_cache[hashid]
+def _fetch_html_board(hashid: str) -> list[dict]:
+    """tophub.today 单榜：直解页面 SSR 表格（条目带 itemid 锚点 + ws 热度单元格）。
+
+    条目本就服务端渲染在页面上，无需旧版"提取 nodeId → POST 二次接口"两步：
+    页面 nodeId 已退化为占位值，二次接口随前端 JS 变动（2026-09 实测失效），直解最稳。
+    """
     try:
         r = _session.get(f"{TH_BASE}/n/{hashid}", timeout=HTTP_TIMEOUT)
-        m = re.search(r'window\.nodeId\s*=\s*"?(\d+)"?', r.text)
-        nodeid = int(m.group(1)) if m else None
+        html = r.text
     except requests.RequestException:
-        return None
-    _nodeid_cache[hashid] = nodeid
-    return nodeid
-
-
-def _fetch_html_board(hashid: str) -> list[dict]:
-    nodeid = _tophub_nodeid(hashid)
-    if not nodeid:
         return []
-    date = datetime.date.today().strftime("%Y-%m-%d")
-    try:
-        r = _session.post(
-            f"{TH_BASE}/node-items-by-date",
-            data={"p": 1, "date": date, "nodeid": nodeid},
-            headers={"Referer": f"{TH_BASE}/n/{hashid}", "X-Requested-With": "XMLHttpRequest"},
-            timeout=HTTP_TIMEOUT,
-        )
-        data = r.json()
-        items = (data.get("data") or {}).get("items") or []
-    except (requests.RequestException, ValueError):
-        return []
-    out = []
-    for it in items:
-        title = (it.get("title") or "").strip()
-        if not title:
+    out: list[dict] = []
+    seen: set[str] = set()
+    for tr in re.findall(r"<tr>.*?</tr>", html, re.S):
+        m = re.search(r'<a[^>]+href="([^"]+)"[^>]+itemid="\d+"[^>]*>([^<]{2,})</a>', tr)
+        if not m:
             continue
-        out.append({"title": title, "url": it.get("url") or "", "hot": it.get("extra") or "",
-                    "published": (it.get("time") or "")[:10]})
+        url, title = m.group(1), m.group(2).strip()
+        if title in seen:
+            continue
+        seen.add(title)
+        mh = (re.search(r'<td[^>]*class="ws"[^>]*>([^<]*)</td>', tr)
+              or re.search(r'<div[^>]*class="item-desc"[^>]*>([^<]*)</div>', tr))
+        out.append({"title": title, "url": url,
+                    "hot": mh.group(1).strip() if mh else "",
+                    "published": datetime.date.today().strftime("%Y-%m-%d")})
+        if len(out) >= 30:
+            break
     return out
 
 
