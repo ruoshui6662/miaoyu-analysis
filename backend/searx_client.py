@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 import requests
 
-from config import SEARXNG_TIMEOUT, SEARXNG_URL, USER_AGENT, MAX_ITEMS_PER_QUERY
+import config as _cfg
 
 # 结果统一规范字段
 _KEEP = ("title", "url", "content", "published", "engine", "engines", "positions", "score", "category", "source")
@@ -30,11 +30,16 @@ def _norm_result(r: dict) -> dict:
 
 
 class SearxClient:
-    def __init__(self, base_url: str = SEARXNG_URL, timeout: int = SEARXNG_TIMEOUT):
-        self.base_url = base_url
-        self.timeout = timeout
+    def __init__(self, base_url: str | None = None, timeout: int | None = None):
+        """创建客户端时读取当前配置；显式参数仅供调用方覆盖。
+
+        不能把配置写进函数默认参数：默认参数在模块导入时求值，随后
+        ``config.reload()`` 即使成功，新的任务仍会使用旧 SearXNG 地址。
+        """
+        self.base_url = (base_url if base_url is not None else _cfg.SEARXNG_URL).rstrip("/")
+        self.timeout = timeout if timeout is not None else _cfg.SEARXNG_TIMEOUT
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": USER_AGENT})
+        self.session.headers.update({"User-Agent": _cfg.USER_AGENT})
 
     def search(
         self,
@@ -84,9 +89,10 @@ class SearxClient:
         engines: list[str] | None = None,
         time_range: str = "",
         language: str = "zh-CN",
-        max_items: int = MAX_ITEMS_PER_QUERY,
+        max_items: int | None = None,
     ) -> list[dict]:
         """多关键词批量搜索，按关键词顺序聚合原始结果（去重在清洗层做）。"""
+        max_items = max_items if max_items is not None else _cfg.MAX_ITEMS_PER_QUERY
         all_results: list[dict] = []
         for q in queries:
             data = self.search(q, language=language, time_range=time_range, engines=engines)
@@ -97,7 +103,7 @@ class SearxClient:
         return all_results
 
 
-def explore_engines(base_url: str = SEARXNG_URL):
+def explore_engines(base_url: str | None = None):
     """探测实例可用的引擎（通过一次查询返回的 engines 字段近似）。"""
     c = SearxClient(base_url)
     d = c.search("热点 舆情", engines=["google cse", "bing", "baidu"])

@@ -14,9 +14,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
+import tempfile
+import unicodedata
+import uuid
 from datetime import datetime
 
 from ai_client import AIClient, AIClientError
@@ -55,14 +59,13 @@ def expand_keywords(topic: str, ai: AIClient | None, provider: str | None) -> li
 
 # ---------- AI 分析（四角色） ----------
 
-def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: str | None,
-                   on_chunk: callable | None = None):
+def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: str | None):
     """事实整理（事件概况）。失败/空响应时降级重试：素材减半 + 输出预算降档。"""
     last_err: Exception | None = None
     for idx, (items, mt) in enumerate(((materials, 8000), (materials[:10], 5000)), 1):
         try:
             data = ai.chat_json(facts_prompt(topic, items), provider=provider, temperature=0.3,
-                                max_tokens=mt, on_chunk=on_chunk)
+                                max_tokens=mt)
             intro = str(data.get("intro", "")).strip()
             timeline = data.get("timeline") or []
             paragraphs = []
@@ -97,9 +100,9 @@ def _facts_section(topic: str, materials: list[dict], ai: AIClient, provider: st
 
 
 def _chapter_section(topic, chapter, materials, facts_summary, ai, provider,
-                     on_chunk: callable | None = None, risk_points: list[dict] | None = None):
+                     risk_points: list[dict] | None = None):
     data = ai.chat_json(chapter_prompt(topic, chapter, materials, facts_summary, risk_points=risk_points),
-                        provider=provider, temperature=0.4, max_tokens=6000, on_chunk=on_chunk)
+                        provider=provider, temperature=0.4, max_tokens=6000)
     points = data.get("points") or []
     paragraphs = []
     for p in points:
@@ -158,14 +161,30 @@ def gen_markdown(report: dict, out_path: str) -> bool:
         print("[错误] markdown 生成失败:", e)
         return False
 
+
+def safe_filename_component(value: str, max_length: int = 80) -> str:
+    """把用户主题转换为跨平台可用、仍可辨识的文件名片段。"""
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    text = re.sub(r'[<>:"/\\\\|?*\x00-\x1f]', " ", text)
+    text = re.sub(r"\s+", " ", text).strip(" .")
+    text = text[:max_length].rstrip(" .") or "未命名主题"
+    # Windows 保留设备名即使带扩展名也不能创建。
+    if text.split(".", 1)[0].upper() in {"CON", "PRN", "AUX", "NUL", *{f"COM{i}" for i in range(1, 10)}, *{f"LPT{i}" for i in range(1, 10)}}:
+        text = f"_{text}"
+    return text
+
+
 def gen_docx(report: dict, out_path: str) -> bool:
     gen = ROOT / "backend" / "scripts" / "gen_docx.mjs"
-    tmp_json = DATA_DIR_TASKS / f"_tmp_{int(time.time())}.json"
-    with open(tmp_json, "w", encoding="utf-8") as f:
+    # 秒级名称会让并发任务彼此覆盖；NamedTemporaryFile 提供唯一文件名。
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json",
+                                     prefix="_docx_", dir=DATA_DIR_TASKS,
+                                     delete=False) as f:
         json.dump(report, f, ensure_ascii=False)
+        tmp_json = f.name
     try:
         r = subprocess.run(
-            ["node", str(gen), str(tmp_json), out_path],
+            ["node", str(gen), tmp_json, out_path],
             capture_output=True, text=True, timeout=120,
         )
         if r.returncode != 0:
@@ -241,8 +260,8 @@ def _points_to_paragraphs(points: list[dict]) -> list[dict]:
 
 
 def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
-                  emit: callable) -> dict:
-    """AI 四角色阶段（串行基线 + 流式进度 + 输出瘦身）。
+                   emit: callable) -> dict:
+    """AI 四角色阶段（串行基线 + 真实阶段进度 + 输出瘦身）。
 
     实测校准（第一性原理）：后端模型生成速率 ~18-20 token/s 是物理瓶颈；
     并发会触发 burst 限流 429 并被重试惩罚（实测 3 路并发 220s > 串行 83s），
@@ -256,27 +275,16 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
         # 不做严格预校验：指定服务商失效时由 AIClient.chat 故障转移链接管
         return AIClient()
 
-    def _chunk_progress(label: str):
-        state = {"n": 0, "last": 0}
-
-        def cb(text: str) -> None:
-            state["n"] += len(text)
-            if state["n"] - state["last"] >= 40:
-                state["last"] = state["n"]
-                emit("ai", f"AI {label}…已生成 {state['n']} 字")
-        return cb
-
     # 素材瘦身：正文截断辅助（facts 保持全量以保留时间线细节）
     def slim(full: bool = False) -> list[dict]:
         items_ = items[:12] if not full else items
         return [{**it, "body": (it.get("body") or "")[:400 if full else 250]} for it in items_]
 
     # 1) 事实整理（全量素材）
-    emit("ai", "AI 事实整理（事件概况）…")
+    emit("ai", "AI 事实整理（事件概况）生成中…")
     try:
         ai = _new_ai()
-        results["facts"] = _facts_section(topic, slim(full=True), ai, provider,
-                                          on_chunk=_chunk_progress("事实整理"))
+        results["facts"] = _facts_section(topic, slim(full=True), ai, provider)
     except Exception as e:
         errors["facts"] = str(e)
         print(f"       ⚠ 事实整理失败: {e}")
@@ -288,12 +296,11 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
     facts_summary = "；".join(facts_paras[:3])[:600] if facts_paras else ""
 
     # 2) 原因分析
-    emit("ai", "AI 原因分析…")
+    emit("ai", "AI 原因分析生成中…")
     try:
         ai = _new_ai()
         data = ai.chat_json(chapter_prompt(topic, "causes", slim(), facts_summary),
-                            provider=provider, temperature=0.4, max_tokens=6000,
-                            on_chunk=_chunk_progress("原因分析"))
+                            provider=provider, temperature=0.4, max_tokens=6000)
         results["causes"] = _points_to_paragraphs(data.get("points") or [])
     except Exception as e:
         errors["causes"] = str(e)
@@ -301,12 +308,11 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
         emit("ai", f"AI 原因分析失败：{str(e)[:80]}")
 
     # 3) 风险分析（保留 id 供对策引用）
-    emit("ai", "AI 风险分析…")
+    emit("ai", "AI 风险分析生成中…")
     try:
         ai = _new_ai()
         data = ai.chat_json(chapter_prompt(topic, "risks", slim(), facts_summary),
-                            provider=provider, temperature=0.4, max_tokens=6000,
-                            on_chunk=_chunk_progress("风险分析"))
+                            provider=provider, temperature=0.4, max_tokens=6000)
         risk_points = data.get("points") or []
         results["risk_points"] = risk_points                       # 原始（带 id）
         results["risks"] = _points_to_paragraphs(risk_points)      # 报告段落
@@ -329,7 +335,6 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
             data = ai.chat_json(
                 chapter_prompt(topic, "advice", slim(), facts_summary, risk_points=risk_brief),
                 provider=provider, temperature=0.4, max_tokens=6000,
-                on_chunk=_chunk_progress("对策建议"),
             )
             advice_points, advice_warnings = _validate_risk_advice(risk_brief, data.get("points") or [])
         except Exception as e:
@@ -359,6 +364,7 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
                  progress: callable | None = None) -> dict:
     """progress: callable(step: str, detail: str) 供 Web 页面轮询进度。"""
     t0 = time.time()
+    run_token = uuid.uuid4().hex[:8]
 
     def emit(step, detail=""):
         print(f"[step] {step} {detail}".rstrip())
@@ -407,7 +413,7 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     }
 
     if save:
-        artifact = DATA_DIR_TASKS / f"collect_{datetime.now():%Y%m%d_%H%M%S}.json"
+        artifact = DATA_DIR_TASKS / f"collect_{datetime.now():%Y%m%d_%H%M%S}_{run_token}.json"
         with open(artifact, "w", encoding="utf-8") as f:
             json.dump({"topic": topic, "stats": stats, "items": materials["items"]},
                       f, ensure_ascii=False)
@@ -503,8 +509,9 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
             print(f"       ⚠ 校验失败: {e}")
 
     emit("report", "生成 docx ...")
-    ts = datetime.now().strftime("%m%d_%H%M")
-    out_docx = DATA_DIR_REPORTS / f"{topic}舆情分析报告-{ts}.docx"
+    ts = datetime.now().strftime("%m%d_%H%M%S")
+    safe_topic = safe_filename_component(topic)
+    out_docx = DATA_DIR_REPORTS / f"{safe_topic}舆情分析报告-{ts}-{run_token}.docx"
     ok = gen_docx(report, str(out_docx))
     report["docx"] = str(out_docx) if ok else ""
     out_md = out_docx.with_suffix(".md")

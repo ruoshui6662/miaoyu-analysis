@@ -13,7 +13,8 @@ import requests
 
 from config import USER_AGENT
 
-_cache: dict[str, tuple[str, dict[str, str]]] = {}  # key -> (date, result)
+# 每个规范 URL 独立缓存，避免同日不同报告复用彼此的完整结果集。
+_cache: dict[str, tuple[str, str]] = {}  # url -> (date, status)
 _lock = threading.Lock()
 
 _HEADERS = {"User-Agent": USER_AGENT}
@@ -43,22 +44,25 @@ def _check_one(url: str) -> str:
 
 
 def check_urls(urls: list[str], max_urls: int = 40, workers: int = 12) -> dict[str, str]:
-    """并发核查 URL 可达性。当日缓存，重复调用不重复请求。"""
+    """并发核查 URL 可达性；同一 URL 当日缓存，互不污染。"""
     today = datetime.date.today().strftime("%Y-%m-%d")
-    urls = [u.strip() for u in urls if u and u.startswith(("http://", "https://"))][:max_urls]
+    urls = list(dict.fromkeys(
+        u.strip() for u in urls if u and u.strip().startswith(("http://", "https://"))
+    ))[:max_urls]
     if not urls:
         return {}
     with _lock:
-        cached = _cache.get("urls")
-        if cached and cached[0] == today:
-            return cached[1]
-    result: dict[str, str] = {}
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        for url, status in zip(urls, ex.map(_check_one, urls)):
-            result[url] = status
-    with _lock:
-        _cache["urls"] = (today, result)
-    return result
+        result = {url: cached[1] for url in urls
+                  if (cached := _cache.get(url)) and cached[0] == today}
+    pending = [url for url in urls if url not in result]
+    if pending:
+        with ThreadPoolExecutor(max_workers=min(workers, len(pending))) as ex:
+            checked = dict(zip(pending, ex.map(_check_one, pending)))
+        result.update(checked)
+        with _lock:
+            for url, status in checked.items():
+                _cache[url] = (today, status)
+    return {url: result[url] for url in urls}
 
 
 def summarize(check: dict[str, str]) -> dict:

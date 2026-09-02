@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import threading
 import uuid
 from datetime import datetime
@@ -143,23 +144,26 @@ def api_task(tid: str):
 
 @app.get("/api/hot/boards")
 def api_hot_boards():
-    """首页热点榜：tophubdata 官方聚合优先 → HTML 兜底；附数据源/配额状态。"""
-    from hotlists import fetch_aggregated, legacy_aggregate_boards, quota_state
+    """首页热点榜：公开源主链路，按榜单保留 provider 与健康快照。"""
+    from hotlists import fetch_aggregated, legacy_aggregate_boards, quota_state, source_health
     try:
         boards = fetch_aggregated()
         if not boards:
             boards = legacy_aggregate_boards()
         provider = quota_state()
     except Exception as e:  # noqa: BLE001
-        return jsonify({"boards": [], "provider": {"error": str(e)[:80]}})
+        return jsonify({"boards": [], "provider": {"error": str(e)[:80]}, "source_health": source_health()})
     # 单榜条目限 15；为首页聚合去重（多榜标记由前端按标题聚合）
     out = []
     for b in boards:
         items = [{"title": it.get("title", ""), "url": it.get("url", ""),
-                  "hot": it.get("hot", ""), "published": it.get("published", "")}
+                  "hot": it.get("hot", ""), "published": it.get("published", ""),
+                  "rank": it.get("rank"), "provider": it.get("provider") or b.get("provider", "")}
                  for it in (b.get("items") or [])[:15]]
-        out.append({"name": b.get("name", "热榜"), "count": len(items), "items": items})
-    return jsonify({"boards": out, "provider": provider, "updated": None})
+        out.append({"name": b.get("name", "热榜"), "source_id": b.get("source_id", ""),
+                    "provider": b.get("provider", "public"), "count": len(items), "items": items})
+    return jsonify({"boards": out, "provider": provider,
+                    "source_health": source_health(), "updated": None})
 
 
 @app.get("/api/reports/list")
@@ -266,9 +270,12 @@ def api_report_export_docx():
             if not dataurl or "," not in dataurl:
                 continue
             b64 = dataurl.split(",", 1)[1]
-            tmp = DATA_DIR_REPORTS / f"_chart_{jpath.stem}_{kind}.png"
-            tmp.write_bytes(base64.b64decode(b64))
-            imgs.append({"kind": kind, "path": str(tmp)})
+            # 客户端可并发导出，图表临时文件必须独占，且不能把外部 kind 当文件名。
+            with tempfile.NamedTemporaryFile("wb", suffix=".png", prefix="_chart_",
+                                             dir=DATA_DIR_REPORTS, delete=False) as f:
+                f.write(base64.b64decode(b64))
+                tmp = f.name
+            imgs.append({"kind": kind, "path": tmp})
         if imgs:
             rep["_chart_images"] = imgs
         docx_path = jpath.with_suffix(".docx")

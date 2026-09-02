@@ -11,7 +11,7 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 
-from config import DATA_DIR_TASKS, ENABLED_GROUPS, HTTP_TIMEOUT, USER_AGENT
+import config as _cfg
 from hotlists import fetch_for_sources
 from searx_client import SearxClient
 
@@ -160,12 +160,13 @@ def _decode(resp) -> str:
     return resp.text
 
 
-def fetch_page(url: str, timeout: int = HTTP_TIMEOUT) -> tuple[str, int]:
+def fetch_page(url: str, timeout: int | None = None) -> tuple[str, int]:
     """抓取页面，返回 (html, status)。失败返回 ("", status)。"""
+    timeout = timeout if timeout is not None else _cfg.HTTP_TIMEOUT
     try:
         resp = requests.get(
             url,
-            headers={"User-Agent": USER_AGENT, "Referer": "https://www.baidu.com/"},
+            headers={"User-Agent": _cfg.USER_AGENT, "Referer": "https://www.baidu.com/"},
             timeout=timeout,
         )
         if resp.status_code == 200 and resp.content:
@@ -240,7 +241,7 @@ def _rank(it: dict) -> int:
 
 def _enabled_groups() -> list[dict]:
     """按设置页勾选（ENABLED_GROUPS）过滤信源组；全不勾时保留全部。"""
-    enabled = [g for g in ENGINE_GROUPS if g["name"] in ENABLED_GROUPS]
+    enabled = [g for g in ENGINE_GROUPS if g["name"] in _cfg.ENABLED_GROUPS]
     return enabled or ENGINE_GROUPS
 
 
@@ -431,6 +432,6 @@ if __name__ == "__main__":
     print("信源组状态:", [(q["group"], q["ok_queries"], q["failed_queries"]) for q in res.get("query_log", [])])
     for it in res["items"][:12]:
         print(f"[{it['credibility']}/{it['group']}] {it['title'][:35]} | {len(it['body'])}字 | {it['published'][:10]}")
-    out = DATA_DIR_TASKS / "sample_collect.json"
+    out = _cfg.DATA_DIR_TASKS / "sample_collect.json"
     json.dump(res, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print("素材已存:", out)

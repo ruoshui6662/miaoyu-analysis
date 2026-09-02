@@ -133,15 +133,15 @@ CATALOG: list[dict] = [
 
     # ---------- 热榜榜单（tophub 聚合解析，2026-09-01 实测 id） ----------
     {"name": "微博热搜", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "weibo", "tophub_id": "KqndgxeLl9"}},
+     "stype": "hotlist", "extra": {"board": "weibo", "newsnow_id": "weibo", "tophub_id": "KqndgxeLl9"}},
     {"name": "知乎热榜", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "zhihu", "tophub_id": "mproPpoq6O"}},
+     "stype": "hotlist", "extra": {"board": "zhihu", "newsnow_id": "zhihu", "tophub_id": "mproPpoq6O"}},
     {"name": "B站热门", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "bilibili", "tophub_id": "74KvxwokxM"}},
+     "stype": "hotlist", "extra": {"board": "bilibili", "newsnow_id": "bilibili", "tophub_id": "74KvxwokxM"}},
     {"name": "百度热搜", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "baidu", "tophub_id": "Jb0vmloB1G"}},
+     "stype": "hotlist", "extra": {"board": "baidu", "newsnow_id": "baidu", "tophub_id": "Jb0vmloB1G"}},
     {"name": "抖音热点", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "douyin", "tophub_id": "DpQvNABoNE"}},
+     "stype": "hotlist", "extra": {"board": "douyin", "newsnow_id": "douyin", "tophub_id": "DpQvNABoNE"}},
     {"name": "今日头条热榜", "host": "", "category": "hotlist", "level": "C",
-     "stype": "hotlist", "extra": {"board": "toutiao", "tophub_id": "x9ozB4KoXb"}},
+     "stype": "hotlist", "extra": {"board": "toutiao", "newsnow_id": "toutiao", "tophub_id": "x9ozB4KoXb"}},
 ]

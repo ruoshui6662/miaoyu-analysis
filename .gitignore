@@ -26,3 +26,6 @@ Thumbs.db
 .vscode/
 # 调试残留（曾含明文 token，禁止入库）
 backend/gh_watch*
+
+# 本地浏览器验收截图（不参与运行时与镜像构建）
+.codex-*.png
