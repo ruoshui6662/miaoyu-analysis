@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 
 import requests
@@ -36,6 +37,64 @@ def _providers() -> dict:
 
 class AIClientError(RuntimeError):
     pass
+
+
+def _json_candidates(text: str):
+    """从混合文本中提取完整 JSON 对象候选，不用贪婪正则误截嵌套对象。"""
+    for start, char in enumerate(text):
+        if char != "{":
+            continue
+        depth = 0
+        in_string = False
+        escaped = False
+        for end in range(start, len(text)):
+            current = text[end]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == '"':
+                    in_string = False
+                continue
+            if current == '"':
+                in_string = True
+            elif current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    yield text[start:end + 1]
+                    break
+
+
+def _extract_json_object(text: str) -> dict:
+    """解析模型的 JSON 对象响应，兼容思考标签/代码围栏/前后解释文本。
+
+    只接受标准 JSON 对象，不做删逗号、补引号等猜测式修复；否则可能把
+    模型的错误内容静默变成报告事实。
+    """
+    raw = str(text or "").lstrip("\ufeff").strip()
+    if not raw:
+        raise AIClientError("模型返回空内容，无法解析 JSON")
+
+    # 部分推理模型即使关闭 thinking 仍会输出 <think> 块；先移除完整块，
+    # 对未闭合块也截掉，避免其中的花括号被误当成业务 JSON。
+    cleaned = re.sub(r"<think\b[^>]*>.*?</think\s*>", "", raw,
+                     flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(r"<think\b[^>]*>.*$", "", cleaned,
+                     flags=re.IGNORECASE | re.DOTALL).strip()
+
+    # 先尝试最严格路径，再从混合文本中提取平衡的 JSON 对象。
+    for candidate in (cleaned, *_json_candidates(cleaned)):
+        try:
+            value = json.loads(candidate.strip().removeprefix("```json").removesuffix("```").strip())
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(value, dict):
+            return value
+        raise AIClientError("模型返回的 JSON 不是对象")
+    raise AIClientError(f"模型未返回合法 JSON: {cleaned[:300]}")
 
 
 class AIClient:
@@ -321,16 +380,29 @@ class AIClient:
 
     def chat_json(self, messages: list[dict], **kw) -> dict:
         """要求模型返回 JSON 对象并解析（分析流水线中间结果用）。"""
+        retry_json = bool(kw.pop("retry_json", True))
         text = self.chat(messages, json_mode=True, **kw)
         try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            # 模型偶尔输出带 ```json 包裹，做一次剥离重试
-            s = text.strip().removeprefix("```json").removesuffix("```").strip()
+            return _extract_json_object(text)
+        except AIClientError as first_error:
+            # 有些兼容网关忽略 response_format，或把推理标签写进 content。
+            # 仅重试一次并追加明确的输出协议；不做无限重试，避免放大费用。
+            if not retry_json or "JSON 不是对象" in str(first_error):
+                raise
+            repair_messages = [*messages, {
+                "role": "user",
+                "content": (
+                    "上一轮响应无法被解析为 JSON。请重新执行上一个任务，严格只输出一个合法 JSON 对象；"
+                    "禁止输出 <think>、Markdown 代码围栏、解释文字或 JSON 之外的任何字符。"
+                ),
+            }]
             try:
-                return json.loads(s)
-            except json.JSONDecodeError:
-                raise AIClientError(f"模型未返回合法 JSON: {text[:300]}")
+                repaired = self.chat(repair_messages, json_mode=True, **kw)
+                return _extract_json_object(repaired)
+            except AIClientError as second_error:
+                raise AIClientError(
+                    f"模型未返回合法 JSON（已重试一次）：{str(second_error)[:300]}"
+                ) from second_error
 
 
 def name_check(base: str) -> str:

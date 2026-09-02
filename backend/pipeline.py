@@ -185,7 +185,9 @@ def gen_docx(report: dict, out_path: str) -> bool:
     try:
         r = subprocess.run(
             ["node", str(gen), tmp_json, out_path],
-            capture_output=True, text=True, timeout=120,
+            # Node 输出固定为 UTF-8；Windows 默认代码页可能是 GBK，不能让
+            # subprocess 的后台 reader 因中文输出解码失败而产生隐性异常。
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
         )
         if r.returncode != 0:
             print("[错误] docx 生成失败:", r.stderr[-500:])
@@ -217,6 +219,9 @@ def _validate_risk_advice(risk_points: list[dict], advice_points: list[dict],
     # 第一轮：按显式 for_id 匹配
     explicit_used = set()
     for adv in advice_points:
+        if not isinstance(adv, dict):
+            warnings.append("发现无法解析的对策条目，已跳过")
+            continue
         for_id = str(adv.get("for_id", "")).strip()
         if for_id in risk_ids_set:
             kept.append({**adv, "for_id": for_id})
@@ -242,10 +247,32 @@ def _validate_risk_advice(risk_points: list[dict], advice_points: list[dict],
     return kept, warnings
 
 
+def _normalize_risk_points(points: list[dict]) -> list[dict]:
+    """给漏填/重复 id 的风险点补充稳定的程序元数据，避免对策链断裂。"""
+    normalized: list[dict] = []
+    used: set[str] = set()
+    for index, point in enumerate(points or [], start=1):
+        if not isinstance(point, dict):
+            continue
+        item = dict(point)
+        risk_id = str(item.get("id") or "").strip()
+        if not risk_id or risk_id in used:
+            candidate = index
+            while f"r{candidate}" in used:
+                candidate += 1
+            risk_id = f"r{candidate}"
+        item["id"] = risk_id
+        used.add(risk_id)
+        normalized.append(item)
+    return normalized
+
+
 def _points_to_paragraphs(points: list[dict]) -> list[dict]:
     """原始 points（含 id/title/body）→ 报告段落（{lead, body}）；对策的 for_id 透传。"""
     paragraphs = []
     for p in points or []:
+        if not isinstance(p, dict):
+            continue
         title = str(p.get("title", "")).strip()
         body = str(p.get("body", "")).strip()
         if not title or not body:
@@ -313,7 +340,7 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
         ai = _new_ai()
         data = ai.chat_json(chapter_prompt(topic, "risks", slim(), facts_summary),
                             provider=provider, temperature=0.4, max_tokens=6000)
-        risk_points = data.get("points") or []
+        risk_points = _normalize_risk_points(data.get("points") or [])
         results["risk_points"] = risk_points                       # 原始（带 id）
         results["risks"] = _points_to_paragraphs(risk_points)      # 报告段落
     except Exception as e:

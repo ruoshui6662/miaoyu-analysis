@@ -204,14 +204,21 @@ Key 只保存环境变量名，不把明文 Key 写进注册表。后续设置�
 |---|---|---|---|
 | API-0 | 中国热榜无 Key 基础链路 | ✅ 已完成 NewsNow（微博/知乎/B站/抖音/百度/头条）主源、5 分钟缓存、单榜健康隔离；保留 TopHub/REBANG 适配位 | 不需要注册；接受公共聚合站缓存与失效风险 |
 | API-1 | 中国热榜公开源接入 | ✅ 已完成首页 JSON 接入与 provider/source_health；TopHub/REBANG HTML 在 NewsNow 缺榜时降级；统一 Mention 入库仍归 G1 | 不需要 |
+
 | API-2 | 多实例/多 Key 轮询 | provider 注册表、round-robin、429 冷却、健康检查、用量统计 | 需要提供想接入的 Key |
 | API-3 | 效果图数据能力 | trend、evidence、confidence、source_count 等字段填充首页 | 需要确认信源范围与时间窗 |
 | API-4 | 增强源 | Guardian、YouTube、NewsAPI 可选适配器 | 按需注册对应服务 |
 
+### 7.1 首页六榜展示契约
+
+首页的事实展示先满足三个可验证条件：榜单来源可追溯、单源失败可降级、展示分类不漂移。因此 `/api/hot/boards` 固定输出六个目标榜位（微博、知乎、抖音、B站、百度、今日头条），以 `source_id` 和名称别名归一后按固定顺序返回；NewsNow 为首选公开 JSON，REBANG 与 TopHub HTML 仅作缺榜补位，付费 TopHubData 仍由开关控制。
+
+前端采用“升温主叙事 + 六张同构卡片”的信息层级：主叙事负责引导研判，卡片负责平台横向比较。桌面为 3×2，平板为 2 列，手机为 1 列；每张卡最多加载 15 条，卡内纵向滚动且隐藏滚动条，点击条目打开原文，空榜不伪造热度。前端只访问本站接口，部署到其他环境时不依赖浏览器跨域权限。
+
 ## 8. 本轮结论
 
 - 不需要等待注册即可继续做 API-0/API-1；
-- 当前已完成首轮免费接入：本地 `/api/hot/boards` 实测返回 6 个榜单、89 条条目；`paid_apis_enabled=false`。
+- 当前已完成首轮免费接入：本地 `/api/hot/boards` 实测返回 6 个榜单、每榜 15 条（共 90 条）热榜条目；`paid_apis_enabled=false`。
 - 可调整的公开源配置：`NEWSNOW_ENABLED=false` 可整体切换，`NEWSNOW_BASE_URL` 可切换到自建 NewsNow，`NEWSNOW_CACHE_SECONDS` 最小 60 秒；公共实例建议低频使用。
 - 付费接口暂不接入：`PAID_APIS_ENABLED` 默认 `false`，即使存在 `TOPHUBDATA_KEY` 也不会发起付费 TopHubData 请求；后续 API-2 再做多 Key/Endpoint 轮询。
 - 最优先的用户前置是：准备至少一个 AI Key，并确认是否允许本机部署 SearXNG；

@@ -33,10 +33,16 @@ REBANG_BASE = "https://top.open2hub.com"
 NEWSNOW_BOARDS = {
     "weibo": "微博热搜",
     "zhihu": "知乎热榜",
-    "bilibili": "B站热门",
     "douyin": "抖音热点",
+    "bilibili": "B站热门",
     "baidu": "百度热搜",
     "toutiao": "今日头条热榜",
+}
+PUBLIC_BOARD_ALIASES = {
+    "微博": "weibo", "知乎": "zhihu", "抖音": "douyin", "B站": "bilibili",
+    "哔哩哔哩": "bilibili", "哔哩哔哩热门": "bilibili",
+    "百度": "baidu", "今日头条": "toutiao", "头条": "toutiao", "头条热榜": "toutiao",
+    "抖音热榜": "douyin",
 }
 
 _UA_BROWSER = USER_AGENT
@@ -337,6 +343,33 @@ def fetch_tophub_board(hashid: str, date: str | None = None) -> list[dict]:
     return items
 
 
+def _public_board_id(board: dict) -> str | None:
+    """将不同聚合站的榜单名称归一为六个产品固定展示位。"""
+    source_id = str(board.get("source_id") or "").strip()
+    if source_id in NEWSNOW_BOARDS:
+        return source_id
+    name = str(board.get("name") or "").strip()
+    if name in NEWSNOW_BOARDS.values():
+        return next((sid for sid, label in NEWSNOW_BOARDS.items() if label == name), None)
+    return PUBLIC_BOARD_ALIASES.get(name)
+
+
+def _merge_public_boards(*groups: list[dict]) -> list[dict]:
+    """按固定顺序合并公开源，只保留微博/知乎/抖音/B站/百度/头条六席。"""
+    merged: dict[str, dict] = {}
+    for group in groups:
+        for board in group:
+            if not isinstance(board, dict) or not board.get("items"):
+                continue
+            sid = _public_board_id(board)
+            if sid and sid not in merged:
+                item = dict(board)
+                item["source_id"] = sid
+                item["name"] = NEWSNOW_BOARDS[sid]
+                merged[sid] = item
+    return [merged[sid] for sid in NEWSNOW_BOARDS if sid in merged]
+
+
 def fetch_aggregated() -> list[dict]:
     """聚合热点：NewsNow 无 Key 主源 → TopHub/REBANG HTML → 旧路径。"""
     global _aggregate_cache
@@ -346,12 +379,8 @@ def fetch_aggregated() -> list[dict]:
 
     # 中国内地重点榜单优先。每个榜单独立失败，部分成功也可交付。
     boards = fetch_newsnow_aggregated()
-    names = {b["name"] for b in boards}
     if len(boards) < len(NEWSNOW_BOARDS):
-        for fallback in _fetch_rebang_boards() + legacy_aggregate_boards():
-            if fallback.get("name") not in names and fallback.get("items"):
-                boards.append(fallback)
-                names.add(fallback.get("name"))
+        boards = _merge_public_boards(boards, _fetch_rebang_boards(), legacy_aggregate_boards())
 
     # NewsNow 全部不可用时，保留原有聚合行为；付费 TopHubData 由开关控制。
     if not boards:
@@ -364,8 +393,9 @@ def fetch_aggregated() -> list[dict]:
                         "name": str(b.get("name") or b.get("title") or "热榜"),
                         "provider": "tophubdata", "items": _parse_thd_items(b),
                     })
+            boards = _merge_public_boards(boards)
         if not boards:
-            boards = legacy_aggregate_boards()
+            boards = _merge_public_boards(legacy_aggregate_boards())
 
     _aggregate_cache = (now, boards if isinstance(boards, list) else [])
     return _aggregate_cache[1]

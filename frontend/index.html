@@ -557,9 +557,30 @@
   @media (max-width: 980px) {
     .dash-boards, .dash-radar, .dash-widget { grid-column: span 12; }
     .dash-radar { position: static; }
+    .hot-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   /* 单榜独立卡片墙 */
   .bw-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 16px; }
+  /* 六个固定热榜：先主叙事，再用同构卡片完成平台对照，避免内容互相抢层级 */
+  .hot-board-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+  .hot-board-card { min-width: 0; padding: 15px 14px 12px; background: var(--card); border: 1px solid var(--separator); border-radius: var(--r-xl); transition: border-color .15s, box-shadow .15s, transform .15s; }
+  .hot-board-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-card); transform: translateY(-1px); }
+  .hot-board-head { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 10px; }
+  .hot-board-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--hot-h); }
+  .hot-board-card:nth-child(2) .hot-board-dot { background: var(--pos); }
+  .hot-board-card:nth-child(3) .hot-board-dot { background: var(--hot-m); }
+  .hot-board-card:nth-child(4) .hot-board-dot { background: var(--warn); }
+  .hot-board-card:nth-child(5) .hot-board-dot { background: var(--green); }
+  .hot-board-card:nth-child(6) .hot-board-dot { background: var(--text-2); }
+  .hot-board-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 650; color: var(--text-strong); }
+  .hot-board-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; margin: 0; padding: 0; list-style: none; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
+  .hot-board-list::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  .hot-board-row { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 32px; padding: 4px 6px; border-radius: 8px; cursor: pointer; transition: background .12s; }
+  .hot-board-row:hover { background: var(--surface); }
+  .hot-board-rank { width: 18px; flex: none; color: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; text-align: center; }
+  .hot-board-row:nth-child(1) .hot-board-rank { color: var(--hot-h); font-weight: 700; }
+  .hot-board-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 13px; line-height: 1.45; }
+  .hot-board-hot { flex: none; min-width: 42px; color: var(--text-3); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
   .bw-card { border: 1px solid var(--separator); border-radius: var(--r-xl); padding: 16px 16px 12px; background: var(--card); transition: border-color .15s, box-shadow .15s; display: flex; flex-direction: column; }
   .bw-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-card); }
   .bw-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -616,6 +637,10 @@
     .bw-card { padding: 12px 14px; }
     .bw-item { padding: 8px; }   /* 触控热区加大 */
     .bw-more { padding-top: 10px; }
+    .hot-board-grid { grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
+    .hot-board-card { padding: 14px 12px 11px; }
+    .hot-board-list { max-height: 360px; }
+    .hot-board-row { min-height: 44px; padding: 5px 6px; }
     .dash { gap: 16px; }
     .qbar .form-row .primary { flex: 1; }
     .actions { gap: 8px; }
@@ -1282,7 +1307,19 @@ function openDefaultPanel() {
 
 async function api(url, opt) {
   try {
-    const r = await fetch(url, opt);
+    const options = { ...(opt || {}) };
+    const headers = new Headers(options.headers || {});
+    const token = sessionStorage.getItem("miaoyu_admin_token") || "";
+    if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
+    options.headers = headers;
+    let r = await fetch(url, options);
+    if (r.status === 401 && !options._authRetry) {
+      const entered = prompt("此操作需要管理员令牌（首次部署令牌见后端启动日志）");
+      if (entered && entered.trim()) {
+        sessionStorage.setItem("miaoyu_admin_token", entered.trim());
+        return api(url, { ...opt, _authRetry: true });
+      }
+    }
     const ct = (r.headers.get("content-type") || "").toLowerCase();
     if (!ct.includes("application/json")) {
       // 后端返回页面而非接口（旧版服务未重启 / 404/405 的默认 HTML）→ 给出可操作提示
@@ -2136,46 +2173,47 @@ function allHotItems() {
     .sort((a, b) => hotNum(b.hot) - hotNum(a.hot));
 }
 
-/* Signal Desk：把六个榜单从平行卡片收敛为一个“升温事件”与来源带。
+/* Signal Desk：主热点负责回答“现在发生了什么”，六个同构榜卡负责回答“各平台正在讨论什么”。
    完整数据仍保留在 HOT，后续 G1 可直接替换为带 evidence/source_health 的摘要。 */
 function renderBoardsWall() {
   const wall = $("boardWall");
   if (!wall) return;
   wall.innerHTML = "";
-  const boards = HOT.boards.filter(b => (b.items || []).length);
+  const order = { "微博热搜": 0, "知乎热榜": 1, "抖音热点": 2, "B站热门": 3, "百度热搜": 4, "今日头条热榜": 5 };
+  const boards = HOT.boards.filter(b => (b.items || []).length && Object.prototype.hasOwnProperty.call(order, b.name))
+    .sort((a, b) => order[a.name] - order[b.name]);
   if (!boards.length) { wall.innerHTML = '<div class="f-help">暂无榜单数据（榜单接口可能暂不可用）</div>'; return; }
   const all = allHotItems();
   const lead = all[0] || boards[0].items[0];
   const leadBoards = lead.numBoards || 1;
   const leadHot = lead.hot || "—";
   const leadTitle = lead.title || "暂无升温主题";
-  const leadUrl = String(lead.url || "").replace(/'/g, "\\'");
-  const leadTitleAttr = String(leadTitle).replace(/'/g, "\\'");
-  const sourceItems = boards.map(b => {
-    const item = (b.items || [])[0] || {};
-    return `<div class="source-strip-item" title="${item.url ? "点击打开原文" : ""}" onclick="openHotByName('${String(item.title || "").replace(/'/g, "\\'")}', '${String(item.url || "").replace(/'/g, "\\'")}', event)">
-      <span class="source-strip-name">${esc(b.name)}</span>
-      <span class="source-strip-topic">${esc(item.title || "暂无条目")}</span>
-      <span class="source-strip-hot">${esc(item.hot || "—")}</span>
-    </div>`;
+  const jsq = (v) => String(v || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/[\r\n]+/g, " ");
+  const leadTitleAttr = jsq(leadTitle);
+  const boardCards = boards.map(b => {
+    const items = (b.items || []).slice(0, 15);
+    const rows = items.map((it, i) => `<li class="hot-board-row" role="button" tabindex="0" title="${esc(it.title || "")}" onclick="openHotByName('${jsq(it.title)}', '${jsq(it.url)}', event)" onkeydown="if(event.key==='Enter'||event.key===' '){openHotByName('${jsq(it.title)}', '${jsq(it.url)}', event);event.preventDefault();}">
+      <span class="hot-board-rank">${it.rank || i + 1}</span><span class="hot-board-title">${esc(it.title || "暂无条目")}</span><span class="hot-board-hot">${esc(it.hot || "—")}</span>
+    </li>`).join("");
+    return `<article class="hot-board-card"><div class="hot-board-head"><span class="hot-board-dot" aria-hidden="true"></span><span class="hot-board-name">${esc(b.name)}</span></div>
+      <ol class="hot-board-list" aria-label="${esc(b.name)}条目">${rows}</ol></article>`;
   }).join("");
   wall.innerHTML = `<div class="signal-lead">
     <div class="signal-lead-top">
-      <div><div class="signal-eyebrow">${IC.flame} 正在升温的热点 <span class="f-help">近 30 分钟关注度上升</span></div>
+      <div><div class="signal-eyebrow">${IC.flame} 当前关注焦点 <span class="f-help">按公开榜单热度排序</span></div>
         <h3>${esc(leadTitle)}</h3>
-        <p>相关信息正在多个公开平台扩散，建议先查看关键证据，再决定是否发起完整研判。</p>
+        <p>${leadBoards > 1 ? "相关信息已出现在多个公开平台，" : "该热点已进入公开榜单，"}建议先查看关键证据，再决定是否发起完整研判。</p>
       </div>
       <span class="signal-state">${leadBoards > 1 ? `跨 ${leadBoards} 个平台` : "持续关注"}</span>
     </div>
     <div class="signal-metrics">
-      <div class="signal-metric"><div class="signal-metric-label">综合热度</div><div class="signal-metric-value hot">${esc(leadHot)}</div></div>
+      <div class="signal-metric"><div class="signal-metric-label">榜单热度</div><div class="signal-metric-value hot">${esc(leadHot)}</div></div>
       <div class="signal-metric"><div class="signal-metric-label">覆盖平台</div><div class="signal-metric-value">${leadBoards}</div></div>
-      <div class="signal-metric"><div class="signal-metric-label">公开榜单</div><div class="signal-metric-value">${all.length}</div></div>
+      <div class="signal-metric"><div class="signal-metric-label">去重热点</div><div class="signal-metric-value">${all.length}</div></div>
       <div class="signal-metric"><div class="signal-metric-label">建议动作</div><div class="signal-metric-value" style="font-size:15px">开始研判</div></div>
     </div>
-    <div class="source-strip"><div class="source-strip-item source-strip-label"><span class="source-strip-name">来源平台</span><span class="source-strip-topic">点击查看原文</span></div>${sourceItems}</div>
     <div class="signal-lead-action"><button class="btn-ghost-sm" onclick="analyzeHot('${leadTitleAttr}')">分析这个热点 →</button></div>
-  </div>`;
+  </div><div class="hot-board-grid" aria-label="六个平台热榜">${boardCards}</div>`;
 }
 
 function openHotByName(title, url, ev) {

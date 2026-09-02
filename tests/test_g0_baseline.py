@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import sys
+import os
+import sqlite3
+import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,13 +16,66 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
+os.environ.setdefault("MIAOYU_ADMIN_TOKEN", "test-admin-token-0123456789abcdef")
 
 import collector  # noqa: E402
 import config  # noqa: E402
 import pipeline  # noqa: E402
 import url_check  # noqa: E402
 import hotlists  # noqa: E402
+import app as app_module  # noqa: E402
+import db  # noqa: E402
+import evidence  # noqa: E402
+import events  # noqa: E402
+import alerts  # noqa: E402
+import backup  # noqa: E402
+import monitor_report  # noqa: E402
+import monitor  # noqa: E402
+import preflight  # noqa: E402
+import security  # noqa: E402
+from ai_client import AIClient, AIClientError  # noqa: E402
 from searx_client import SearxClient  # noqa: E402
+
+
+def make_client():
+    client = app_module.app.test_client()
+    client.environ_base["HTTP_AUTHORIZATION"] = "Bearer " + os.environ["MIAOYU_ADMIN_TOKEN"]
+    return client
+
+
+class JsonResponseTests(unittest.TestCase):
+    def test_chat_json_extracts_object_after_think_block(self):
+        text = '<think>先分析素材，花括号 { 不能当作 JSON。</think>\n{"points": [{"id": "r1"}]}'
+        with patch.object(AIClient, "chat", return_value=text):
+            result = AIClient().chat_json([])
+        self.assertEqual(result, {"points": [{"id": "r1"}]})
+
+    def test_chat_json_extracts_fenced_object_with_surrounding_text(self):
+        text = '下面是结果：\n```json\n{"intro":"含 } 字符", "timeline": []}\n```\n以上。'
+        with patch.object(AIClient, "chat", return_value=text):
+            result = AIClient().chat_json([])
+        self.assertEqual(result["intro"], "含 } 字符")
+
+    def test_chat_json_rejects_array_instead_of_object(self):
+        with patch.object(AIClient, "chat", return_value='[{"id":"r1"}]'):
+            with self.assertRaisesRegex(AIClientError, "JSON 不是对象"):
+                AIClient().chat_json([])
+
+    def test_chat_json_reports_invalid_json_without_guessing(self):
+        with patch.object(AIClient, "chat", return_value='<think>思考</think>{"points": [}'):
+            with self.assertRaisesRegex(AIClientError, "未返回合法 JSON"):
+                AIClient().chat_json([])
+
+    def test_chat_json_retries_once_with_strict_output_instruction(self):
+        responses = iter([
+            "<think>只输出思考</think>",
+            '{"keywords": ["山西", "十五五"]}',
+        ])
+        with patch.object(AIClient, "chat", side_effect=lambda messages, **_kw: next(responses)) as call:
+            result = AIClient().chat_json([{"role": "user", "content": "输出关键词"}])
+        self.assertEqual(result["keywords"], ["山西", "十五五"])
+        self.assertEqual(call.call_count, 2)
+        self.assertIn("禁止输出 <think>", call.call_args_list[1].args[0][-1]["content"])
 
 
 class RuntimeConfigTests(unittest.TestCase):
@@ -106,6 +163,25 @@ class ArtifactAndProgressTests(unittest.TestCase):
         self.assertTrue(any("生成中" in detail for _step, detail in progress))
         self.assertFalse(any("已生成" in detail and "字" in detail for _step, detail in progress))
 
+    def test_markdown_and_docx_export_with_special_topic(self):
+        report = {
+            "title": 'G0 / : * ? < > | 文件名',
+            "intro": "离线验收样例",
+            "sections": [{"heading": "事件概况",
+                          "paragraphs": [{"lead": "事实：", "body": "样例内容"}]}],
+            "stats": {"total_raw": 1, "total_after_dedupe": 1,
+                      "body_fetched": 1,
+                      "credibility_dist": {"high": 1, "mid": 0, "low": 0}},
+        }
+        with tempfile.TemporaryDirectory(prefix="miaoyu-g0-") as tmp:
+            md = Path(tmp) / "safe.md"
+            docx = Path(tmp) / "safe.docx"
+            self.assertTrue(pipeline.gen_markdown(report, str(md)))
+            self.assertTrue(md.exists())
+            self.assertTrue(pipeline.gen_docx(report, str(docx)))
+            self.assertTrue(docx.exists())
+            self.assertGreater(docx.stat().st_size, 0)
+
 
 class PublicHotlistTests(unittest.TestCase):
     def setUp(self):
@@ -139,6 +215,443 @@ class PublicHotlistTests(unittest.TestCase):
                 with patch.object(hotlists.requests, "get") as get:
                     self.assertIsNone(hotlists._thd("/hot"))
         get.assert_not_called()
+
+    def test_public_board_merge_keeps_fixed_six_and_normalizes_aliases(self):
+        merged = hotlists._merge_public_boards(
+            [{"name": "广告榜", "items": [{"title": "不要展示"}]},
+             {"name": "微博", "items": [{"title": "微博条目"}], "provider": "rebang"}],
+            [{"name": "知乎热榜", "items": [{"title": "知乎条目"}], "provider": "newsnow"}],
+        )
+        self.assertEqual([item["source_id"] for item in merged], ["weibo", "zhihu"])
+        self.assertEqual([item["name"] for item in merged], ["微博热搜", "知乎热榜"])
+
+    def test_one_public_board_failure_does_not_drop_other_boards(self):
+        def board_result(source_id):
+            if source_id == "bilibili":
+                return []
+            return [{"title": source_id, "url": "https://example.test/" + source_id}]
+
+        with patch.object(hotlists, "fetch_newsnow_board", side_effect=board_result):
+            boards = hotlists.fetch_newsnow_aggregated()
+
+        self.assertEqual(len(boards), 5)
+        self.assertNotIn("bilibili", [board["source_id"] for board in boards])
+        self.assertEqual({board["source_id"] for board in boards},
+                         set(hotlists.NEWSNOW_BOARDS) - {"bilibili"})
+
+
+class TaskRouteTests(unittest.TestCase):
+    def test_analyze_route_persists_done_state_with_ai_stub(self):
+        state = {}
+        finished = threading.Event()
+
+        def fake_create(tid, topic, provider="", verify=False, created_at=""):
+            state[tid] = {"id": tid, "topic": topic, "provider": provider,
+                          "verify": verify, "status": "pending", "step": "",
+                          "detail": "", "created_at": created_at,
+                          "finished_at": "", "report_file": "",
+                          "report_summary": None, "error": ""}
+
+        def fake_update(tid, **fields):
+            state[tid].update(fields)
+            if fields.get("status") in {"done", "error"}:
+                finished.set()
+
+        def fake_get(tid):
+            item = state.get(tid)
+            if not item:
+                return None
+            result = dict(item)
+            if isinstance(result.get("report_summary"), str):
+                result["report_summary"] = json.loads(result["report_summary"])
+            return result
+
+        def fake_analysis(topic, provider=None, verify=False, progress=None):
+            progress("collect", "采集完成")
+            progress("facts", "事实生成中")
+            return {
+                "title": topic,
+                "sections": [{"heading": "事件概况", "paragraphs": []}],
+                "docx": "", "md": "", "json": "", "elapsed_sec": 0.01,
+                "ai_ready": True,
+            }
+
+        with patch.object(app_module, "db_task_create", side_effect=fake_create), \
+             patch.object(app_module, "db_task_update", side_effect=fake_update), \
+             patch.object(app_module, "db_task_get", side_effect=fake_get), \
+             patch.object(app_module, "run_analysis", side_effect=fake_analysis):
+            client = make_client()
+            response = client.post("/api/analyze", json={"topic": "离线验收主题"})
+            self.assertEqual(response.status_code, 200)
+            task_id = response.get_json()["task_id"]
+            self.assertTrue(finished.wait(timeout=2), "后台任务未在限定时间内结束")
+            detail = client.get(f"/api/tasks/{task_id}")
+
+        self.assertEqual(detail.status_code, 200)
+        payload = detail.get_json()
+        self.assertEqual(payload["status"], "done")
+        self.assertEqual(payload["step"], "done")
+        self.assertEqual(payload["report"]["title"], "离线验收主题")
+        self.assertEqual(payload["report"]["sections"], 1)
+
+
+class RiskNormalizationTests(unittest.TestCase):
+    def test_missing_risk_ids_are_generated_and_advice_can_be_matched(self):
+        class FakeAI:
+            calls = 0
+
+            def chat_json(self, _messages, **_kwargs):
+                type(self).calls += 1
+                return [
+                    {"intro": "背景", "timeline": []},
+                    {"points": [{"title": "原因", "body": "说明"}]},
+                    {"points": [{"title": "风险", "body": "说明"}]},
+                    {"points": [{"title": "建议", "body": "说明"}]},
+                ][type(self).calls - 1]
+
+        with patch.object(pipeline, "AIClient", FakeAI):
+            result = pipeline._run_ai_stage(
+                "离线主题", [{"title": "素材", "url": "https://example.test", "body": "正文"}],
+                None, lambda _step, _detail: None,
+            )
+        self.assertEqual(result["risk_advice_check"]["risk_count"], 1)
+        self.assertEqual(result["risk_advice_check"]["advice_count"], 1)
+        self.assertEqual(result["advice"][0]["for_id"], "r1")
+        self.assertTrue(any("未标注对应风险" in warning
+                            for warning in result["risk_advice_check"]["warnings"]))
+
+
+class SecurityTests(unittest.TestCase):
+    def test_private_api_requires_token_and_settings_never_return_api_key(self):
+        unauthenticated = app_module.app.test_client().get("/api/settings")
+        self.assertEqual(unauthenticated.status_code, 401)
+        with patch.object(config, "AI_PROVIDERS", {
+            "test": {"name": "测试", "endpoint": "https://example.test/v1",
+                      "apiKey": "super-secret-key", "model": "test", "custom": True},
+        }):
+            response = make_client().get("/api/settings")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_data(as_text=True)
+        self.assertNotIn("super-secret-key", payload)
+        self.assertIn("apiKeyConfigured", payload)
+
+        edit = app_module.app.test_client().post("/api/report/edit", json={})
+        self.assertEqual(edit.status_code, 401)
+
+    def test_settings_save_keeps_redacted_existing_api_key(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-security-settings-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.object(config, "AI_PROVIDERS", {
+                     "test": {"name": "测试", "endpoint": "https://example.test/v1",
+                               "apiKey": "super-secret-key", "model": "test", "custom": True},
+                 }):
+                response = make_client().post("/api/settings", json={
+                    "settings": {"AI_PROVIDERS": json.dumps({
+                        "test": {"name": "测试", "endpoint": "https://new.example/v1",
+                                  "apiKey": "", "model": "test", "custom": True},
+                    }, ensure_ascii=False)},
+                })
+                saved = json.loads(db.get_all()["AI_PROVIDERS"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(saved["test"]["apiKey"], "super-secret-key")
+
+    def test_metrics_endpoint_is_protected_and_contains_only_counts(self):
+        self.assertEqual(app_module.app.test_client().get("/api/metrics").status_code, 401)
+        response = make_client().get("/api/metrics")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("database", response.get_json())
+        self.assertNotIn("apiKey", response.get_data(as_text=True))
+
+    def test_security_headers_and_fixed_window_limiter(self):
+        response = app_module.app.test_client().get("/healthz")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+        self.assertIn("frame-ancestors 'none'", response.headers["Content-Security-Policy"])
+        limiter = security.FixedWindowLimiter(limit=2, window_seconds=60)
+        self.assertTrue(limiter.allow("x")[0])
+        self.assertTrue(limiter.allow("x")[0])
+        blocked, retry = limiter.allow("x")
+        self.assertFalse(blocked)
+        self.assertGreaterEqual(retry, 1)
+
+    def test_missing_environment_token_is_generated_once_and_reused(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-token-") as tmp:
+            with patch.dict(os.environ, {"MIAOYU_ADMIN_TOKEN": ""}), \
+                 patch.object(security, "TOKEN_FILE", Path(tmp) / "admin_token"):
+                first = security.admin_token()
+                second = security.admin_token()
+        self.assertGreaterEqual(len(first), 24)
+        self.assertEqual(first, second)
+
+    def test_backup_restore_requires_confirmation_and_preserves_report_files(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-backup-") as tmp:
+            root = Path(tmp)
+            data_dir = root / "data"
+            db_path = data_dir / "settings.db"
+            data_dir.mkdir()
+            conn = sqlite3.connect(str(db_path))
+            try:
+                conn.execute("CREATE TABLE sample(value TEXT)")
+                conn.execute("INSERT INTO sample VALUES('kept')")
+                conn.commit()
+            finally:
+                conn.close()
+            report = data_dir / "reports" / "sample.md"
+            report.parent.mkdir(parents=True)
+            report.write_text("报告证据", encoding="utf-8")
+            archive = backup.create_backup(root / "snapshot.zip", data_dir=data_dir, db_path=db_path)
+            with self.assertRaises(ValueError):
+                backup.restore_backup(archive, data_dir=root / "restored", db_path=root / "restored.db")
+            restored_db = root / "restored" / "settings.db"
+            backup.restore_backup(archive, data_dir=root / "restored", db_path=restored_db, confirm=True)
+            restored = sqlite3.connect(str(restored_db))
+            try:
+                self.assertEqual(restored.execute("SELECT value FROM sample").fetchone()[0], "kept")
+            finally:
+                restored.close()
+            self.assertEqual((root / "restored" / "reports" / "sample.md").read_text(encoding="utf-8"), "报告证据")
+
+    def test_deployment_preflight_reports_missing_docker_without_exposing_secrets(self):
+        result = preflight.run(require_docker=False)
+        self.assertTrue(result["ok"])
+        self.assertTrue(any(item["name"] == "compose_files" and item["ok"]
+                            for item in result["checks"]))
+        self.assertNotIn("apiKey", json.dumps(result, ensure_ascii=False))
+
+
+class MonitorServiceTests(unittest.TestCase):
+    def _subscription(self, db_path):
+        now = "2026-09-02T00:00:00+00:00"
+        db.topic_create("topic-1", "监测主题", ["主题", "主题事件"], [], now)
+        return db.subscription_upsert("topic-1", 600, True, now)
+
+    def test_success_commits_cursor_and_mention(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-monitor-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                subscription_id = self._subscription(Path(tmp) / "settings.db")
+                service = monitor.MonitorService(collect_fn=lambda *_args: {
+                    "items": [{"title": "监测到的内容", "url": "https://example.test/a",
+                                "source_name": "测试媒体"}],
+                })
+                result = service.run_subscription(subscription_id)
+                self.assertEqual(result["status"], "success")
+                self.assertTrue(db.cursor_get("topic:topic-1"))
+                self.assertEqual(db.monitor_runs("topic-1")[0]["status"], "success")
+                conn = sqlite3.connect(str(Path(tmp) / "settings.db"))
+                try:
+                    self.assertEqual(conn.execute("SELECT COUNT(*) FROM mentions").fetchone()[0], 1)
+                    self.assertEqual(conn.execute("SELECT COUNT(*) FROM mention_topics").fetchone()[0], 1)
+                    self.assertEqual(conn.execute("SELECT COUNT(*) FROM events").fetchone()[0], 1)
+                    self.assertEqual(conn.execute("SELECT COUNT(*) FROM event_mentions").fetchone()[0], 1)
+                finally:
+                    conn.close()
+
+    def test_failure_does_not_advance_cursor_and_schedules_backoff(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-monitor-fail-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                subscription_id = self._subscription(Path(tmp) / "settings.db")
+                service = monitor.MonitorService(collect_fn=lambda *_args: (_ for _ in ()).throw(
+                    RuntimeError("模拟来源失败")))
+                result = service.run_subscription(subscription_id)
+                self.assertEqual(result["status"], "error")
+                self.assertEqual(db.cursor_get("topic:topic-1"), "")
+                run = db.monitor_runs("topic-1")[0]
+                self.assertEqual(run["status"], "error")
+                self.assertEqual(run["cursor_after"], "")
+                sub = db.subscription_get(subscription_id)
+                self.assertEqual(sub["consecutive_failures"], 1)
+                self.assertTrue(sub["cooldown_until"])
+
+    def test_topic_api_persists_subscription_configuration(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-monitor-api-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.object(monitor.monitor_service, "start"):
+                client = make_client()
+                created = client.post("/api/monitor/topics", json={
+                    "name": "山西舆情", "keywords": ["山西", "山西事件"],
+                    "exclude_keywords": ["招聘"], "interval_seconds": 120,
+                })
+                self.assertEqual(created.status_code, 201)
+                topic_id = created.get_json()["topic_id"]
+                listed = client.get("/api/monitor/topics")
+
+        self.assertEqual(listed.status_code, 200)
+        item = listed.get_json()["items"][0]
+        self.assertEqual(item["id"], topic_id)
+        self.assertEqual(item["keywords"], ["山西", "山西事件"])
+        self.assertEqual(item["subscription"]["interval_seconds"], 120)
+
+    def test_topic_api_keeps_topic_and_subscription_enabled_state_in_sync(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-monitor-api-state-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.object(monitor.monitor_service, "start"):
+                client = make_client()
+                created = client.post("/api/monitor/topics", json={
+                    "name": "暂停监测", "keywords": ["暂停监测"], "enabled": False,
+                })
+                self.assertEqual(created.status_code, 201)
+                item = client.get("/api/monitor/topics").get_json()["items"][0]
+        self.assertFalse(item["enabled"])
+        self.assertFalse(item["subscription"]["enabled"])
+
+
+class EvidenceModelTests(unittest.TestCase):
+    def test_url_canonicalization_removes_tracking_parameters(self):
+        url = evidence.canonicalize_url(
+            "HTTPS://Example.TEST/story/?utm_source=x&id=7&spm=abc"
+        )
+        self.assertEqual(url, "https://example.test/story?id=7")
+
+
+class EventAggregationTests(unittest.TestCase):
+    def test_cross_platform_title_variants_share_one_explainable_event(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-events-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                now = "2026-09-02T00:00:00+00:00"
+                db.topic_create("topic-event", "山西舆情", ["山西"], [], now)
+                first = evidence.normalize_mention(
+                    {"title": "山西煤矿事故救援进展", "url": "https://a.example/1", "hot": "1000"},
+                    source_id="媒体甲", source_type="search", captured_at=now,
+                    topic_id="topic-event",
+                )
+                first_id, _ = db.mention_upsert(first)
+                db.mention_topic_touch(first_id, "topic-event", now)
+                one = events.assign_mention("topic-event", first_id, first, now)
+
+                later = "2026-09-02T01:00:00+00:00"
+                second = evidence.normalize_mention(
+                    {"title": "山西煤矿事故最新救援进展", "url": "https://b.example/2", "hot": "1万"},
+                    source_id="媒体乙", source_type="search", captured_at=later,
+                    topic_id="topic-event",
+                )
+                second_id, _ = db.mention_upsert(second)
+                db.mention_topic_touch(second_id, "topic-event", later)
+                two = events.assign_mention("topic-event", second_id, second, later)
+
+                self.assertEqual(one["event_id"], two["event_id"])
+                self.assertEqual(two["method"], "title_overlap")
+                item = db.event_list("topic-event")[0]
+                self.assertEqual(item["mention_count"], 2)
+                self.assertEqual(item["platform_count"], 2)
+                self.assertGreater(item["heat_score"], 0)
+                self.assertGreater(two["heat_score"], one["heat_score"])
+
+    def test_events_api_reads_aggregated_events(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-events-api-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.object(monitor.monitor_service, "start"):
+                now = "2026-09-02T00:00:00+00:00"
+                db.topic_create("topic-api-event", "测试主题", ["测试"], [], now)
+                client = make_client()
+                missing = client.get("/api/monitor/events?topic_id=missing")
+                listed = client.get("/api/monitor/events?topic_id=topic-api-event")
+                signals = client.get("/api/monitor/signals?topic_id=topic-api-event")
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.get_json()["items"], [])
+        self.assertEqual(signals.status_code, 200)
+        self.assertEqual(signals.get_json()["items"], [])
+
+    def test_alerts_are_deterministic_and_deduplicated(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-alerts-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                now = "2026-09-02T00:00:00+00:00"
+                db.topic_create("topic-alert", "告警主题", ["告警"], [], now)
+                subscription_id = db.subscription_upsert("topic-alert", 600, True, now)
+                items = [{
+                    "title": "同一事件发生新进展", "url": f"https://p{i}.example/story",
+                    "source_name": f"平台{i}", "sentiment": "negative", "hot": "1万",
+                } for i in range(3)]
+                service = monitor.MonitorService(collect_fn=lambda *_args: {"items": items})
+                result = service.run_subscription(subscription_id)
+                signals = alerts.evaluate_topic("topic-alert", "2026-09-02T00:01:00+00:00")
+                persisted = db.signal_list("topic-alert")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual({s["signal_type"] for s in signals},
+                         {"cross_platform", "surge", "negative_ratio"})
+        self.assertEqual(len(persisted), 3)
+
+    def test_periodic_report_contains_window_events_signals_and_download_files(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-periodic-report-") as tmp:
+            db_path = Path(tmp) / "settings.db"
+            report_dir = Path(tmp) / "reports"
+            with patch.object(db, "SETTINGS_DB", db_path), \
+                 patch.object(monitor.monitor_service, "start"), \
+                 patch.object(monitor_report, "gen_docx",
+                              side_effect=lambda _report, path: (Path(path).write_bytes(b"docx") or True)):
+                now = "2026-09-02T00:00:00+00:00"
+                db.topic_create("topic-report", "报告主题", ["报告"], [], now)
+                subscription_id = db.subscription_upsert("topic-report", 600, True, now)
+                service = monitor.MonitorService(collect_fn=lambda *_args: {"items": [
+                    {"title": "报告主题出现新进展", "url": "https://one.example/a",
+                     "source_name": "平台甲", "sentiment": "negative"},
+                    {"title": "报告主题出现新进展", "url": "https://two.example/b",
+                     "source_name": "平台乙", "sentiment": "negative"},
+                ]})
+                self.assertEqual(service.run_subscription(subscription_id)["status"], "success")
+                report = monitor_report.generate_periodic_report(
+                    "topic-report", start="2026-09-01T00:00:00+00:00",
+                    end="2026-09-03T00:00:00+00:00", output_dir=report_dir,
+                )
+                saved = json.loads(Path(report["json"]).read_text(encoding="utf-8"))
+                json_exists = Path(report["json"]).exists()
+                md_exists = Path(report["md"]).exists()
+                docx_exists = Path(report["docx"]).exists()
+        self.assertEqual(saved["monitor"]["summary"]["event_count"], 1)
+        self.assertEqual(saved["monitor"]["summary"]["mention_count"], 2)
+        self.assertEqual(len(saved["events"][0]["mentions"]), 2)
+        self.assertTrue(json_exists)
+        self.assertTrue(md_exists)
+        self.assertTrue(docx_exists)
+
+    def test_hot_snapshot_is_persistent_and_mentions_are_idempotent(self):
+        boards = [{
+            "source_id": "weibo", "provider": "newsnow",
+            "items": [{"title": "同一热点", "url": "https://example.test/a?utm_source=x",
+                        "rank": 1, "hot": "100"}],
+        }]
+        changed = [{
+            "source_id": "weibo", "provider": "newsnow",
+            "items": [{"title": "同一热点", "url": "https://example.test/a?utm_source=x",
+                        "rank": 3, "hot": "200"}],
+        }]
+        with tempfile.TemporaryDirectory(prefix="miaoyu-evidence-") as tmp:
+            db_path = Path(tmp) / "settings.db"
+            with patch.object(db, "SETTINGS_DB", db_path):
+                first = evidence.record_hot_boards(boards, captured_at="2026-09-02T00:00:00+00:00")
+                second = evidence.record_hot_boards(changed, captured_at="2026-09-02T00:05:00+00:00")
+                repeated = evidence.record_hot_boards(changed, captured_at="2026-09-02T00:10:00+00:00")
+                rank_data = db.hot_rank_changes("weibo")
+                history = db.hot_history("weibo")
+                conn = sqlite3.connect(str(db_path))
+                try:
+                    counts = {
+                        "runs": conn.execute("SELECT COUNT(*) FROM scan_runs").fetchone()[0],
+                        "mentions": conn.execute("SELECT COUNT(*) FROM mentions").fetchone()[0],
+                        "hot_items": conn.execute("SELECT COUNT(*) FROM hot_items").fetchone()[0],
+                    }
+                finally:
+                    conn.close()
+
+        self.assertEqual(first["mentions_new"], 1)
+        self.assertEqual(second["mentions_new"], 0)
+        self.assertEqual(repeated["items"], 0)
+        self.assertEqual(counts, {"runs": 2, "mentions": 1, "hot_items": 2})
+        self.assertEqual(rank_data["items"][next(iter(rank_data["items"]))]["rank_change"], -2)
+        self.assertEqual(len(history), 2)
+
+    def test_hot_history_api_reads_persisted_snapshot_without_fetching(self):
+        boards = [{"source_id": "zhihu", "provider": "newsnow",
+                   "items": [{"title": "历史条目", "url": "https://example.test/h"}]}]
+        with tempfile.TemporaryDirectory(prefix="miaoyu-evidence-api-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                evidence.record_hot_boards(boards, captured_at="2026-09-02T00:00:00+00:00")
+                response = make_client().get(
+                    "/api/hot/history?board_id=zhihu&hours=24"
+                )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["items"][0]["title"], "历史条目")
 
 
 if __name__ == "__main__":

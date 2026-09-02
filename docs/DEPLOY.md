@@ -3,6 +3,43 @@
 > 对应开发手册 A1a（最小容器化）。目标环境：飞牛 fnOS（支持镜像导入）或任意 Docker 主机。
 > 部署后浏览器访问 `http://<主机IP>:5000`，本机默认 `http://localhost:5000`。
 
+## 0.1 G3 安全基线（上线前必做）
+
+- 为生产环境设置 `MIAOYU_ADMIN_TOKEN`，建议使用至少 32 字节随机值；不要把它写入 Git 或镜像。
+- 未设置时，首次启动会在 `data/admin_token` 生成令牌并写入启动日志；复制保存后，将其改为部署环境变量更便于轮换。
+- 除热榜公开读取接口外，API 默认要求 `Authorization: Bearer <MIAOYU_ADMIN_TOKEN>`；浏览器首次访问会提示输入令牌并仅保存于当前会话。
+- `/api/settings` 返回的服务商配置只有 `apiKeyConfigured`，不会返回 API Key；已有 Key 在保存其它设置时不会因脱敏值被清空。
+- 默认不开放跨域；确需跨域时只设置一个完整的 `MIAOYU_ALLOWED_ORIGIN`，不要使用 `*`。
+- 默认请求体上限为 10 MB，可由 `MIAOYU_MAX_BODY_MB` 调整；服务包含安全响应头和按客户端限流。
+
+### 0.2 备份与恢复
+
+备份包含 SQLite、任务素材和报告文件：
+
+```bash
+python backend/backup.py create
+python backend/backup.py restore data/backups/miaoyu-YYYYMMDD_HHMMSS.zip --yes
+```
+
+恢复会覆盖目标数据，必须显式使用 `--yes`；恢复前应停止应用并保留一份当前数据副本。
+
+## 0.3 Cloudflare Tunnel（推荐的公网入口）
+
+妙舆是 Flask 服务，不直接部署到 Cloudflare Pages；使用 Docker 在 NAS/VPS 运行，再用 Cloudflare Tunnel 将公网主机名转发到 `yuqing:5000`。
+
+1. 在 Cloudflare Zero Trust → Networks → Tunnels 创建远程管理 Tunnel，并添加 Public Hostname；Service 填 `http://yuqing:5000`。
+2. 复制 Tunnel 的 Docker 令牌，写入 `.env` 的 `CLOUDFLARE_TUNNEL_TOKEN`。不要把令牌写进镜像、Git 或 `command` 参数。
+3. 启动应用和 Tunnel：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d
+```
+
+4. 在 Cloudflare Access 为该主机名配置允许的邮箱/域名策略；妙舆自身的 `MIAOYU_ADMIN_TOKEN` 仍需保留，形成边缘访问控制 + 应用层鉴权两层保护。
+5. 验收：访问公网主机名应能打开首页；直接访问 NAS/VPS 的 5000 端口应在防火墙中禁止；`/healthz` 返回 200；未带妙舆 Token 的私有 API 返回 401。
+
+Cloudflare 官方文档当前推荐 Docker 使用远程管理 Tunnel，并通过 `TUNNEL_TOKEN` 环境变量运行 `cloudflared`：[Tunnel setup](https://developers.cloudflare.com/tunnel/setup/)、[Tunnel tokens](https://developers.cloudflare.com/tunnel/advanced/tunnel-tokens/)。
+
 ---
 
 ## 0. 两种部署方式总览
