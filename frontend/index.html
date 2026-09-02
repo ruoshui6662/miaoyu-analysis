@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>舆情分析系统</title>
+<title>妙舆</title>
 <script src="vendor/echarts.min.js"></script>
 <script src="vendor/html2pdf.bundle.min.js"></script>
 <style>
@@ -933,7 +933,7 @@
 <div class="header">
   <div class="brand">
     <span class="logo">舆</span>
-    <span>舆情分析系统</span>
+    <span>妙舆</span>
     <span class="dot" id="healthDot" title="后端服务状态"></span>
   </div>
   <div class="nav">
@@ -1694,7 +1694,7 @@ function renderReport(rep, jsonName) {
   $("progressState").className = "badge done"; $("progressState").textContent = "完成";
   $("barFill").style.width = "100%";
   const ph = $("printHead");
-  if (ph) ph.innerHTML = `<span class="ph-t">${esc(rep.title || "")}</span><span class="ph-d">生成于 ${new Date().toLocaleString("zh-CN")} · 舆情分析系统</span>`;
+  if (ph) ph.innerHTML = `<span class="ph-t">${esc(rep.title || "")}</span><span class="ph-d">生成于 ${new Date().toLocaleString("zh-CN")} · 妙舆</span>`;
   let html = `<h2>${esc(rep.title)}</h2>`;
 
   // B1 概览仪表盘：情感 / 信源分布 / 时间趋势（数据缺失自动隐藏）

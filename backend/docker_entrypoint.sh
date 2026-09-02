@@ -13,5 +13,5 @@ fi
 
 mkdir -p /app/data/tasks /app/data/reports /app/data/raw
 
-echo "[entrypoint] 启动舆情分析服务..."
+echo "[entrypoint] 启动妙舆服务..."
 exec python /app/backend/app.py --host 0.0.0.0 --port 5000

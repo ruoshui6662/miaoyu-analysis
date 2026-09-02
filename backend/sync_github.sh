@@ -10,7 +10,7 @@
 set -e
 cd "$(dirname "$0")"
 
-MSG="${1:-update: 舆情分析系统同步}"
+MSG="${1:-update: 妙舆同步}"
 BRANCH="main"
 REPO_URL="https://github.com/ruoshui6662/miaoyu-analysis.git"
 

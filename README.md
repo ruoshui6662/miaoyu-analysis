@@ -1,4 +1,4 @@
-# 舆情分析平台（miaoyu-analysis）
+# 妙舆（miaoyu-analysis）
 
 多信源舆情分析系统：**SearXNG 抓取 → AI 四段式分析（事件概况/原因/风险/对策）→ Word/Markdown/PDF 报告**。
 面向"部署后任何人开箱即用"：管理员在页面/`.env` 配置 AI 与信源即可，支持 Docker 一键部署与飞牛 fnOS 安装。

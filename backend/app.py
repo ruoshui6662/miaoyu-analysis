@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""舆情分析系统 Web 后端（Flask，纯 Python 依赖，无 C 扩展）。
+"""妙舆 Web 后端（Flask，纯 Python 依赖，无 C 扩展）。
 
 启动：python app.py  → 局域网访问 http://<本机IP>:5000
 接口：
@@ -516,6 +516,6 @@ if __name__ == "__main__":
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=5000)
     args = ap.parse_args()
-    print(f"舆情分析系统已启动: http://{args.host}:{args.port}（局域网设备访问请用本机IP）")
+    print(f"妙舆已启动: http://{args.host}:{args.port}（局域网设备访问请用本机IP）")
     print("提示: 首次启动若 Windows 防火墙弹窗请允许（专用网络）")
     app.run(host=args.host, port=args.port, debug=False, threaded=True)
