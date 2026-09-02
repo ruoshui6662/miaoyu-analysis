@@ -179,7 +179,8 @@ def api_reports_list():
 
 @app.post("/api/report/edit")
 def api_report_edit():
-    """B4 报告在线编辑：保存修改后的报告结构，就地更新 JSON 并重生成 docx/md。"""
+    """B4 报告在线编辑：保存修改后的报告结构，就地更新 JSON 并重生成 docx/md。
+    保存前把上一版备份为 .bak.json，供「还原」回滚。"""
     body = request.get_json(silent=True) or {}
     json_name = (body.get("json_name") or "").strip()
     rep = body.get("report")
@@ -191,6 +192,14 @@ def api_report_edit():
         return jsonify({"error": "报告不存在"}), 404
     if not rep.get("title") or not isinstance(rep.get("sections"), list):
         return jsonify({"error": "报告结构不完整（缺少标题或章节）"}), 400
+    # 保存前备份上一版（仅当当前文件是有效报告才备份，避免把损坏内容存为备份）
+    try:
+        prev = json.loads(jpath.read_text(encoding="utf-8"))
+        if prev.get("title") and isinstance(prev.get("sections"), list):
+            jpath.with_name(jpath.stem + ".bak.json").write_text(
+                json.dumps(prev, ensure_ascii=False), encoding="utf-8")
+    except (ValueError, OSError):
+        pass
     rep["edited"] = True
     jpath.write_text(json.dumps(rep, ensure_ascii=False), encoding="utf-8")
     # 重新生成 md（必做）与 docx（尽力而为）
@@ -202,7 +211,78 @@ def api_report_edit():
     except Exception:  # noqa: BLE001
         ok_docx = False
     return jsonify({"ok": True, "edited": True, "docx_ok": ok_docx,
+                    "has_backup": (jpath.with_name(jpath.stem + ".bak.json")).exists(),
                     "docx": str(docx_path), "md": str(md_path)})
+
+
+@app.post("/api/report/restore")
+def api_report_restore():
+    """B4 还原：把 .bak.json 覆盖回主 JSON 并重生成 docx/md（回滚上一次编辑）。"""
+    body = request.get_json(silent=True) or {}
+    json_name = (body.get("json_name") or "").strip()
+    if not json_name:
+        return jsonify({"error": "参数缺失"}), 400
+    safe = Path(json_name).name
+    jpath = DATA_DIR_REPORTS / safe
+    if not jpath.exists() or jpath.suffix.lower() != ".json":
+        return jsonify({"error": "报告不存在"}), 404
+    bak = jpath.with_name(jpath.stem + ".bak.json")
+    if not bak.exists():
+        return jsonify({"error": "没有可还原的备份（仅编辑过且保存过的报告可还原）"}), 404
+    rep = json.loads(bak.read_text(encoding="utf-8"))
+    if not rep.get("title") or not isinstance(rep.get("sections"), list):
+        return jsonify({"error": "备份内容损坏"}), 500
+    jpath.write_text(json.dumps(rep, ensure_ascii=False), encoding="utf-8")
+    md_path = jpath.with_suffix(".md")
+    md_path.write_text(render_markdown(rep), encoding="utf-8")
+    docx_path = jpath.with_suffix(".docx")
+    try:
+        ok_docx = pipeline_gen_docx(rep, str(docx_path))
+    except Exception:  # noqa: BLE001
+        ok_docx = False
+    return jsonify({"ok": True, "restored": True, "docx_ok": ok_docx,
+                    "docx": str(docx_path), "md": str(md_path)})
+
+
+@app.post("/api/report/export-docx")
+def api_report_export_docx():
+    """P1-c：导出含图表的 Word。前端把图表 PNG dataURL 传回，解码为临时图片
+    注入报告 JSON（_chart_images），由 gen_docx 嵌入后返回 docx 文件。"""
+    import base64
+    body = request.get_json(silent=True) or {}
+    json_name = (body.get("json_name") or "").strip()
+    charts = body.get("charts") or {}   # {kind: dataURL}
+    if not json_name:
+        return jsonify({"error": "参数缺失"}), 400
+    safe = Path(json_name).name
+    jpath = DATA_DIR_REPORTS / safe
+    if not jpath.exists() or jpath.suffix.lower() != ".json":
+        return jsonify({"error": "报告不存在"}), 404
+    rep = json.loads(jpath.read_text(encoding="utf-8"))
+    # 解码图表 PNG → 临时文件
+    imgs = []
+    try:
+        for kind, dataurl in charts.items():
+            if not dataurl or "," not in dataurl:
+                continue
+            b64 = dataurl.split(",", 1)[1]
+            tmp = DATA_DIR_REPORTS / f"_chart_{jpath.stem}_{kind}.png"
+            tmp.write_bytes(base64.b64decode(b64))
+            imgs.append({"kind": kind, "path": str(tmp)})
+        if imgs:
+            rep["_chart_images"] = imgs
+        docx_path = jpath.with_suffix(".docx")
+        ok = pipeline_gen_docx(rep, str(docx_path))
+        if not ok:
+            return jsonify({"error": "Word 生成失败（含图表）"}), 500
+        return send_from_directory(str(DATA_DIR_REPORTS), docx_path.name,
+                                   as_attachment=True, download_name=docx_path.name)
+    finally:
+        for im in imgs:
+            try:
+                Path(im["path"]).unlink()
+            except OSError:
+                pass
 
 
 @app.get("/api/reports/<path:filename>")

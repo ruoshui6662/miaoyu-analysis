@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>舆情分析系统</title>
 <script src="vendor/echarts.min.js"></script>
+<script src="vendor/html2pdf.bundle.min.js"></script>
 <style>
   /* ── 视觉系统 v2（2026-09-01 重构）──
      原则：墨色阶用明度差建立层次；字号/间距走固定阶梯（整数步进 + 4pt 网格）；
@@ -87,11 +88,11 @@
       --surface: #0f1319;
       --surface-2: #1d2330;
       --header-bg: rgba(11, 14, 19, .82);
-      --text: #e7eaef;
-      --text-2: #a4abb8;
-      --text-3: #6f7785;
-      --text-strong: #f5f7fa;
-      --text-disabled: #4a5260;
+      --text: #eef1f6;
+      --text-2: #aeb6c4;
+      --text-3: #8b96a6;
+      --text-strong: #f6f8fb;
+      --text-disabled: #5a6472;
       --border: rgba(255, 255, 255, .07);
       --border-hover: rgba(255, 255, 255, .16);
       --separator: rgba(255, 255, 255, .05);
@@ -118,6 +119,13 @@
       --scrollbar: #2c3340;
       --scrollbar-hover: #3b4352;
       --shadow-card: none;
+    }
+  }
+  @media (prefers-color-scheme: dark) {
+    /* 暗色小字号可读性：浅字细笔画在深底感知淡（对比度之外的第二杠杆），统一提一档字重 */
+    .f-help, .task-meta, .bw-cnt, .q-src, .radar-board, .hot-meta,
+    .report .appendix, .src-item .hm, .src-group-head .gc, .configured-line, .ht {
+      font-weight: 500;
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -506,6 +514,21 @@
   }
   .report .sec p { text-indent: 2em; margin-bottom: 8px; font-size: 14px; line-height: 1.75; }
   .report .sec p b { font-weight: 700; }
+  .print-head { display: none; }   /* 仅打印时显示页眉 */
+  /* PDF 导出离屏容器：白底黑字，固定视口外，字体/行距与报告一致 */
+  .pdf-capture {
+    position: fixed; left: -20000px; top: 0; z-index: -1;
+    width: 800px; background: #fff; color: #1f2937;
+    font-family: var(--font-sans); font-size: 13px; line-height: 1.7;
+  }
+  .pdf-capture h2 { font-size: 20px; text-align: center; margin-bottom: 12px; }
+  .pdf-capture .sec h3 { font-size: 15px; font-weight: 700; margin: 14px 0 6px; }
+  .pdf-capture .sec p { margin: 0 0 6px; text-indent: 2em; }
+  .pdf-capture .ov-grid, .pdf-capture .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+  .pdf-capture .ov-card, .pdf-capture .q-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; page-break-inside: avoid; }
+  .pdf-capture .appendix table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  .pdf-capture .appendix td, .pdf-capture .appendix th { border: 1px solid #e5e7eb; padding: 4px 8px; font-size: 12px; }
+  .pdf-capture .appendix th { background: #f3f4f6; }
   .report .appendix { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
   .report .appendix table { width: 100%; border-collapse: collapse; margin-top: 8px; }
   /* 长 URL 等不可断行字符串：仅在将溢出时允许任意处断行，防 auto 布局表格被撑破容器 */
@@ -649,6 +672,12 @@
   .ht svg { width: 12px; height: 12px; }
   .ed-head { background: var(--accent-tint); border: 1px solid var(--border); color: var(--text-strong); border-radius: var(--r-md); padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
   .ed-sec { border-top: 1px dashed var(--line); margin-top: 16px; padding-top: 12px; }
+  /* 块级编辑：章节头行 + 段落操作按钮组 */
+  .ed-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .ed-sec-head .f-label { margin: 0; }
+  .ed-ops { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+  .ed-ops .btn-ghost-sm { padding: 2px 7px; font-size: 12px; }
+  .ed-ops .btn-ghost-sm.danger:hover { color: var(--red); }
   .xmark { font-size: 11px; font-weight: 700; border-radius: 99px; padding: 1px 9px; white-space: nowrap; margin-left: 2px; }
   .xmark.ok { background: var(--green-bg); color: var(--green-text); }
   .xmark.warn { background: var(--warn-bg); color: var(--warn); }
@@ -659,10 +688,22 @@
     body { background: #fff; }
     .wrap { max-width: 100%; padding: 0 20px; }
     #reportCard { border: none; box-shadow: none; padding: 0; margin: 0; }
+    /* 打印页眉：报告标题 + 日期（仅打印显示） */
+    .print-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-family: var(--font-sans); color: #333;
+      border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px;
+    }
+    .print-head .ph-t { font-size: 16pt; font-weight: 700; }
+    .print-head .ph-d { font-size: 10pt; color: #666; }
     .report h2 { font-size: 18pt; }
     .report .sec h3 { font-size: 14pt; }
     .report .sec p { font-size: 12pt; text-indent: 2em; }
-    .report .sec { page-break-inside: avoid; }
+    .report .sec, .report .q-card, .report .ov-card, .report .appendix table { page-break-inside: avoid; }
+    .report .q-grid, .report .ov-grid { display: block; }
+    .report .ov-chart { height: 240px; page-break-inside: avoid; }
+    /* SVG 图表打印清晰：ECharts 用 renderer:svg，颜色转白底可读 */
+    .report .ov-chart svg { width: 100% !important; height: auto !important; }
   }
 
   /* 榜单卡墙：入场 stagger（轻流体，尊重 reduced-motion） */
@@ -780,6 +821,7 @@
     </div>
 
     <div class="card hidden" id="reportCard">
+      <div class="print-head" id="printHead"></div>
       <div class="section-title">分析报告</div>
       <div class="actions" id="reportActions"></div>
       <div class="report" id="reportBody"></div>
@@ -1428,6 +1470,8 @@ function renderReport(rep, jsonName) {
   $("reportCard").classList.remove("hidden");
   $("progressState").className = "badge done"; $("progressState").textContent = "完成";
   $("barFill").style.width = "100%";
+  const ph = $("printHead");
+  if (ph) ph.innerHTML = `<span class="ph-t">${esc(rep.title || "")}</span><span class="ph-d">生成于 ${new Date().toLocaleString("zh-CN")} · 舆情分析系统</span>`;
   let html = `<h2>${esc(rep.title)}</h2>`;
 
   // B1 概览仪表盘：情感 / 信源分布 / 时间趋势（数据缺失自动隐藏）
@@ -1529,33 +1573,155 @@ function renderReport(rep, jsonName) {
     $("reportBody").innerHTML += `<div class="hint"><b>AI 分析未执行。</b><br>${esc(rep.ai_warning || "请在设置页配置 AI 接口后重新分析。")}</div>`;
   }
   let acts = "";
-  if (rep.docx) acts += `<a class="pri" href="/api/reports/${encodeURIComponent(rep.docx.split(/[\\/]/).pop())}" download>下载 Word 报告</a>`;
+  if (rep.docx) acts += `<button class="pri btn-with-icon" onclick="downloadDocx()">${IC.download}下载 Word 报告</button>`;
   if (rep.md) acts += `<a class="pri" href="/api/reports/${encodeURIComponent(rep.md.split(/[\\/]/).pop())}" download>下载 Markdown</a>`;
-  acts += `<button class="pri" onclick="window.print()">导出 PDF（打印/另存为）</button>`;
+  acts += `<button class="pri btn-with-icon" onclick="exportPDF()">${IC.download}导出 PDF 文件</button>`;
   if (window._curReportJson) acts += `<button class="txt btn-with-icon" onclick="enterEdit()">${IC.pencil}编辑内容</button>`;
   $("reportActions").innerHTML = acts;
 }
 
-/* ---------- B4 报告在线编辑（段落级表单） ---------- */
+/* ---------- PDF 真导出（html2pdf：亮色克隆 + 图表 PNG 化 + A4 分页） ---------- */
+const PDF_LIGHT = {
+  "--bg-page": "#ffffff", "--card": "#ffffff", "--surface": "#ffffff", "--surface-2": "#f3f4f6",
+  "--text": "#1f2937", "--text-2": "#4b5563", "--text-3": "#6b7280", "--text-strong": "#111827",
+  "--border": "#e5e7eb", "--border-hover": "#d1d5db", "--separator": "#eef1f4", "--line": "#e5e7eb",
+  "--accent": "#23282f", "--accent-hover": "#161a21", "--accent-tint": "#eceef2", "--selected": "#e6e9ee",
+  "--green": "#4e8a63", "--green-text": "#3d6f51", "--green-bg": "rgba(78,138,99,.12)",
+  "--warn": "#a0772b", "--warn-bg": "#faf5e9", "--red": "#c0503f", "--red-bg": "#fdf4f1",
+  "--pos": "#2f855a", "--neg": "#c0503f", "--neu": "#8a94a6",
+  "--hot-h": "#dc2626", "--hot-m": "#ea580c", "--hot-l": "#64748b",
+  "--shadow-card": "none",
+};
+
+function exportPDF() {
+  const rep = window._curReport;
+  if (!rep) return;
+  if (!window.html2pdf) { toast("PDF 组件未加载，请刷新页面后重试"); return; }
+  // 1) 克隆报告体到离屏容器，强制亮色 token（暗色模式也能导出白底 PDF）
+  let box = document.getElementById("pdfBox");
+  if (box) box.remove();
+  box = document.createElement("div");
+  box.id = "pdfBox";
+  box.className = "pdf-capture";
+  box.innerHTML = $("reportBody").innerHTML;
+  document.body.appendChild(box);
+  Object.entries(PDF_LIGHT).forEach(([k, v]) => box.style.setProperty(k, v));
+  // 2) 图表：SVG → 亮色 canvas PNG（html2canvas 不认 ECharts SVG）
+  const _light = (v) => v.startsWith("--") ? (PDF_LIGHT[v] || "#666") : v;
+  for (const { el, kind } of (window._reportCharts || [])) {
+    const target = box.querySelector("#" + el.id);
+    if (!target) continue;
+    const opt = _chartOption(kind, rep, _light);
+    const c = echarts.init(target, null, { renderer: "canvas", width: 720, height: 300 });
+    c.setOption(opt);
+  }
+  // 3) html2pdf 分页导出
+  const title = (rep.title || "舆情分析报告").replace(/[\\/:*?"<>|]/g, "_");
+  const opt = {
+    margin: [12, 12, 14, 12],
+    filename: title + ".pdf",
+    image: { type: "jpeg", quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+  };
+  toast("正在生成 PDF…");
+  html2pdf().set(opt).from(box).save().then(() => {
+    box.remove();
+    toast("PDF 已生成并下载");
+  }).catch((e) => {
+    console.error("PDF 导出失败", e);
+    box.remove();
+    toast("PDF 导出失败，可改用浏览器打印");
+  });
+}
+
+/* ---------- 下载 Word（P1-c：有图表则客户端渲染 PNG 注入 docx；无图表走原文件） ---------- */
+async function downloadDocx() {
+  const rep = window._curReport;
+  if (!rep || !rep.docx) return;
+  const docxUrl = "/api/reports/" + encodeURIComponent(rep.docx.split(/[\\/]/).pop());
+  // 无图表数据 → 直接下载现有文件
+  const hasChartData = (rep.overview && rep.overview.emotion && rep.overview.emotion.positive !== undefined)
+    || (rep.stats && rep.stats.charts && (rep.stats.charts.source_dist?.length || rep.stats.charts.time_dist?.length));
+  if (!hasChartData || !window.echarts) { window.location.href = docxUrl; return; }
+  // 有图表：客户端渲染亮色 PNG（复用 PDF 的亮色表，保证 Word 内图表可读）
+  const _light = (v) => v.startsWith("--") ? (PDF_LIGHT[v] || "#666") : v;
+  const charts = {};
+  for (const kind of ["emotion", "source", "time"]) {
+    const opt = _chartOption(kind, rep, _light);
+    if (!opt) continue;
+    const d = document.createElement("div");
+    d.style.cssText = "position:fixed;left:-20000px;top:0;width:720px;height:300px;";
+    document.body.appendChild(d);
+    const c = echarts.init(d, null, { renderer: "canvas" });
+    c.setOption(opt);
+    await new Promise(r => setTimeout(r, 60));
+    charts[kind] = c.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#fff" });
+    c.dispose(); d.remove();
+  }
+  if (!Object.keys(charts).length) { window.location.href = docxUrl; return; }
+  toast("正在生成含图表的 Word…");
+  try {
+    const r = await fetch("/api/report/export-docx", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ json_name: window._curReportJson, charts }),
+    });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); toast("Word 生成失败：" + (j.error || "未知错误")); return; }
+    // 下载返回的 docx（blob）
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (rep.title || "舆情分析报告").replace(/[\\/:*?"<>|]/g, "_") + ".docx";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    console.error("docx 导出失败", e);
+    toast("Word 生成失败，已改为下载原文件");
+    window.location.href = docxUrl;
+  }
+}
+
+/* ---------- B4 报告在线编辑（块级：增删段落/章节、移动顺序，就地重渲染） ---------- */
 function escAttr(s) { return esc(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+
+let _editor = null;
 
 function enterEdit() {
   const rep = window._curReport;
   if (!rep) return;
   if (!window._curReportJson) { toast("该报告缺少文件标识，无法编辑"); return; }
-  const e = JSON.parse(JSON.stringify(rep));   // 编辑副本
-  window._editor = e;
-  let h = `<div class="ed-head"><span class="badge done">编辑模式</span> 修改文本后点保存，Word/Markdown 将就地重新生成</div>`;
+  _editor = JSON.parse(JSON.stringify(rep));   // 编辑副本
+  renderEditForm();
+}
+
+/* 块操作按钮：↑ 上移 / ↓ 下移 / ＋ 新增下方 / ✕ 删除（先收集输入再改结构再重渲染，避免丢字） */
+function _paraOps(si, pi, total) {
+  const up = pi > 0 ? `<button class="btn-ghost-sm" title="上移" onclick="edMovePara(${si},${pi},-1)">↑</button>` : "";
+  const down = pi < total - 1 ? `<button class="btn-ghost-sm" title="下移" onclick="edMovePara(${si},${pi},1)">↓</button>` : "";
+  return `<span class="ed-ops">${up}${down}<button class="btn-ghost-sm" title="新增段落" onclick="edAddPara(${si},${pi})">＋</button><button class="btn-ghost-sm danger" title="删除段落" onclick="edDelPara(${si},${pi})">✕</button></span>`;
+}
+
+function renderEditForm() {
+  const e = _editor;
+  if (!e) return;
+  let h = `<div class="ed-head"><span class="badge done">编辑模式</span> 可增删段落/章节、调整顺序，保存后 Word/Markdown 就地重新生成</div>`;
   h += `<label class="f-label">报告标题</label><input class="sel" id="edTitle" value="${escAttr(e.title || "")}">`;
   h += `<label class="f-label">引言</label><textarea class="input" id="edIntro" rows="3">${esc(e.intro || "")}</textarea>`;
   e.sections.forEach((sec, si) => {
-    h += `<div class="ed-sec"><label class="f-label">章节标题</label><input class="sel" id="edH_${si}" value="${escAttr(sec.heading || "")}">`;
-    sec.paragraphs.forEach((p, pi) => {
+    h += `<div class="ed-sec"><div class="ed-sec-head">
+      <label class="f-label" style="margin:0">章节标题</label>
+      <span class="ed-ops">
+        <button class="btn-ghost-sm" title="新增章节" onclick="edAddSec(${si})">＋ 章节</button>
+        ${e.sections.length > 1 ? `<button class="btn-ghost-sm danger" title="删除章节" onclick="edDelSec(${si})">✕ 章节</button>` : ""}
+      </span></div>
+      <input class="sel" id="edH_${si}" value="${escAttr(sec.heading || "")}">`;
+    (sec.paragraphs || []).forEach((p, pi) => {
       if (typeof p === "string") {
-        h += `<label class="f-help" style="margin-top:8px;display:block">段落 ${pi + 1}</label>
+        h += `<label class="f-help" style="margin-top:10px;display:block">段落 ${pi + 1} ${_paraOps(si, pi, sec.paragraphs.length)}</label>
           <textarea class="input" id="edP_${si}_${pi}" rows="3">${esc(p)}</textarea>`;
       } else {
-        h += `<label class="f-help" style="margin-top:8px;display:block">分论点 ${pi + 1}（句首加粗短语 + 论述）</label>
+        h += `<label class="f-help" style="margin-top:10px;display:block">分论点 ${pi + 1}（句首加粗短语 + 论述）${_paraOps(si, pi, sec.paragraphs.length)}</label>
           <input class="sel" id="edL_${si}_${pi}" value="${escAttr(p.lead || "")}" placeholder="句首短语，如：（一）原因分析。">
           <textarea class="input" id="edB_${si}_${pi}" rows="4">${esc(p.body || "")}</textarea>`;
       }
@@ -1565,28 +1731,82 @@ function enterEdit() {
   h += `<div class="actions">
     <button class="primary" onclick="saveEdit()">保存修改</button>
     <button class="txt" onclick="cancelEdit()">取消</button>
-    <span class="f-help">当前支持文本修改；增删段落留待后续版本</span>
+    <button class="txt" onclick="restoreEdit()">还原上一版</button>
   </div>`;
   $("reportBody").innerHTML = h;
 }
 
-function saveEdit() {
-  const e = window._editor;
-  e.title = $("edTitle").value.trim();
-  e.intro = $("edIntro").value.trim();
-  for (let si = 0; si < e.sections.length; si++) {
-    const sec = e.sections[si];
-    sec.heading = $("edH_" + si).value.trim();
-    for (let pi = 0; pi < sec.paragraphs.length; pi++) {
-      const p = sec.paragraphs[pi];
-      if (typeof p === "string") {
-        sec.paragraphs[pi] = $("edP_" + si + "_" + pi).value.trim();
-      } else {
-        p.lead = $("edL_" + si + "_" + pi).value.trim();
-        p.body = $("edB_" + si + "_" + pi).value.trim();
-      }
+/* 还原上一版：把 .bak.json 覆盖回来并重新渲染（编辑保存过才有备份） */
+function restoreEdit() {
+  if (!window._curReportJson) return;
+  if (!confirm("确定还原到上一版？当前未保存的修改将丢失。")) return;
+  api("/api/report/restore", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ json_name: window._curReportJson }),
+  }).then(r => {
+    if (r.ok) {
+      toast("已还原上一版，Word/Markdown 已重新生成");
+      fetch("/api/reports/" + encodeURIComponent(window._curReportJson)).then(res => res.json()).then(rep => {
+        window._curReport = rep;
+        renderReport(rep, window._curReportJson);
+      }).catch(() => renderReport(window._curReport, window._curReportJson));
+    } else {
+      toast("还原失败：" + (r.error || "未知错误"));
     }
-  }
+  });
+}
+
+/* 先把表单里的输入回收到 _editor（增删/移动前必须做，否则丢字） */
+function collectEdit() {
+  const e = _editor;
+  if (!e) return;
+  const g = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+  e.title = g("edTitle");
+  e.intro = g("edIntro");
+  e.sections.forEach((sec, si) => {
+    sec.heading = g("edH_" + si);
+    sec.paragraphs.forEach((p, pi) => {
+      if (typeof p === "string") sec.paragraphs[pi] = g("edP_" + si + "_" + pi);
+      else { p.lead = g("edL_" + si + "_" + pi); p.body = g("edB_" + si + "_" + pi); }
+    });
+  });
+}
+
+function edMovePara(si, pi, dir) {
+  collectEdit();
+  const paras = _editor.sections[si].paragraphs;
+  const j = pi + dir;
+  if (j < 0 || j >= paras.length) return;
+  const tmp = paras[pi]; paras[pi] = paras[j]; paras[j] = tmp;
+  renderEditForm();
+}
+function edAddPara(si, pi) {
+  collectEdit();
+  _editor.sections[si].paragraphs.splice(pi + 1, 0, { lead: "", body: "" });
+  renderEditForm();
+}
+function edDelPara(si, pi) {
+  collectEdit();
+  const paras = _editor.sections[si].paragraphs;
+  if (paras.length <= 1) { toast("至少保留一个段落"); return; }
+  paras.splice(pi, 1);
+  renderEditForm();
+}
+function edAddSec(si) {
+  collectEdit();
+  _editor.sections.splice(si + 1, 0, { heading: "新章节", paragraphs: [{ lead: "", body: "" }] });
+  renderEditForm();
+}
+function edDelSec(si) {
+  collectEdit();
+  if (_editor.sections.length <= 1) { toast("至少保留一个章节"); return; }
+  _editor.sections.splice(si, 1);
+  renderEditForm();
+}
+
+function saveEdit() {
+  collectEdit();
+  const e = _editor;
   api("/api/report/edit", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ json_name: window._curReportJson, report: e }),
@@ -1888,66 +2108,78 @@ async function loadReportFiles() {
 }
 
 /* B1 报告图表：情感 / 信源 / 时间（ECharts 本地化） */
-function initReportCharts(rep) {
-  if (!window.echarts) return;
+window._reportCharts = [];   // 屏幕图表实例（PDF 导出用）
+
+/* 图表选项构造：kind ∈ emotion|source|time；tok(变量名或色值) 返回当前主题色。
+   PDF 导出时传亮色解析器，保证导出的图表白底深色、不随暗色模式变白。 */
+function _chartOption(kind, rep, tok) {
   const charts = (rep.stats || {}).charts || {};
   const ov = rep.overview || {};
-  // 图表主色跟随墨色 token（亮/暗自适应），状态色沿用语义 token
   const css = () => getComputedStyle(document.documentElement);
-  const accent = css().getPropertyValue("--accent").trim() || "#23282f";
-  const _tok = (v) => v.startsWith("--") ? (css().getPropertyValue(v).trim() || "#666") : v;
   const base = {
     textStyle: { fontFamily: css().getPropertyValue("--font-sans").trim() || "sans-serif", fontSize: 12 },
-    color: [accent, _tok("--green-text"), _tok("--warn"), _tok("--red"), _tok("--text-3"), _tok("--text-2")],
+    color: [tok("--accent"), tok("--green-text"), tok("--warn"), tok("--red"), tok("--text-3"), tok("--text-2")],
   };
-  // 情感环形图
-  const emoEl = document.getElementById("chartEmotion");
-  if (emoEl && ov.emotion && ov.emotion.positive !== undefined) {
-    const e = ov.emotion;
+  if (kind === "emotion") {
+    const e = ov.emotion || {};
     const total = (e.positive || 0) + (e.negative || 0) + (e.neutral || 0) || 1;
-    echarts.init(emoEl).setOption({
+    return {
       ...base,
       tooltip: { trigger: "item", formatter: "{b}: {c}% ({d}%)" },
       series: [{
         type: "pie", radius: ["52%", "76%"], center: ["50%", "52%"],
         label: { formatter: "{b}\n{c}%" },
         data: [
-          { name: "正面", value: e.positive || 0, itemStyle: { color: _tok("--pos") } },
-          { name: "中立", value: e.neutral || 0, itemStyle: { color: _tok("--neu") } },
-          { name: "负面", value: e.negative || 0, itemStyle: { color: _tok("--neg") } },
+          { name: "正面", value: e.positive || 0, itemStyle: { color: tok("--pos") } },
+          { name: "中立", value: e.neutral || 0, itemStyle: { color: tok("--neu") } },
+          { name: "负面", value: e.negative || 0, itemStyle: { color: tok("--neg") } },
         ],
       }],
-    });
+    };
   }
-  // 信源分布条形
-  const srcEl = document.getElementById("chartSource");
-  if (srcEl && charts.source_dist?.length) {
-    const sd = charts.source_dist.slice(0, 8).reverse();
-    echarts.init(srcEl).setOption({
+  if (kind === "source") {
+    const sd = (charts.source_dist || []).slice(0, 8).reverse();
+    return {
       ...base,
       grid: { left: 8, right: 26, top: 10, bottom: 8, containLabel: true },
       tooltip: { trigger: "axis" },
       xAxis: { type: "value", splitLine: { lineStyle: { type: "dashed" } } },
       yAxis: { type: "category", data: sd.map(d => d.name) },
-      series: [{ type: "bar", data: sd.map(d => d.value), barMaxWidth: 16, itemStyle: { color: accent, borderRadius: [0, 6, 6, 0] } }],
-    });
+      series: [{ type: "bar", data: sd.map(d => d.value), barMaxWidth: 16, itemStyle: { color: tok("--accent"), borderRadius: [0, 6, 6, 0] } }],
+    };
   }
-  // 时间趋势折线
-  const timeEl = document.getElementById("chartTime");
-  if (timeEl && charts.time_dist?.length) {
-    const td = charts.time_dist;
-    echarts.init(timeEl).setOption({
+  if (kind === "time") {
+    const td = charts.time_dist || [];
+    return {
       ...base,
       grid: { left: 8, right: 18, top: 14, bottom: 8, containLabel: true },
       tooltip: { trigger: "axis" },
       xAxis: { type: "category", data: td.map(d => (d.date || "").slice(5)) },
       yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { type: "dashed" } } },
       series: [{ type: "line", data: td.map(d => d.count), smooth: true, symbolSize: 6,
-        lineStyle: { width: 2.5, color: accent },
-        itemStyle: { color: accent },
-        areaStyle: { opacity: 0.08, color: accent } }],
-    });
+        lineStyle: { width: 2.5, color: tok("--accent") },
+        itemStyle: { color: tok("--accent") },
+        areaStyle: { opacity: 0.08, color: tok("--accent") } }],
+    };
   }
+  return null;
+}
+
+function initReportCharts(rep) {
+  if (!window.echarts) return;
+  const css = () => getComputedStyle(document.documentElement);
+  const _tok = (v) => v.startsWith("--") ? (css().getPropertyValue(v).trim() || "#666") : v;
+  window._reportCharts = [];
+  ["chartEmotion", "chartSource", "chartTime"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const kind = id.replace("chart", "").toLowerCase();
+    const opt = _chartOption(kind, rep, _tok);
+    if (!opt) return;
+    const c = echarts.init(el, null, { renderer: "svg" });
+    c.setOption(opt);
+    window._reportCharts.push({ el, chart: c, kind });
+  });
 }
 
 /* ---------- 设置 ---------- */
