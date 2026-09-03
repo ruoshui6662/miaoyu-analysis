@@ -22,8 +22,10 @@ def run(*, require_docker: bool = False) -> dict:
     add("docker", bool(shutil.which("docker")),
         "docker 命令可用" if shutil.which("docker") else "未安装 Docker")
     add("compose_files", all((ROOT / name).exists()
-                              for name in ("docker-compose.yml", "docker-compose.cloudflare.yml")),
-        "基础 Compose 与 Cloudflare 覆盖文件存在")
+                              for name in ("docker-compose.yml",
+                                           "docker-compose.cloudflare.yml",
+                                           "docker-compose.searxng.yml")),
+        "基础 Compose、SearXNG 与 Cloudflare 覆盖文件存在")
     add("env_template", (ROOT / ".env.example").exists(), ".env.example 存在")
     add("data_dir", DATA_DIR.exists(), "data 目录存在")
     if DB_PATH.exists():

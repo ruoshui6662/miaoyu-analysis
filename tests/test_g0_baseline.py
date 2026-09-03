@@ -107,6 +107,28 @@ class RuntimeConfigTests(unittest.TestCase):
         finally:
             config.ENABLED_GROUPS, config.HTTP_TIMEOUT = old_groups, old_timeout
 
+    def test_system_environment_wins_over_dotenv_after_reload(self):
+        """Compose 注入的内网地址不能在任务热重载时被 .env 覆盖。"""
+        old_url = config.SEARXNG_URL
+        old_env_url = os.environ.get("SEARXNG_URL")
+        try:
+            with patch.object(config, "_ENV_BASELINE", {
+                "SEARXNG_URL": "http://searxng:8080",
+            }), patch.object(
+                config, "_load_env",
+                side_effect=lambda force=False: os.environ.__setitem__(
+                    "SEARXNG_URL", "https://stale.example"
+                ),
+            ), patch.object(config, "_load_db", return_value={}):
+                config.reload()
+                self.assertEqual(config.SEARXNG_URL, "http://searxng:8080")
+        finally:
+            config.SEARXNG_URL = old_url
+            if old_env_url is None:
+                os.environ.pop("SEARXNG_URL", None)
+            else:
+                os.environ["SEARXNG_URL"] = old_env_url
+
 
 class UrlCacheTests(unittest.TestCase):
     def setUp(self):

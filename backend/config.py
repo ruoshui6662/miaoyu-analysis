@@ -198,7 +198,12 @@ def reload():
         os.environ.pop(k, None)
     for k, v in _ENV_BASELINE.items():
         os.environ[k] = v
-    _load_env(force=True)          # .env 覆盖（此时环境里已无残留 DB 值）
+    _load_env(force=True)          # 先载入 .env 默认值
+    # 系统环境（Compose/Kubernetes/飞牛注入）优先于挂载的 .env。
+    # 这对 A1b 尤其重要：应用必须稳定使用 Compose 内网的 SearXNG 地址，
+    # 不能在每次任务热重载时被镜像内/挂载的旧地址覆盖。
+    for k, v in _ENV_BASELINE.items():
+        os.environ[k] = v
     db = _load_db()
     for k, v in db.items():
         os.environ[k] = v          # DB 设置最高优先级

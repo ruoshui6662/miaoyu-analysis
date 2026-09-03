@@ -41,6 +41,24 @@ docker compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d
 
 Cloudflare 官方文档当前推荐 Docker 使用远程管理 Tunnel，并通过 `TUNNEL_TOKEN` 环境变量运行 `cloudflared`：[Tunnel setup](https://developers.cloudflare.com/tunnel/setup/)、[Tunnel tokens](https://developers.cloudflare.com/tunnel/advanced/tunnel-tokens/)。
 
+## 0.4 一键启动内置 SearXNG（A1b，可选）
+
+默认 Compose 仍只启动妙舆；如果没有自建 SearXNG，使用以下覆盖文件启动内置搜索服务：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.searxng.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.searxng.yml ps
+```
+
+该覆盖文件包含 `yuqing`、SearXNG 和 Valkey：
+
+- SearXNG 只在 Compose 内网监听，宿主机不开放 8080 端口；妙舆使用 `http://searxng:8080`。
+- `searxng-init` 首次启动在命名卷中生成随机 `server.secret_key`，已有配置不会覆盖。
+- Valkey 用于 SearXNG limiter；配置、缓存和 Valkey 数据均使用命名卷持久化。
+- 更新时保留三个命名卷；仅更换镜像并执行 `up -d`，不要使用 `down -v`。
+
+验收：`docker compose ... ps` 中 `searxng-core` 和 `searxng-valkey` 为运行状态，`yuqing` 为 healthy；在妙舆容器内执行 `python -c "import urllib.request; print(urllib.request.urlopen('http://searxng:8080/search?q=test&format=json', timeout=10).status)"` 应返回 `200`。SearXNG 官方 Compose 同样采用 core + Valkey、`/etc/searxng` 配置卷和 `/var/cache/searxng` 数据卷，详见其[容器安装文档](https://docs.searxng.org/admin/installation-docker)与[官方 Compose 模板](https://raw.githubusercontent.com/searxng/searxng/master/container/docker-compose.yml)。
+
 ---
 
 ## 0. 两种部署方式总览

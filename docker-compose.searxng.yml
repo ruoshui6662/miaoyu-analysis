@@ -1,0 +1,92 @@
+# A1b：可选的交付级搜索栈。
+# 用法：docker compose -f docker-compose.yml -f docker-compose.searxng.yml up -d
+# 默认 docker compose up -d 不会启动这些服务。
+services:
+  yuqing:
+    environment:
+      # 应用通过 Compose 内网访问 SearXNG，不依赖公网地址或浏览器 CORS。
+      - SEARXNG_URL=http://searxng:8080
+    depends_on:
+      searxng:
+        condition: service_healthy
+
+  # 只在首次启动时创建 settings.yml；已有文件不覆盖，保证密钥和配置持久化。
+  searxng-init:
+    image: alpine:3.20
+    container_name: searxng-init
+    restart: "no"
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /config
+        if [ ! -s /config/settings.yml ]; then
+          umask 077
+          secret="$$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+          cat > /config/settings.yml <<EOF
+        use_default_settings: true
+        general:
+          debug: false
+          instance_name: "妙舆 SearXNG"
+        search:
+          formats:
+            - html
+            - json
+        server:
+          bind_address: "0.0.0.0"
+          port: 8080
+          secret_key: "$${secret}"
+          limiter: true
+          image_proxy: false
+        valkey:
+          url: "valkey://searxng-valkey:6379/0"
+        EOF
+          chmod 600 /config/settings.yml
+        fi
+    volumes:
+      - searxng-config:/config
+
+  searxng:
+    image: docker.io/searxng/searxng:${SEARXNG_VERSION:-latest}
+    container_name: searxng-core
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - SEARXNG_PORT=8080
+      - SEARXNG_BIND_ADDRESS=0.0.0.0
+      - SEARXNG_LIMITER=true
+      - SEARXNG_IMAGE_PROXY=false
+      - SEARXNG_VALKEY_URL=valkey://searxng-valkey:6379/0
+    depends_on:
+      searxng-init:
+        condition: service_completed_successfully
+      searxng-valkey:
+        condition: service_healthy
+    volumes:
+      - searxng-config:/etc/searxng
+      - searxng-cache:/var/cache/searxng
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "--proxy=off", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  searxng-valkey:
+    image: docker.io/valkey/valkey:9-alpine
+    container_name: searxng-valkey
+    command: ["valkey-server", "--save", "30", "1", "--loglevel", "warning"]
+    restart: unless-stopped
+    volumes:
+      - searxng-valkey:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  searxng-config:
+  searxng-cache:
+  searxng-valkey:
