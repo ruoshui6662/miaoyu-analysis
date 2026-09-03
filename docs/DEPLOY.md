@@ -3,6 +3,19 @@
 > 对应开发手册 A1a（最小容器化）。目标环境：飞牛 fnOS（支持镜像导入）或任意 Docker 主机。
 > 部署后浏览器访问 `http://<主机IP>:5000`，本机默认 `http://localhost:5000`。
 
+## 0.0 飞牛 FPK 安装包（A2）
+
+仓库已提供可由飞牛官方 `fnpack` 构建的 Docker FPK 源包，位置为 `fpk/miaoyu`。构建机安装 `fnpack` 后，在项目根目录执行：
+
+```bash
+python scripts/build_fpk.py --dry-run
+python scripts/build_fpk.py
+```
+
+产物为 `dist/miaoyu-<version>.fpk`，可在飞牛应用中心手动安装。FPK 会从 GHCR 拉取妙舆镜像，数据保存在 fnOS 应用数据目录，AI Key 和 `MIAOYU_ADMIN_TOKEN` 写入应用配置目录的 `.env`，不会打包进 FPK。
+
+当前仓库已完成源包和本地契约验收；真实 `.fpk` 构建、飞牛安装及镜像架构兼容性仍需在目标设备执行。详见 [`docs/FPK.md`](FPK.md)。
+
 ## 0.1 G3 安全基线（上线前必做）
 
 - 为生产环境设置 `MIAOYU_ADMIN_TOKEN`，建议使用至少 32 字节随机值；不要把它写入 Git 或镜像。

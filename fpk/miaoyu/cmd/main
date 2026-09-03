@@ -1,0 +1,25 @@
+#!/bin/bash
+set -eu
+
+CONTAINER_NAME="miaoyu"
+
+is_running() {
+  docker inspect -f '{{.State.Running}}' "${CONTAINER_NAME}" 2>/dev/null | grep -qx 'true'
+}
+
+case "${1:-}" in
+  start|stop)
+    # Docker 项目的启停由 fnOS 根据 config/resource 管理。
+    exit 0
+    ;;
+  status)
+    if is_running; then
+      exit 0
+    fi
+    exit 3
+    ;;
+  *)
+    echo "Unknown command: ${1:-}" > "${TRIM_TEMP_LOGFILE:-/dev/stderr}"
+    exit 1
+    ;;
+esac

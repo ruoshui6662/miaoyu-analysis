@@ -1,0 +1,15 @@
+appname=miaoyu
+version=0.1.0
+display_name=妙舆
+desc=面向舆情监测、热榜采集与分析报告的 Docker 应用。
+source=thirdparty
+platform=all
+maintainer=妙舆项目
+maintainer_url=https://github.com/ruoshui6662/miaoyu-analysis
+distributor=妙舆项目
+desktop_uidir=ui
+desktop_applaunchname=miaoyu.main
+service_port=5000
+checkport=true
+ctl_stop=true
+changelog=首个 fnOS FPK Docker 包：支持热榜、舆情监测和报告生成。

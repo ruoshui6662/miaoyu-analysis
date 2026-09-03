@@ -1,0 +1,8 @@
+#!/bin/bash
+set -eu
+
+mkdir -p "${TRIM_PKGETC}" "${TRIM_PKGVAR}/data"
+if [ ! -f "${TRIM_PKGETC}/.env" ]; then
+  cp "${TRIM_APPDEST}/docker/.env.example" "${TRIM_PKGETC}/.env"
+  chmod 600 "${TRIM_PKGETC}/.env"
+fi

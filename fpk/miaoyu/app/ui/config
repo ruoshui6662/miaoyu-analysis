@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "miaoyu.main": {
+      "title": "妙舆",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "protocol": "http",
+      "port": "5000",
+      "url": "/",
+      "allUsers": true
+    }
+  }
+}

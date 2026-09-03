@@ -2223,18 +2223,8 @@ async function loadHotBoards(force) {
   const d = await api("/api/hot/boards");
   HOT.boards = Array.isArray(d.boards) ? d.boards : [];
   HOT.provider = d.provider || {};
-  // 新热点 diff：会话内对比上一次抓取；刷新页面后对比 localStorage 持久化的上次扫描。
-  // 由此"舆情雷达"才能识别真正的新上榜，而不是首屏把所有条目标为新。
-  let prev = (HOT.prevTitles && HOT.prevTitles.size) ? HOT.prevTitles : null;
-  if (!prev) {
-    try { prev = new Set(JSON.parse(localStorage.getItem("hot_prev") || "[]")); }
-    catch (e) { prev = new Set(); }
-  }
-  HOT.newTitles = new Set();
-  HOT.prevTitles = new Set();
-  for (const b of HOT.boards) for (const it of (b.items || [])) HOT.prevTitles.add(normHotTitle(it.title));
-  for (const t of HOT.prevTitles) if (!prev.has(t)) HOT.newTitles.add(t);
-  try { localStorage.setItem("hot_prev", JSON.stringify([...HOT.prevTitles].slice(0, 600))); } catch (e) {}
+  // 新热点以服务端证据库的 is_new 为准；旧部署没有该字段时，退回按榜单隔离的客户端快照。
+  HOT.radarNewByBoard = buildRadarNewByBoard(HOT.boards);
   const p = HOT.provider;
   const health = d.source_health || {};
   const newsnowCount = Object.values(health.newsnow || {}).filter(x => x && x.ok).length;
@@ -2248,23 +2238,56 @@ async function loadHotBoards(force) {
   renderRadar();
 }
 
-/* 舆情雷达：本轮新上榜热点（对比上次扫描），按热度排序，点击开原文/发起分析 */
+function buildRadarNewByBoard(boards) {
+  const hasServerDiff = boards.some(b => (b.items || []).some(it => typeof it.is_new === "boolean"));
+  if (hasServerDiff) {
+    return boards.map(b => ({ board: b.name, items: (b.items || []).filter(it => it.is_new === true) }))
+      .filter(group => group.items.length);
+  }
+
+  // 兼容没有 G1 证据字段的旧 API，但键必须包含榜单，防止一个平台的标题覆盖另一个平台。
+  let previous = {};
+  try { previous = JSON.parse(localStorage.getItem("hot_prev_by_board") || "{}"); }
+  catch (e) { previous = {}; }
+  const next = {};
+  const groups = [];
+  for (const b of boards) {
+    const boardKey = String(b.source_id || b.name || "unknown");
+    const currentItems = b.items || [];
+    const previousTitles = new Set(Array.isArray(previous[boardKey]) ? previous[boardKey] : []);
+    const fresh = currentItems.filter(it => !previousTitles.has(normHotTitle(it.title)));
+    if (fresh.length) groups.push({ board: b.name, items: fresh });
+    next[boardKey] = currentItems.map(it => normHotTitle(it.title)).filter(Boolean).slice(0, 100);
+  }
+  try { localStorage.setItem("hot_prev_by_board", JSON.stringify(next)); } catch (e) {}
+  return groups;
+}
+
+/* 舆情雷达：按平台交错展示本轮新上榜热点，不用跨平台热度值做全局排序 */
 function renderRadar() {
   const box = $("radarList");
   if (!box) return;
+  const groups = HOT.radarNewByBoard || [];
+  const totalFresh = groups.reduce((sum, group) => sum + group.items.length, 0);
   const fresh = [];
-  const news = HOT.newTitles || new Set();
-  for (const b of HOT.boards) for (const it of (b.items || [])) {
-    if (news.has(normHotTitle(it.title))) fresh.push({ title: it.title, url: it.url, hot: it.hot, board: b.name });
+  for (let offset = 0; fresh.length < 10; offset++) {
+    let added = false;
+    for (const group of groups) {
+      const item = group.items[offset];
+      if (!item) continue;
+      fresh.push({ title: item.title, url: item.url, hot: item.hot, board: group.board });
+      added = true;
+      if (fresh.length >= 10) break;
+    }
+    if (!added) break;
   }
   const meta = $("radarMeta");
-  if (meta) meta.textContent = fresh.length ? `新增 ${fresh.length}` : "";
+  if (meta) meta.textContent = totalFresh ? `新增 ${totalFresh}` : "";
   if (!fresh.length) {
     box.innerHTML = '<div class="f-help">本轮扫描未发现新上榜热点，雷达将随刷新持续监测。</div>';
     return;
   }
-  fresh.sort((a, b) => hotNum(b.hot) - hotNum(a.hot));
-  box.innerHTML = fresh.slice(0, 10).map(it => {
+  box.innerHTML = fresh.map(it => {
     const lvl = "bw-hot " + hotLevel(hotNum(it.hot));
     return `<div class="radar-item" title="${it.url ? "点击打开原文" : "点击发起分析"}" onclick="openHotByName('${String(it.title).replace(/'/g, "\\'")}', '${esc(String(it.url || "").replace(/'/g, "\\'"))}', event)">
       <span class="radar-t">${esc(it.title)}</span>

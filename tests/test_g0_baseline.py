@@ -371,6 +371,15 @@ class SecurityTests(unittest.TestCase):
         self.assertIn(".auth-gate.hidden { display: none; }", frontend)
         self.assertNotIn("sessionStorage.getItem(\"miaoyu_admin_token\")", frontend)
 
+    def test_radar_uses_board_scoped_diff_and_round_robin(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("buildRadarNewByBoard", frontend)
+        self.assertIn("it.is_new === true", frontend)
+        self.assertIn("hot_prev_by_board", frontend)
+        self.assertIn("for (let offset = 0; fresh.length < 10; offset++)", frontend)
+        self.assertNotIn('localStorage.getItem("hot_prev")', frontend)
+        self.assertNotIn("fresh.sort((a, b) => hotNum(b.hot) - hotNum(a.hot));", frontend)
+
     def test_auth_login_sets_cookie_and_logout_revokes_session(self):
         client = app_module.app.test_client()
         token = os.environ["MIAOYU_ADMIN_TOKEN"]
