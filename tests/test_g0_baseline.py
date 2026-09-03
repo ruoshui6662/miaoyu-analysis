@@ -346,6 +346,7 @@ class SecurityTests(unittest.TestCase):
         self.assertNotIn("prompt(", frontend)
         self.assertIn("authRequired", frontend)
         self.assertIn("authGate", frontend)
+        self.assertIn(".auth-gate.hidden { display: none; }", frontend)
         self.assertNotIn("sessionStorage.getItem(\"miaoyu_admin_token\")", frontend)
 
     def test_auth_login_sets_cookie_and_logout_revokes_session(self):

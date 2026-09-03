@@ -715,6 +715,8 @@
     padding: 24px; background: rgba(11, 14, 19, .62);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   }
+  /* .auth-gate 的 display:flex 位于 .hidden 之后，必须显式保证隐藏态优先。 */
+  .auth-gate.hidden { display: none; }
   .auth-card {
     width: min(420px, 100%); padding: 28px;
     color: var(--text); background: var(--card);
