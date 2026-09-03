@@ -40,7 +40,8 @@ from db import (
 from pipeline import gen_docx as pipeline_gen_docx, render_markdown, run_analysis
 from source_catalog import CATALOG, CATEGORIES
 from observability import JsonFormatter, begin_request, finish_request
-from security import attach_session_cookie, authorized, client_key, limiter
+from security import (SESSION_COOKIE, attach_session_cookie, authorized,
+                      client_key, limiter, verify_admin_token)
 
 
 _root_logger = logging.getLogger()
@@ -71,7 +72,10 @@ app.config["MAX_CONTENT_LENGTH"] = _max_body_mb * 1024 * 1024
 FRONTEND = ROOT / "frontend"
 
 
-_PUBLIC_API_PATHS = {"/api/hot/boards", "/api/hot/history"}
+_PUBLIC_API_PATHS = {
+    "/api/hot/boards", "/api/hot/history",
+    "/api/auth/status", "/api/auth/login", "/api/auth/logout",
+}
 
 
 @app.before_request
@@ -562,6 +566,34 @@ def api_settings_get():
             str(provider.get("apiKey") or "") for provider in _cfg.AI_PROVIDERS.values()
         ) else ""
     return jsonify({"settings": merged, "managed_keys": list(MANAGED_KEYS)})
+
+
+@app.get("/api/auth/status")
+def api_auth_status():
+    """返回当前会话是否已认证，不返回令牌或令牌配置内容。"""
+    return jsonify({"authenticated": authorized()})
+
+
+@app.post("/api/auth/login")
+def api_auth_login():
+    """验证管理员令牌并建立 HttpOnly 会话 Cookie。"""
+    body = request.get_json(silent=True) or {}
+    token = str(body.get("token") or "").strip()
+    if not verify_admin_token(token):
+        return jsonify({"ok": False, "error": "管理员令牌无效（至少需要24个字符）"}), 401
+    response = jsonify({"ok": True})
+    response.set_cookie(
+        SESSION_COOKIE, token, max_age=86400,
+        httponly=True, samesite="Lax", secure=bool(request.is_secure),
+    )
+    return response
+
+
+@app.post("/api/auth/logout")
+def api_auth_logout():
+    response = jsonify({"ok": True})
+    response.delete_cookie(SESSION_COOKIE)
+    return response
 
 
 @app.post("/api/settings")

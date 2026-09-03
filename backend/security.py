@@ -60,7 +60,12 @@ def request_token() -> str:
 
 
 def authorized() -> bool:
-    supplied = request_token()
+    return verify_admin_token(request_token())
+
+
+def verify_admin_token(value: str) -> bool:
+    """校验用户提交的管理员令牌，不暴露服务端令牌内容。"""
+    supplied = str(value or "").strip()
     expected = admin_token()
     if not supplied or not expected:
         return False

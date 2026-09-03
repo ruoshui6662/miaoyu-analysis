@@ -7,6 +7,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 import json
@@ -344,6 +345,27 @@ class SecurityTests(unittest.TestCase):
         frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
         self.assertNotIn("prompt(", frontend)
         self.assertIn("authRequired", frontend)
+        self.assertIn("authGate", frontend)
+        self.assertNotIn("sessionStorage.getItem(\"miaoyu_admin_token\")", frontend)
+
+    def test_auth_login_sets_cookie_and_logout_revokes_session(self):
+        client = app_module.app.test_client()
+        token = os.environ["MIAOYU_ADMIN_TOKEN"]
+        status = client.get("/api/auth/status")
+        self.assertEqual(status.status_code, 200)
+        self.assertFalse(status.get_json()["authenticated"])
+
+        bad = client.post("/api/auth/login", json={"token": "password"})
+        self.assertEqual(bad.status_code, 401)
+        good = client.post("/api/auth/login", json={"token": token})
+        self.assertEqual(good.status_code, 200)
+        self.assertIn("miaoyu_session=", good.headers.get("Set-Cookie", ""))
+        self.assertIn("HttpOnly", good.headers.get("Set-Cookie", ""))
+        self.assertTrue(client.get("/api/auth/status").get_json()["authenticated"])
+        self.assertEqual(client.get("/api/settings").status_code, 200)
+
+        self.assertEqual(client.post("/api/auth/logout").status_code, 200)
+        self.assertFalse(client.get("/api/auth/status").get_json()["authenticated"])
 
     def test_settings_save_keeps_redacted_existing_api_key(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-security-settings-") as tmp:
@@ -598,8 +620,8 @@ class EventAggregationTests(unittest.TestCase):
                 ]})
                 self.assertEqual(service.run_subscription(subscription_id)["status"], "success")
                 report = monitor_report.generate_periodic_report(
-                    "topic-report", start="2026-09-01T00:00:00+00:00",
-                    end="2026-09-03T00:00:00+00:00", output_dir=report_dir,
+                    "topic-report", start=(datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+                    end=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(), output_dir=report_dir,
                 )
                 saved = json.loads(Path(report["json"]).read_text(encoding="utf-8"))
                 json_exists = Path(report["json"]).exists()
@@ -653,7 +675,7 @@ class EventAggregationTests(unittest.TestCase):
                    "items": [{"title": "历史条目", "url": "https://example.test/h"}]}]
         with tempfile.TemporaryDirectory(prefix="miaoyu-evidence-api-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
-                evidence.record_hot_boards(boards, captured_at="2026-09-02T00:00:00+00:00")
+                evidence.record_hot_boards(boards, captured_at=datetime.now(timezone.utc).isoformat())
                 response = make_client().get(
                     "/api/hot/history?board_id=zhihu&hours=24"
                 )

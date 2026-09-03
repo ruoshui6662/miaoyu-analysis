@@ -708,6 +708,33 @@
   .xmark.warn { background: var(--warn-bg); color: var(--warn); }
   .hidden { display: none; }
 
+  /* 管理员登录：应用内遮罩，不使用浏览器 prompt 或 HTTP 认证弹窗 */
+  .auth-gate {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: rgba(11, 14, 19, .62);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .auth-card {
+    width: min(420px, 100%); padding: 28px;
+    color: var(--text); background: var(--card);
+    border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .24);
+  }
+  .auth-card h2 { color: var(--text-strong); font-size: 20px; margin-bottom: 6px; }
+  .auth-card p { color: var(--text-2); font-size: 13px; line-height: 1.6; }
+  .auth-label { display: block; margin: 20px 0 7px; color: var(--text-strong); font-size: 13px; font-weight: 600; }
+  .auth-input {
+    width: 100%; height: 44px; padding: 0 12px;
+    color: var(--text); background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: 9px; font-size: 14px;
+  }
+  .auth-input:focus { outline: none; border-color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 12%, transparent); }
+  .auth-error { min-height: 20px; margin-top: 8px; color: var(--red); font-size: 12px; }
+  .auth-submit { width: 100%; height: 44px; margin-top: 8px; }
+  .auth-logout { margin-left: auto; color: rgba(255, 255, 255, .72); background: transparent; border: 1px solid rgba(255, 255, 255, .18); }
+  .auth-logout:hover { color: #fff; background: rgba(255, 255, 255, .1); }
+
   @media print {
     .header, .card:not(#reportCard), .actions, #reportActions, .tasks, .section-title, .hidden, .toast-host { display: none !important; }
     body { background: #fff; }
@@ -979,6 +1006,7 @@
       设置
     </button>
   </div>
+  <button id="authLogout" class="auth-logout hidden" type="button" onclick="logoutAuth()">退出登录</button>
   <div class="header-meta"><span class="header-date" id="headerDate"></span><span class="header-health">数据服务正常</span></div>
 </div>
 
@@ -1227,6 +1255,18 @@
 
 <div class="toast-host" id="toastHost"></div>
 
+<div id="authGate" class="auth-gate hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <form id="authForm" class="auth-card">
+    <h2 id="authTitle">登录妙舆</h2>
+    <p>请输入管理员令牌后访问任务、设置、报告等功能。</p>
+    <label class="auth-label" for="authToken">管理员令牌</label>
+    <input id="authToken" class="auth-input" type="password" autocomplete="current-password"
+           minlength="24" placeholder="至少 24 个字符" required>
+    <div id="authError" class="auth-error" role="alert"></div>
+    <button id="authSubmit" class="primary auth-submit" type="submit">登录</button>
+  </form>
+</div>
+
 <script>
 let currentTask = null;
 const $ = (id) => document.getElementById(id);
@@ -1306,22 +1346,94 @@ function openDefaultPanel() {
 }
 
 let authNoticeShown = false;
+let authLoginBusy = false;
+let authAuthenticated = false;
+
+function setAuthAuthenticated(value) {
+  authAuthenticated = Boolean(value);
+  const logout = $("authLogout");
+  if (logout) logout.classList.toggle("hidden", !authAuthenticated);
+}
 
 function showAuthRequiredNotice() {
   if (authNoticeShown) return;
   authNoticeShown = true;
-  toast("当前接口需要管理员令牌，未登录内容暂不可用", "error");
+  openAuthGate();
+}
+
+function openAuthGate(message) {
+  const gate = $("authGate");
+  if (!gate) return;
+  gate.classList.remove("hidden");
+  const error = $("authError");
+  if (error) error.textContent = message || "";
+  const input = $("authToken");
+  if (input) setTimeout(() => input.focus(), 0);
+}
+
+function closeAuthGate() {
+  const gate = $("authGate");
+  if (gate) gate.classList.add("hidden");
+  const input = $("authToken");
+  if (input) input.value = "";
+  const error = $("authError");
+  if (error) error.textContent = "";
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  if (authLoginBusy) return;
+  const input = $("authToken");
+  const button = $("authSubmit");
+  const error = $("authError");
+  const token = (input?.value || "").trim();
+  if (token.length < 24) {
+    if (error) error.textContent = "管理员令牌至少需要 24 个字符";
+    input?.focus();
+    return;
+  }
+  authLoginBusy = true;
+  if (button) { button.disabled = true; button.textContent = "验证中…"; }
+  try {
+    const r = await fetch("/api/auth/login", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || !body.ok) {
+      if (error) error.textContent = body.error || "管理员令牌无效";
+      return;
+    }
+    setAuthAuthenticated(true);
+    authNoticeShown = false;
+    closeAuthGate();
+    refreshTasks();
+    loadReportFiles();
+    loadAiProviders();
+  } catch (e) {
+    if (error) error.textContent = "无法连接后端服务，请检查容器状态";
+  } finally {
+    authLoginBusy = false;
+    if (button) { button.disabled = false; button.textContent = "登录"; }
+  }
+}
+
+async function logoutAuth() {
+  await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+  setAuthAuthenticated(false);
+  authNoticeShown = true;
+  openAuthGate();
 }
 
 async function api(url, opt) {
   try {
     const options = { ...(opt || {}) };
     const headers = new Headers(options.headers || {});
-    const token = sessionStorage.getItem("miaoyu_admin_token") || "";
-    if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
     options.headers = headers;
     let r = await fetch(url, options);
     if (r.status === 401) {
+      setAuthAuthenticated(false);
       showAuthRequiredNotice();
     }
     const ct = (r.headers.get("content-type") || "").toLowerCase();
@@ -2287,6 +2399,7 @@ function renderTrendPlaceholder() {
 let histPage = 1, histPages = 1;
 
 async function refreshTasks() {
+  if (!authAuthenticated) return;
   const d = await api("/api/tasks?page=1&per=5");
   const list = Array.isArray(d) ? d.slice(0, 5) : (d.items || []);
   const total = Array.isArray(d) ? d.length : (d.total || 0);
@@ -2357,6 +2470,7 @@ async function previewReportFile(jsonName) {
 }
 
 async function loadReportFiles() {
+  if (!authAuthenticated) return;
   const files = await api("/api/reports/list");
   if (!Array.isArray(files)) return;
   // 首页：5 个；历史页：默认 10 个 + "显示全部"展开
@@ -2575,6 +2689,20 @@ async function saveSettings() {
 }
 
 /* ---------- 初始化 ---------- */
+$("authForm")?.addEventListener("submit", submitAuth);
+
+async function bootstrapAuth() {
+  try {
+    const r = await fetch("/api/auth/status", { credentials: "same-origin", cache: "no-store" });
+    const body = await r.json();
+    setAuthAuthenticated(body.authenticated);
+    if (!body.authenticated) showAuthRequiredNotice();
+    return Boolean(body.authenticated);
+  } catch (e) {
+    return false;
+  }
+}
+
 (async function checkProtocol() {
   if (location.protocol === "file:") {
     $("hint").innerHTML = '<div class="hint"><b>页面以本地文件方式打开，无法连接后端。</b><br>请改用浏览器访问 <code>http://localhost:5000</code></div>';
@@ -2593,10 +2721,14 @@ async function saveSettings() {
   } catch (e) { /* 后端未启动，保持灰点 */ }
 })();
 
-refreshTasks();
-loadReportFiles();
 loadHotBoards();
-loadAiProviders();
+(async function initPrivateViews() {
+  if (await bootstrapAuth()) {
+    refreshTasks();
+    loadReportFiles();
+    loadAiProviders();
+  }
+})();
 setInterval(refreshTasks, 15000);
 setInterval(loadReportFiles, 60000);
 setInterval(loadHotBoards, 300000);
