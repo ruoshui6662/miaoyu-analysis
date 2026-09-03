@@ -87,7 +87,6 @@ def _security_and_scheduler():
         if not authorized():
             response = jsonify({"error": "需要管理员令牌", "auth": "Bearer token required"})
             response.status_code = 401
-            response.headers["WWW-Authenticate"] = "Bearer"
             return response
     from monitor import monitor_service
     monitor_service.start()

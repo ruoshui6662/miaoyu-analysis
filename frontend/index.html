@@ -1305,6 +1305,14 @@ function openDefaultPanel() {
   showPanel(def, null);
 }
 
+let authNoticeShown = false;
+
+function showAuthRequiredNotice() {
+  if (authNoticeShown) return;
+  authNoticeShown = true;
+  toast("当前接口需要管理员令牌，未登录内容暂不可用", "error");
+}
+
 async function api(url, opt) {
   try {
     const options = { ...(opt || {}) };
@@ -1313,19 +1321,17 @@ async function api(url, opt) {
     if (token && !headers.has("Authorization")) headers.set("Authorization", "Bearer " + token);
     options.headers = headers;
     let r = await fetch(url, options);
-    if (r.status === 401 && !options._authRetry) {
-      const entered = prompt("此操作需要管理员令牌（首次部署令牌见后端启动日志）");
-      if (entered && entered.trim()) {
-        sessionStorage.setItem("miaoyu_admin_token", entered.trim());
-        return api(url, { ...opt, _authRetry: true });
-      }
+    if (r.status === 401) {
+      showAuthRequiredNotice();
     }
     const ct = (r.headers.get("content-type") || "").toLowerCase();
     if (!ct.includes("application/json")) {
       // 后端返回页面而非接口（旧版服务未重启 / 404/405 的默认 HTML）→ 给出可操作提示
       return { error: "后端返回了页面而非接口（可能是旧版服务）。请重启后端：停掉 python app.py 后重新运行" };
     }
-    return await r.json();
+    const body = await r.json();
+    if (r.status === 401) return { ...body, status: 401, authRequired: true };
+    return body;
   }
   catch (e) { return { error: "无法连接后端服务（" + e.message + "）" }; }
 }

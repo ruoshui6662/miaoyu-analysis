@@ -325,6 +325,8 @@ class SecurityTests(unittest.TestCase):
     def test_private_api_requires_token_and_settings_never_return_api_key(self):
         unauthenticated = app_module.app.test_client().get("/api/settings")
         self.assertEqual(unauthenticated.status_code, 401)
+        self.assertNotIn("WWW-Authenticate", unauthenticated.headers)
+        self.assertEqual(unauthenticated.get_json()["auth"], "Bearer token required")
         with patch.object(config, "AI_PROVIDERS", {
             "test": {"name": "测试", "endpoint": "https://example.test/v1",
                       "apiKey": "super-secret-key", "model": "test", "custom": True},
@@ -337,6 +339,11 @@ class SecurityTests(unittest.TestCase):
 
         edit = app_module.app.test_client().post("/api/report/edit", json={})
         self.assertEqual(edit.status_code, 401)
+
+    def test_frontend_does_not_use_browser_prompt_for_auth(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn("prompt(", frontend)
+        self.assertIn("authRequired", frontend)
 
     def test_settings_save_keeps_redacted_existing_api_key(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-security-settings-") as tmp:
