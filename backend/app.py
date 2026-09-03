@@ -210,7 +210,7 @@ def api_task(tid: str):
 @app.get("/api/hot/boards")
 def api_hot_boards():
     """首页热点榜：公开源主链路，按榜单保留 provider 与健康快照。"""
-    from hotlists import fetch_aggregated, quota_state, source_health
+    from hotlists import annotate_hot_items, fetch_aggregated, quota_state, source_health
     from db import hot_rank_changes
     from evidence import content_hash, record_hot_boards
     try:
@@ -229,10 +229,12 @@ def api_hot_boards():
     for b in boards:
         board_id = b.get("source_id", "")
         rank_data = hot_rank_changes(board_id) if board_id else {"items": {}}
+        visible_items = annotate_hot_items((b.get("items") or [])[:15])
         items = [{"title": it.get("title", ""), "url": it.get("url", ""),
                   "hot": it.get("hot", ""), "published": it.get("published", ""),
-                  "rank": it.get("rank"), "provider": it.get("provider") or b.get("provider", "")}
-                 for it in (b.get("items") or [])[:15]]
+                  "rank": it.get("rank"), "provider": it.get("provider") or b.get("provider", ""),
+                  "heat": it.get("heat", {})}
+                 for it in visible_items]
         for item in items:
             delta = rank_data["items"].get(content_hash(item["title"], item["url"]), {})
             item.update({"previous_rank": delta.get("previous_rank"),

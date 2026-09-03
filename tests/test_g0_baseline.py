@@ -232,6 +232,27 @@ class PublicHotlistTests(unittest.TestCase):
         self.assertEqual(second[0]["url"], "https://example.test/a")
         self.assertEqual(get.call_count, 1)
 
+    def test_heat_annotation_prefers_native_metric_and_falls_back_to_rank(self):
+        annotated = hotlists.annotate_hot_items([
+            {"title": "原生热度", "hot": "1.2万", "rank": 1},
+            {"title": "榜内中段", "hot": "", "rank": 2},
+            {"title": "榜内末位", "hot": "—", "rank": 3},
+        ])
+
+        self.assertEqual(annotated[0]["heat"]["basis"], "native")
+        self.assertEqual(annotated[0]["heat"]["label"], "1.2万")
+        self.assertEqual(annotated[0]["heat"]["relative_score"], 100)
+        self.assertEqual(annotated[1]["heat"]["basis"], "rank")
+        self.assertEqual(annotated[1]["heat"]["label"], "中热")
+        self.assertEqual(annotated[2]["heat"]["label"], "在榜")
+        self.assertIn("来源未提供统一热度值", annotated[2]["heat"]["tooltip"])
+
+        fifteen = hotlists.annotate_hot_items([{"title": str(i)} for i in range(15)])
+        self.assertEqual(fifteen[2]["heat"]["label"], "高热")
+        self.assertEqual(fifteen[3]["heat"]["label"], "中热")
+        self.assertEqual(fifteen[8]["heat"]["label"], "中热")
+        self.assertEqual(fifteen[9]["heat"]["label"], "在榜")
+
     def test_paid_provider_stays_off_without_explicit_switch(self):
         with patch.dict(hotlists.os.environ, {"TOPHUBDATA_KEY": "test-key"}, clear=False):
             with patch.object(hotlists, "_paid_apis_enabled", return_value=False):
@@ -379,6 +400,13 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("for (let offset = 0; fresh.length < 10; offset++)", frontend)
         self.assertNotIn('localStorage.getItem("hot_prev")', frontend)
         self.assertNotIn("fresh.sort((a, b) => hotNum(b.hot) - hotNum(a.hot));", frontend)
+
+    def test_frontend_uses_explainable_heat_annotation(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("function heatMeta", frontend)
+        self.assertIn("basis: \"native\"", frontend)
+        self.assertIn("跨平台覆盖优先，榜内位置其次", frontend)
+        self.assertNotIn(".sort((a, b) => hotNum(b.hot) - hotNum(a.hot))", frontend)
 
     def test_auth_login_sets_cookie_and_logout_revokes_session(self):
         client = app_module.app.test_client()

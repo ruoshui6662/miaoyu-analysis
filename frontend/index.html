@@ -580,7 +580,10 @@
   .hot-board-rank { width: 18px; flex: none; color: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; text-align: center; }
   .hot-board-row:nth-child(1) .hot-board-rank { color: var(--hot-h); font-weight: 700; }
   .hot-board-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 13px; line-height: 1.45; }
-  .hot-board-hot { flex: none; min-width: 42px; color: var(--text-3); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+  .hot-board-hot { flex: none; min-width: 42px; color: var(--text-3); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hot-board-hot.heat-high { color: var(--hot-h); font-weight: 700; }
+  .hot-board-hot.heat-medium { color: var(--hot-m); font-weight: 650; }
+  .hot-board-hot.heat-listed { color: var(--text-3); }
   .bw-card { border: 1px solid var(--separator); border-radius: var(--r-xl); padding: 16px 16px 12px; background: var(--card); transition: border-color .15s, box-shadow .15s; display: flex; flex-direction: column; }
   .bw-card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-card); }
   .bw-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -595,12 +598,16 @@
   .bw-rank { color: var(--text-3); font-size: 11px; width: 18px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .bw-hot { font-size: 11px; font-weight: 700; min-width: 46px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--text-3); }
   .bw-hot.hot-h { color: var(--hot-h); }
+  .bw-hot.heat-high { color: var(--hot-h); }
+  .bw-hot.heat-medium { color: var(--hot-m); }
   .bw-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .12s; }
   .bw-more { text-align: center; font-size: 12px; color: var(--text-2); font-weight: 600; padding-top: 8px; cursor: pointer; margin-top: 10px; transition: color .15s; }
   .bw-more:hover { color: var(--primary); }
   .hot-rank { font-size: 12px; font-weight: 700; color: var(--text-3); min-width: 20px; font-variant-numeric: tabular-nums; }
   .hot-v { font-size: 12px; font-weight: 700; min-width: 58px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-3); }
   .hot-v.hot-h { color: var(--hot-h); }
+  .hot-v.heat-high { color: var(--hot-h); }
+  .hot-v.heat-medium { color: var(--hot-m); }
   .hot-meta { font-size: 12px; color: var(--text-3); margin-right: 4px; }
   .card.thin { padding: 14px 20px; }
   .card.qbar { padding: 16px 18px; }
@@ -2219,6 +2226,41 @@ function hotNum(s) {
 
 function hotLevel(n) { return n >= 500000 ? "hot-h" : n >= 100000 ? "hot-m" : "hot-l"; }
 
+function relativeHeatMeta(rank, total) {
+  const size = Math.max(1, Number(total) || 1);
+  const position = Math.max(1, Math.min(Number(rank) || 1, size));
+  const relativeScore = Math.round((size - position + 1) / size * 100);
+  const highCutoff = Math.max(1, Math.ceil(size * 0.2));
+  const mediumCutoff = Math.max(highCutoff, Math.ceil(size * 0.6));
+  const level = position <= highCutoff ? "high" : position <= mediumCutoff ? "medium" : "listed";
+  const label = level === "high" ? "高热" : level === "medium" ? "中热" : "在榜";
+  return { display: label, label, level, basis: "rank", relativeScore, rank: position,
+    boardSize: size, board_size: size,
+    tooltip: `榜内相对热度：${label} · 第 ${position}/${size}（来源未提供统一热度值）` };
+}
+
+function heatMeta(item, rank, total) {
+  const serverHeat = item && item.heat;
+  if (serverHeat && serverHeat.label) {
+    return {
+      display: String(serverHeat.label),
+      level: serverHeat.level || "listed",
+      basis: serverHeat.basis || "rank",
+      relativeScore: Number(serverHeat.relative_score) || 0,
+      rank: Number(serverHeat.rank) || Number(rank) || 1,
+      boardSize: Number(serverHeat.board_size) || Number(total) || 1,
+      tooltip: serverHeat.tooltip || "统一热度标注",
+    };
+  }
+  const fallback = relativeHeatMeta(rank || (item && item.rank), total || 15);
+  const raw = String((item && item.hot) || "").trim();
+  if (!raw || raw === "—" || raw === "-") return fallback;
+  return { ...fallback, display: raw, label: raw, basis: "native",
+    tooltip: `来源热度：${raw} · 当前榜内第 ${fallback.rank}/${fallback.boardSize}` };
+}
+
+function heatCss(meta) { return `heat-${meta.level || "listed"}`; }
+
 async function loadHotBoards(force) {
   const d = await api("/api/hot/boards");
   HOT.boards = Array.isArray(d.boards) ? d.boards : [];
@@ -2275,7 +2317,8 @@ function renderRadar() {
     for (const group of groups) {
       const item = group.items[offset];
       if (!item) continue;
-      fresh.push({ title: item.title, url: item.url, hot: item.hot, board: group.board });
+      fresh.push({ title: item.title, url: item.url, hot: item.hot, rank: item.rank,
+        heat: item.heat, board: group.board });
       added = true;
       if (fresh.length >= 10) break;
     }
@@ -2288,11 +2331,12 @@ function renderRadar() {
     return;
   }
   box.innerHTML = fresh.map(it => {
-    const lvl = "bw-hot " + hotLevel(hotNum(it.hot));
+    const heat = heatMeta(it, it.rank, it.heat && it.heat.board_size);
+    const lvl = "bw-hot " + heatCss(heat);
     return `<div class="radar-item" title="${it.url ? "点击打开原文" : "点击发起分析"}" onclick="openHotByName('${String(it.title).replace(/'/g, "\\'")}', '${esc(String(it.url || "").replace(/'/g, "\\'"))}', event)">
       <span class="radar-t">${esc(it.title)}</span>
       <span class="radar-board">${esc(it.board)}</span>
-      <span class="${lvl}">${esc(it.hot || "")}</span></div>`;
+      <span class="${lvl}" title="${esc(heat.tooltip)}">${esc(heat.display)}</span></div>`;
   }).join("");
 }
 
@@ -2307,13 +2351,26 @@ function allHotItems() {
     for (const it of (b.items || [])) {
       const k = normHotTitle(it.title);
       if (!k) continue;
-      if (!seen[k]) seen[k] = { title: it.title, url: it.url, hot: it.hot, boards: new Set() };
+      const meta = heatMeta(it, it.rank, (b.items || []).length);
+      if (!seen[k]) {
+        seen[k] = { title: it.title, url: it.url, hot: it.hot, heat: meta,
+          rankScore: meta.relativeScore, boards: new Set() };
+      } else {
+        seen[k].rankScore = Math.max(seen[k].rankScore, meta.relativeScore);
+        if (meta.basis === "native" && seen[k].heat.basis !== "native") seen[k].heat = meta;
+        else if (seen[k].heat.basis !== "native" && meta.relativeScore > seen[k].heat.relativeScore) seen[k].heat = meta;
+        if (!seen[k].hot && it.hot) seen[k].hot = it.hot;
+        if (!seen[k].url && it.url) seen[k].url = it.url;
+      }
       seen[k].boards.add(b.name);
     }
   }
   return Object.values(seen)
-    .map(x => ({ title: x.title, url: x.url, hot: x.hot, board: [...x.boards].join("/"), numBoards: x.boards.size }))
-    .sort((a, b) => hotNum(b.hot) - hotNum(a.hot));
+    .map(x => ({ title: x.title, url: x.url, hot: x.hot, heat: x.heat,
+      rank: x.heat && x.heat.rank,
+      rankScore: x.rankScore, board: [...x.boards].join("/"), numBoards: x.boards.size }))
+    // 跨平台出现是最强的公共信号；只有在覆盖数相同时才比较榜内相对位置。
+    .sort((a, b) => b.numBoards - a.numBoards || b.rankScore - a.rankScore);
 }
 
 /* Signal Desk：主热点负责回答“现在发生了什么”，六个同构榜卡负责回答“各平台正在讨论什么”。
@@ -2329,28 +2386,29 @@ function renderBoardsWall() {
   const all = allHotItems();
   const lead = all[0] || boards[0].items[0];
   const leadBoards = lead.numBoards || 1;
-  const leadHot = lead.hot || "—";
+  const leadHeat = heatMeta(lead, lead.rank, lead.heat && lead.heat.board_size);
+  const leadHot = leadHeat.display;
   const leadTitle = lead.title || "暂无升温主题";
   const jsq = (v) => String(v || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/[\r\n]+/g, " ");
   const leadTitleAttr = jsq(leadTitle);
   const boardCards = boards.map(b => {
     const items = (b.items || []).slice(0, 15);
-    const rows = items.map((it, i) => `<li class="hot-board-row" role="button" tabindex="0" title="${esc(it.title || "")}" onclick="openHotByName('${jsq(it.title)}', '${jsq(it.url)}', event)" onkeydown="if(event.key==='Enter'||event.key===' '){openHotByName('${jsq(it.title)}', '${jsq(it.url)}', event);event.preventDefault();}">
-      <span class="hot-board-rank">${it.rank || i + 1}</span><span class="hot-board-title">${esc(it.title || "暂无条目")}</span><span class="hot-board-hot">${esc(it.hot || "—")}</span>
-    </li>`).join("");
+    const rows = items.map((it, i) => { const heat = heatMeta(it, it.rank || i + 1, items.length); return `<li class="hot-board-row" role="button" tabindex="0" title="${esc(it.title || "")}" onclick="openHotByName('${jsq(it.title)}', '${jsq(it.url)}', event)" onkeydown="if(event.key==='Enter'||event.key===' '){openHotByName('${jsq(it.title)}', '${jsq(it.url)}', event);event.preventDefault();}">
+      <span class="hot-board-rank">${it.rank || i + 1}</span><span class="hot-board-title">${esc(it.title || "暂无条目")}</span><span class="hot-board-hot ${heatCss(heat)}" title="${esc(heat.tooltip)}">${esc(heat.display)}</span>
+    </li>`; }).join("");
     return `<article class="hot-board-card"><div class="hot-board-head"><span class="hot-board-dot" aria-hidden="true"></span><span class="hot-board-name">${esc(b.name)}</span></div>
       <ol class="hot-board-list" aria-label="${esc(b.name)}条目">${rows}</ol></article>`;
   }).join("");
   wall.innerHTML = `<div class="signal-lead">
     <div class="signal-lead-top">
-      <div><div class="signal-eyebrow">${IC.flame} 当前关注焦点 <span class="f-help">按公开榜单热度排序</span></div>
+      <div><div class="signal-eyebrow">${IC.flame} 当前关注焦点 <span class="f-help">跨平台覆盖优先，榜内位置其次</span></div>
         <h3>${esc(leadTitle)}</h3>
-        <p>${leadBoards > 1 ? "相关信息已出现在多个公开平台，" : "该热点已进入公开榜单，"}建议先查看关键证据，再决定是否发起完整研判。</p>
+        <p>${leadBoards > 1 ? "相关信息已出现在多个公开平台，" : "该热点已进入公开榜单，"}热度标注采用来源原生指标优先、榜内位置兜底，建议先查看关键证据，再决定是否发起完整研判。</p>
       </div>
       <span class="signal-state">${leadBoards > 1 ? `跨 ${leadBoards} 个平台` : "持续关注"}</span>
     </div>
     <div class="signal-metrics">
-      <div class="signal-metric"><div class="signal-metric-label">榜单热度</div><div class="signal-metric-value hot">${esc(leadHot)}</div></div>
+      <div class="signal-metric"><div class="signal-metric-label">热度标注</div><div class="signal-metric-value hot">${esc(leadHot)}</div></div>
       <div class="signal-metric"><div class="signal-metric-label">覆盖平台</div><div class="signal-metric-value">${leadBoards}</div></div>
       <div class="signal-metric"><div class="signal-metric-label">去重热点</div><div class="signal-metric-value">${all.length}</div></div>
       <div class="signal-metric"><div class="signal-metric-label">建议动作</div><div class="signal-metric-value" style="font-size:15px">开始研判</div></div>
@@ -2399,14 +2457,15 @@ function analyzeHot(title) {
 
 function renderHotStats() {
   const all = allHotItems();
-  const top = [...all].sort((a, b) => hotNum(b.hot) - hotNum(a.hot)).slice(0, 3);
+  const top = all.slice(0, 3);
   let h = `<table style="width:100%;border-collapse:collapse"><tr><td style="padding:4px 0">覆盖榜单</td><td style="text-align:right;font-weight:700">${HOT.boards.length} 个</td></tr>
     <tr><td style="padding:4px 0">热点条目</td><td style="text-align:right;font-weight:700">${all.length} 条</td></tr></table>`;
   if (top.length) {
-    h += `<div class="f-help" style="margin-top:8px">热度 TOP3：</div>`;
+    h += `<div class="f-help" style="margin-top:8px">重点热点（跨平台覆盖优先）：</div>`;
     top.forEach((t, i) => {
+      const heat = heatMeta(t, t.heat && t.heat.rank, t.heat && t.heat.boardSize);
       h += `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px">
-        <span class="hot-v ${hotLevel(hotNum(t.hot))}" style="min-width:44px">${esc(t.hot || "")}</span>
+        <span class="hot-v ${heatCss(heat)}" style="min-width:44px" title="${esc(heat.tooltip)}">${esc(heat.display)}</span>
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.title)}">${i + 1}. ${esc(t.title)}</span></div>`;
     });
   }

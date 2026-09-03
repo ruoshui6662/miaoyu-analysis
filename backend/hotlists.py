@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime
 import html
 import json
+import math
 import os
 import re
 import sqlite3
@@ -43,6 +44,14 @@ PUBLIC_BOARD_ALIASES = {
     "哔哩哔哩": "bilibili", "哔哩哔哩热门": "bilibili",
     "百度": "baidu", "今日头条": "toutiao", "头条": "toutiao", "头条热榜": "toutiao",
     "抖音热榜": "douyin",
+}
+
+# 跨平台不能把微博的“热搜指数”和知乎的“热度”当成同一个数比较。
+# 因此统一输出的是可解释的榜内等级：原生指标优先展示；缺少原生指标时按榜内位置兜底。
+HEAT_LABELS = {
+    "high": "高热",
+    "medium": "中热",
+    "listed": "在榜",
 }
 
 _UA_BROWSER = USER_AGENT
@@ -80,6 +89,77 @@ def _newsnow_ttl() -> int:
         return max(60, int(os.getenv("NEWSNOW_CACHE_SECONDS", "300")))
     except ValueError:
         return 300
+
+
+def _clean_native_hot(value) -> str:
+    """清理来源热度文本；空值/破折号不能被误当成真实指标。"""
+    text = str(value or "").strip()
+    return "" if text in {"", "-", "—", "暂无", "无"} else text
+
+
+def _rank_heat_level(rank: int, board_size: int) -> tuple[str, int]:
+    """把榜内位置转成可跨平台解释的相对等级和百分位分数。
+
+    分数只表示“在当前榜单中的位置”，不是平台间可直接比较的绝对热度。
+    前 20% 为高热，前 60% 为中热，其余为在榜，避免制造伪精确值。
+    """
+    size = max(1, int(board_size or 1))
+    position = max(1, min(int(rank or 1), size))
+    relative_score = round((size - position + 1) / size * 100)
+    high_cutoff = max(1, math.ceil(size * 0.2))
+    medium_cutoff = max(high_cutoff, math.ceil(size * 0.6))
+    if position <= high_cutoff:
+        level = "high"
+    elif position <= medium_cutoff:
+        level = "medium"
+    else:
+        level = "listed"
+    return level, relative_score
+
+
+def annotate_hot_items(items: list[dict]) -> list[dict]:
+    """为一个榜单补齐统一热度标注，不覆盖来源原始 hot 文本。
+
+    返回字段：
+      heat.label       页面展示值（原生热度或“高热/中热/在榜”）
+      heat.basis       native=来源指标，rank=榜内位置兜底
+      heat.level       high/medium/listed，用于统一颜色语义
+      heat.relative_score 仅用于跨平台相对排序，不是绝对热度
+      heat.tooltip     向用户解释标注口径
+    """
+    source_items = [item for item in (items or []) if isinstance(item, dict)]
+    board_size = max(1, len(source_items))
+    annotated: list[dict] = []
+    for index, item in enumerate(source_items, start=1):
+        raw_rank = item.get("rank")
+        try:
+            rank = int(raw_rank)
+        except (TypeError, ValueError):
+            rank = index
+        rank = max(1, min(rank, board_size))
+        level, relative_score = _rank_heat_level(rank, board_size)
+        native_hot = _clean_native_hot(item.get("hot"))
+        basis = "native" if native_hot else "rank"
+        label = native_hot or HEAT_LABELS[level]
+        if native_hot:
+            tooltip = f"来源热度：{native_hot} · 当前榜内第 {rank}/{board_size}"
+        else:
+            tooltip = (f"榜内相对热度：{HEAT_LABELS[level]} · 第 {rank}/{board_size}"
+                       "（来源未提供统一热度值）")
+        out = dict(item)
+        out["rank"] = rank
+        out["heat"] = {
+            "label": label,
+            "level": level,
+            "basis": basis,
+            "relative_score": relative_score,
+            "rank": rank,
+            "board_size": board_size,
+            "raw": native_hot,
+            "tooltip": tooltip,
+        }
+        annotated.append(out)
+    return annotated
 
 
 def _newsnow_json(source_id: str) -> tuple[dict | None, str]:
