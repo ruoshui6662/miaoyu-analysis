@@ -47,7 +47,7 @@ PUBLIC_BOARD_ALIASES = {
 }
 
 # 跨平台不能把微博的“热搜指数”和知乎的“热度”当成同一个数比较。
-# 因此统一输出的是可解释的榜内等级：原生指标优先展示；缺少原生指标时按榜内位置兜底。
+# 因此统一输出可解释的榜内等级；原生指标只作为 raw 参考，不改变主显示口径。
 HEAT_LABELS = {
     "high": "高热",
     "medium": "中热",
@@ -121,10 +121,11 @@ def annotate_hot_items(items: list[dict]) -> list[dict]:
     """为一个榜单补齐统一热度标注，不覆盖来源原始 hot 文本。
 
     返回字段：
-      heat.label       页面展示值（原生热度或“高热/中热/在榜”）
-      heat.basis       native=来源指标，rank=榜内位置兜底
+      heat.label       页面统一展示值（“高热/中热/在榜”）
+      heat.basis       固定为 rank，表示主评价只依据榜内位置
       heat.level       high/medium/listed，用于统一颜色语义
-      heat.relative_score 仅用于跨平台相对排序，不是绝对热度
+      heat.relative_score 仅用于榜内相对排序，不是绝对热度
+      heat.raw         来源原始热度，仅作追溯参考
       heat.tooltip     向用户解释标注口径
     """
     source_items = [item for item in (items or []) if isinstance(item, dict)]
@@ -139,19 +140,19 @@ def annotate_hot_items(items: list[dict]) -> list[dict]:
         rank = max(1, min(rank, board_size))
         level, relative_score = _rank_heat_level(rank, board_size)
         native_hot = _clean_native_hot(item.get("hot"))
-        basis = "native" if native_hot else "rank"
-        label = native_hot or HEAT_LABELS[level]
+        label = HEAT_LABELS[level]
         if native_hot:
-            tooltip = f"来源热度：{native_hot} · 当前榜内第 {rank}/{board_size}"
+            tooltip = (f"统一榜内热度：{label} · 第 {rank}/{board_size}"
+                       f"（来源原生热度：{native_hot}，仅作参考）")
         else:
-            tooltip = (f"榜内相对热度：{HEAT_LABELS[level]} · 第 {rank}/{board_size}"
-                       "（来源未提供统一热度值）")
+            tooltip = (f"统一榜内热度：{label} · 第 {rank}/{board_size}"
+                       "（来源未提供原生热度值）")
         out = dict(item)
         out["rank"] = rank
         out["heat"] = {
             "label": label,
             "level": level,
-            "basis": basis,
+            "basis": "rank",
             "relative_score": relative_score,
             "rank": rank,
             "board_size": board_size,
