@@ -8,7 +8,7 @@
 - 为生产环境设置 `MIAOYU_ADMIN_TOKEN`，建议使用至少 32 字节随机值；不要把它写入 Git 或镜像。
 - 未设置时，首次启动会在 `data/admin_token` 生成令牌并写入启动日志；复制保存后，将其改为部署环境变量更便于轮换。
 - 除热榜公开读取接口外，API 默认要求管理员令牌；前端通过站内“登录妙舆”表单提交令牌，并用 HttpOnly 会话 Cookie 保持登录。未登录请求返回 JSON 401，不触发浏览器原生认证弹窗。
-- 令牌至少 24 个字符（建议 32 字节以上随机值）；例如 `MIAOYU_ADMIN_TOKEN=change-this-to-a-long-random-token`。修改 `.env` 后必须重建/重启容器。
+- 令牌至少 6 个字符（建议使用更长的随机值）；例如 `MIAOYU_ADMIN_TOKEN=my-pass6`。修改 `.env` 后必须重建/重启容器。
 - `/api/settings` 返回的服务商配置只有 `apiKeyConfigured`，不会返回 API Key；已有 Key 在保存其它设置时不会因脱敏值被清空。
 - 默认不开放跨域；确需跨域时只设置一个完整的 `MIAOYU_ALLOWED_ORIGIN`，不要使用 `*`。
 - 默认请求体上限为 10 MB，可由 `MIAOYU_MAX_BODY_MB` 调整；服务包含安全响应头和按客户端限流。

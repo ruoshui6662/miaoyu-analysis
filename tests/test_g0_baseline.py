@@ -355,8 +355,9 @@ class SecurityTests(unittest.TestCase):
         self.assertEqual(status.status_code, 200)
         self.assertFalse(status.get_json()["authenticated"])
 
-        bad = client.post("/api/auth/login", json={"token": "password"})
+        bad = client.post("/api/auth/login", json={"token": "12345"})
         self.assertEqual(bad.status_code, 401)
+        self.assertIn("6", bad.get_json()["error"])
         good = client.post("/api/auth/login", json={"token": token})
         self.assertEqual(good.status_code, 200)
         self.assertIn("miaoyu_session=", good.headers.get("Set-Cookie", ""))

@@ -17,10 +17,11 @@ LOGGER = logging.getLogger("miaoyu.security")
 TOKEN_ENV = "MIAOYU_ADMIN_TOKEN"
 TOKEN_FILE = DATA_DIR / "admin_token"
 SESSION_COOKIE = "miaoyu_session"
+MIN_TOKEN_LENGTH = 6
 
 
 def _valid_token(value: str) -> bool:
-    return len(str(value or "").strip()) >= 24
+    return len(str(value or "").strip()) >= MIN_TOKEN_LENGTH
 
 
 def admin_token() -> str:

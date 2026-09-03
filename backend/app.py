@@ -40,8 +40,8 @@ from db import (
 from pipeline import gen_docx as pipeline_gen_docx, render_markdown, run_analysis
 from source_catalog import CATALOG, CATEGORIES
 from observability import JsonFormatter, begin_request, finish_request
-from security import (SESSION_COOKIE, attach_session_cookie, authorized,
-                      client_key, limiter, verify_admin_token)
+from security import (MIN_TOKEN_LENGTH, SESSION_COOKIE, attach_session_cookie,
+                      authorized, client_key, limiter, verify_admin_token)
 
 
 _root_logger = logging.getLogger()
@@ -580,7 +580,8 @@ def api_auth_login():
     body = request.get_json(silent=True) or {}
     token = str(body.get("token") or "").strip()
     if not verify_admin_token(token):
-        return jsonify({"ok": False, "error": "管理员令牌无效（至少需要24个字符）"}), 401
+        return jsonify({"ok": False,
+                        "error": f"管理员令牌无效（至少需要{MIN_TOKEN_LENGTH}个字符）"}), 401
     response = jsonify({"ok": True})
     response.set_cookie(
         SESSION_COOKIE, token, max_age=86400,

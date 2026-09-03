@@ -1261,7 +1261,7 @@
     <p>请输入管理员令牌后访问任务、设置、报告等功能。</p>
     <label class="auth-label" for="authToken">管理员令牌</label>
     <input id="authToken" class="auth-input" type="password" autocomplete="current-password"
-           minlength="24" placeholder="至少 24 个字符" required>
+           minlength="6" placeholder="至少 6 个字符" required>
     <div id="authError" class="auth-error" role="alert"></div>
     <button id="authSubmit" class="primary auth-submit" type="submit">登录</button>
   </form>
@@ -1387,8 +1387,8 @@ async function submitAuth(event) {
   const button = $("authSubmit");
   const error = $("authError");
   const token = (input?.value || "").trim();
-  if (token.length < 24) {
-    if (error) error.textContent = "管理员令牌至少需要 24 个字符";
+  if (token.length < 6) {
+    if (error) error.textContent = "管理员令牌至少需要 6 个字符";
     input?.focus();
     return;
   }
