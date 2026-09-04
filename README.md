@@ -1,6 +1,6 @@
 # 妙舆（miaoyu-analysis）
 
-多信源舆情分析系统：**SearXNG 抓取 → AI 四段式分析（事件概况/原因/风险/对策）→ Word/Markdown/PDF 报告**。
+多信源舆情分析系统：**SearXNG/Brave/Tavily 搜索 → AI 四段式分析（事件概况/原因/风险/对策）→ Word/Markdown/PDF 报告**。
 面向"部署后任何人开箱即用"：管理员在页面/`.env` 配置 AI 与信源即可，支持 Docker 一键部署与飞牛 fnOS 安装。
 
 - 报告格式严格对齐《参考格式.docx》四段式模板（标题→引言→一、事件概况→二、原因→三、风险→四、对策，分论点"（一）（二）"句首加粗）
@@ -40,6 +40,11 @@ docker pull ghcr.io/ruoshui6662/miaoyu-analysis:latest
 | 配置 | 说明 |
 |---|---|
 | `SEARXNG_URL` | SearXNG 实例（公网或内网） |
+| `SEARCH_PROVIDER_ORDER` | 兼容旧配置，调用顺序固定为 `searxng,brave,tavily`，不建议修改 |
+| `SEARCH_PROVIDER_MODE` | 搜索策略：`failover`（默认）或 `fanout` |
+| `BRAVE_API_KEY` | Brave Search API Key（可在设置页填写，后端调用） |
+| `TAVILY_API_KEY` | Tavily API Key（可在设置页填写，后端调用） |
+| `SEARCH_TIMEOUT` | 搜索 Provider 请求超时秒数 |
 | `AI_ROUTER_BASE_URL` / `AI_ROUTER_API_KEY` / `AI_ROUTER_MODEL` | 本地 LLM 网关（OpenAI 兼容，如 9router） |
 | `DEEPSEEK_API_KEY` / `QWEN_API_KEY` | 官方直连（备选 provider） |
 | `AI_PRIMARY_PROVIDER` | 强制指定 router / deepseek / qwen（留空自动） |

@@ -36,6 +36,7 @@ import preflight  # noqa: E402
 import security  # noqa: E402
 from ai_client import AIClient, AIClientError  # noqa: E402
 from searx_client import SearxClient  # noqa: E402
+from search_providers import BraveSearchClient, SearchRouter, TavilySearchClient  # noqa: E402
 
 
 def make_client():
@@ -129,6 +130,112 @@ class RuntimeConfigTests(unittest.TestCase):
             else:
                 os.environ["SEARXNG_URL"] = old_env_url
 
+
+class SearchProviderTests(unittest.TestCase):
+    class Response:
+        def __init__(self, payload, status_code=200):
+            self.payload = payload
+            self.status_code = status_code
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                import requests
+                raise requests.HTTPError(f"status={self.status_code}")
+
+        def json(self):
+            return self.payload
+
+    def test_brave_normalizes_official_web_results(self):
+        client = BraveSearchClient(api_key="brave-test")
+        response = self.Response({"web": {"results": [{
+            "title": "测试新闻", "url": "https://example.test/a",
+            "description": "摘要", "page_age": "2026-09-03T10:20:00Z",
+        }]}})
+        with patch.object(client.session, "get", return_value=response) as get:
+            data = client.search("测试", time_range="day")
+        self.assertEqual(data["results"][0]["provider"], "brave")
+        self.assertEqual(data["results"][0]["title"], "测试新闻")
+        self.assertEqual(get.call_args.kwargs["timeout"], config.SEARCH_TIMEOUT)
+        self.assertEqual(get.call_args.kwargs["params"]["freshness"], "pd")
+
+    def test_tavily_normalizes_results_and_uses_bearer_session_header(self):
+        client = TavilySearchClient(api_key="tvly-test")
+        response = self.Response({"results": [{
+            "title": "Tavily 结果", "url": "https://example.test/b",
+            "content": "正文摘要", "score": 0.8,
+        }], "usage": {"credits": 1}})
+        with patch.object(client.session, "post", return_value=response) as post:
+            data = client.search("测试")
+        self.assertEqual(data["results"][0]["provider"], "tavily")
+        self.assertEqual(data["usage"]["credits"], 1)
+        self.assertEqual(post.call_args.kwargs["json"]["search_depth"], config.TAVILY_SEARCH_DEPTH)
+        self.assertTrue(client.session.headers["Authorization"].startswith("Bearer "))
+
+    def test_router_skips_unconfigured_external_providers(self):
+        old_order, old_mode = config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE
+        old_url = config.SEARXNG_URL
+        try:
+            config.SEARCH_PROVIDER_ORDER = ["searxng", "brave", "tavily"]
+            config.SEARCH_PROVIDER_MODE = "failover"
+            router = SearchRouter()
+            with patch.object(router.providers["searxng"], "search", return_value={
+                "query": "q", "results": [{"url": "https://example.test", "title": "命中"}],
+                "suggestions": [], "unresponsive": [],
+            }) as primary, patch.object(router.providers["brave"], "search") as brave, patch.object(
+                router.providers["tavily"], "search"
+            ) as tavily:
+                data = router.search("q")
+            primary.assert_called_once()
+            brave.assert_not_called()
+            tavily.assert_not_called()
+            self.assertEqual(data["providers_used"], ["searxng"])
+        finally:
+            config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE = old_order, old_mode
+            config.SEARXNG_URL = old_url
+
+    def test_router_skips_unconfigured_searxng_and_uses_configured_brave(self):
+        old_order, old_mode, old_url, old_brave = (
+            config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE,
+            config.SEARXNG_URL, config.BRAVE_API_KEY,
+        )
+        try:
+            config.SEARCH_PROVIDER_ORDER = ["searxng", "brave", "tavily"]
+            config.SEARCH_PROVIDER_MODE = "failover"
+            config.SEARXNG_URL = ""
+            config.BRAVE_API_KEY = "brave-test"
+            router = SearchRouter()
+            with patch.object(router.providers["searxng"], "search") as searxng, patch.object(
+                router.providers["brave"], "search", return_value={
+                    "query": "q", "results": [{"url": "https://brave.test", "title": "备用命中"}],
+                }
+            ) as brave:
+                data = router.search("q")
+            searxng.assert_not_called()
+            brave.assert_called_once()
+            self.assertEqual(data["providers_used"], ["brave"])
+            self.assertEqual(data["results"][0]["title"], "备用命中")
+        finally:
+            config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE = old_order, old_mode
+            config.SEARXNG_URL, config.BRAVE_API_KEY = old_url, old_brave
+
+    def test_router_returns_actionable_error_when_no_provider_is_configured(self):
+        old_order, old_mode, old_url, old_brave, old_tavily = (
+            config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE,
+            config.SEARXNG_URL, config.BRAVE_API_KEY, config.TAVILY_API_KEY,
+        )
+        try:
+            config.SEARCH_PROVIDER_ORDER = ["searxng", "brave", "tavily"]
+            config.SEARCH_PROVIDER_MODE = "failover"
+            config.SEARXNG_URL = ""
+            config.BRAVE_API_KEY = ""
+            config.TAVILY_API_KEY = ""
+            data = SearchRouter().search("q")
+            self.assertEqual(data["providers_used"], [])
+            self.assertIn("至少配置", data["error"])
+        finally:
+            config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE = old_order, old_mode
+            config.SEARXNG_URL = old_url
+            config.BRAVE_API_KEY, config.TAVILY_API_KEY = old_brave, old_tavily
 
 class UrlCacheTests(unittest.TestCase):
     def setUp(self):
@@ -444,6 +551,16 @@ class SecurityTests(unittest.TestCase):
         payload = response.get_data(as_text=True)
         self.assertNotIn("super-secret-key", payload)
         self.assertIn("apiKeyConfigured", payload)
+
+        with patch.object(config, "BRAVE_API_KEY", "brave-secret"), patch.object(
+            config, "TAVILY_API_KEY", "tavily-secret"
+        ):
+            search_settings = make_client().get("/api/settings")
+        search_payload = search_settings.get_data(as_text=True)
+        self.assertNotIn("brave-secret", search_payload)
+        self.assertNotIn("tavily-secret", search_payload)
+        self.assertTrue(search_settings.get_json()["settings"]["BRAVE_API_KEY_CONFIGURED"])
+        self.assertTrue(search_settings.get_json()["settings"]["TAVILY_API_KEY_CONFIGURED"])
 
         edit = app_module.app.test_client().post("/api/report/edit", json={})
         self.assertEqual(edit.status_code, 401)

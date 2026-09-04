@@ -41,6 +41,7 @@ from db import (
 from pipeline import gen_docx as pipeline_gen_docx, render_markdown, run_analysis
 from source_catalog import CATALOG, CATEGORIES
 from observability import JsonFormatter, begin_request, finish_request
+from search_providers import SearchRouter
 from security import (DEFAULT_ADMIN_USERNAME, MIN_PASSWORD_LENGTH,
                       MIN_TOKEN_LENGTH, SESSION_COOKIE, attach_session_cookie,
                       authenticated_username, authorized, client_key,
@@ -699,15 +700,39 @@ def api_settings_get():
         public_providers[pid]["apiKeyConfigured"] = bool(provider.get("apiKey"))
     merged = {
         "SEARXNG_URL": _cfg.SEARXNG_URL,
+        "SEARXNG_CONFIGURED": bool(_cfg.SEARXNG_URL.strip()),
+        "SEARCH_PROVIDER_ORDER": "searxng,brave,tavily",
+        "SEARCH_PROVIDER_MODE": _cfg.SEARCH_PROVIDER_MODE,
+        "SEARCH_TIMEOUT": str(_cfg.SEARCH_TIMEOUT),
+        "BRAVE_SEARCH_ENDPOINT": _cfg.BRAVE_SEARCH_ENDPOINT,
+        "BRAVE_SEARCH_LANG": _cfg.BRAVE_SEARCH_LANG,
+        "BRAVE_COUNTRY": _cfg.BRAVE_COUNTRY,
+        "BRAVE_API_KEY": "****已配置****" if _cfg.BRAVE_API_KEY else "",
+        "BRAVE_API_KEY_CONFIGURED": bool(_cfg.BRAVE_API_KEY),
+        "TAVILY_SEARCH_ENDPOINT": _cfg.TAVILY_SEARCH_ENDPOINT,
+        "TAVILY_SEARCH_DEPTH": _cfg.TAVILY_SEARCH_DEPTH,
+        "TAVILY_API_KEY": "****已配置****" if _cfg.TAVILY_API_KEY else "",
+        "TAVILY_API_KEY_CONFIGURED": bool(_cfg.TAVILY_API_KEY),
         "AI_PRIMARY_PROVIDER": _cfg.AI_PRIMARY_PROVIDER,
         "ENABLED_GROUPS": ",".join(_cfg.ENABLED_GROUPS),
         "AI_PROVIDERS": json.dumps(public_providers, ensure_ascii=False),
     }
     for k in SECRET_KEYS:
+        if k in {"BRAVE_API_KEY", "TAVILY_API_KEY"}:
+            continue
         merged[k] = "****已配置****" if any(
             str(provider.get("apiKey") or "") for provider in _cfg.AI_PROVIDERS.values()
         ) else ""
     return jsonify({"settings": merged, "managed_keys": list(MANAGED_KEYS)})
+
+
+@app.post("/api/search/test")
+def api_search_test():
+    """用当前已保存配置测试一个搜索 Provider；结果只返回前三条摘要。"""
+    body = request.get_json(silent=True) or {}
+    provider = str(body.get("provider") or "").strip().lower()
+    query = str(body.get("query") or "中国 舆情 新闻").strip()[:200]
+    return jsonify(SearchRouter().test(provider, query))
 
 
 @app.get("/api/auth/status")
@@ -812,6 +837,14 @@ def api_settings_save():
                 items["AI_PROVIDERS"] = json.dumps(incoming, ensure_ascii=False)
         except (TypeError, ValueError):
             return jsonify({"error": "AI_PROVIDERS 必须是合法 JSON"}), 400
+    # API Key 通过设置页脱敏回传；空值或掩码值均表示保持已有密钥。
+    current_db = _cfg.db_settings()
+    for secret_key in ("BRAVE_API_KEY", "TAVILY_API_KEY"):
+        if secret_key not in items:
+            continue
+        incoming = str(items.get(secret_key) or "").strip()
+        if not incoming or incoming.startswith("****"):
+            items[secret_key] = current_db.get(secret_key) or getattr(_cfg, secret_key, "")
     n = db_save(items)
     reload_config()  # 保存即生效
     return jsonify({"saved": n, "ok": True})

@@ -24,17 +24,23 @@ for _d in (DATA_DIR_TASKS, DATA_DIR_RAW, DATA_DIR_REPORTS, DATA_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 # 生产环境的系统环境变量若设置了这些键，将作为最终基线（DB 设置再覆盖）
-_ENV_BASELINE = {k: v for k, v in os.environ.items() if k.startswith(("SEARXNG_", "AI_", "DEEPSEEK_", "QWEN_", "HTTP_", "MAX_"))}
+_ENV_BASELINE = {k: v for k, v in os.environ.items() if k.startswith(("SEARXNG_", "SEARCH_", "BRAVE_", "TAVILY_", "AI_", "DEEPSEEK_", "QWEN_", "HTTP_", "MAX_"))}
 
 # 设置页可管理、入库的键
 MANAGED_KEYS = (
-    "SEARXNG_URL", "AI_ROUTER_BASE_URL", "AI_ROUTER_API_KEY", "AI_ROUTER_MODEL",
+    "SEARXNG_URL", "SEARCH_PROVIDER_ORDER", "SEARCH_PROVIDER_MODE", "SEARCH_TIMEOUT",
+    "BRAVE_API_KEY", "BRAVE_SEARCH_ENDPOINT", "BRAVE_SEARCH_LANG", "BRAVE_COUNTRY",
+    "TAVILY_API_KEY", "TAVILY_SEARCH_ENDPOINT", "TAVILY_SEARCH_DEPTH",
+    "AI_ROUTER_BASE_URL", "AI_ROUTER_API_KEY", "AI_ROUTER_MODEL",
     "DEEPSEEK_API_KEY", "DEEPSEEK_MODEL",
     "QWEN_API_KEY", "QWEN_MODEL", "QWEN_ENABLE_SEARCH",
     "AI_PRIMARY_PROVIDER", "ENABLED_GROUPS",
     "AI_PROVIDERS",
 )
-SECRET_KEYS = ("AI_ROUTER_API_KEY", "DEEPSEEK_API_KEY", "QWEN_API_KEY")
+SECRET_KEYS = (
+    "AI_ROUTER_API_KEY", "DEEPSEEK_API_KEY", "QWEN_API_KEY",
+    "BRAVE_API_KEY", "TAVILY_API_KEY",
+)
 
 # ── AI 服务商注册表（第一性原理：AI 接口 = 一套 OpenAI 兼容服务商集合） ──
 # 内置品牌只提供默认元数据（endpoint/model 空时回填），配置仍可整体覆盖。
@@ -143,11 +149,33 @@ def pick_provider():
 
 def _read_all():
     """把当前生效值读入模块级常量（每次 reload 后重新执行）。"""
-    global SEARXNG_URL, SEARXNG_TIMEOUT, AI_ROUTER, DEEPSEEK, QWEN, \
+    global SEARXNG_URL, SEARXNG_TIMEOUT, SEARCH_PROVIDER_ORDER, SEARCH_PROVIDER_MODE, SEARCH_TIMEOUT, \
+        BRAVE_API_KEY, BRAVE_SEARCH_ENDPOINT, BRAVE_SEARCH_LANG, BRAVE_COUNTRY, \
+        TAVILY_API_KEY, TAVILY_SEARCH_ENDPOINT, TAVILY_SEARCH_DEPTH, AI_ROUTER, DEEPSEEK, QWEN, \
         AI_PRIMARY_PROVIDER, HTTP_TIMEOUT, MAX_ITEMS_PER_QUERY, ENABLED_GROUPS, AI_PROVIDERS
 
     SEARXNG_URL = os.getenv("SEARXNG_URL", "https://searxng.6556888.xyz").rstrip("/")
     SEARXNG_TIMEOUT = int(os.getenv("SEARXNG_TIMEOUT", "25"))
+    # 搜索服务只允许固定优先级；保留旧配置键以兼容历史 .env/SQLite，
+    # 但不再让部署配置改变 SearXNG → Brave → Tavily 的产品规则。
+    SEARCH_PROVIDER_ORDER = ["searxng", "brave", "tavily"]
+    SEARCH_PROVIDER_MODE = os.getenv("SEARCH_PROVIDER_MODE", "failover").strip().lower()
+    if SEARCH_PROVIDER_MODE not in {"failover", "fanout"}:
+        SEARCH_PROVIDER_MODE = "failover"
+    SEARCH_TIMEOUT = max(3, min(120, int(os.getenv("SEARCH_TIMEOUT", str(SEARXNG_TIMEOUT)))))
+    BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "").strip()
+    BRAVE_SEARCH_ENDPOINT = os.getenv(
+        "BRAVE_SEARCH_ENDPOINT", "https://api.search.brave.com/res/v1/web/search"
+    ).strip().rstrip("/")
+    BRAVE_SEARCH_LANG = os.getenv("BRAVE_SEARCH_LANG", "zh-hans").strip() or "zh-hans"
+    BRAVE_COUNTRY = os.getenv("BRAVE_COUNTRY", "CN").strip().upper() or "CN"
+    TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "").strip()
+    TAVILY_SEARCH_ENDPOINT = os.getenv(
+        "TAVILY_SEARCH_ENDPOINT", "https://api.tavily.com/search"
+    ).strip().rstrip("/")
+    TAVILY_SEARCH_DEPTH = os.getenv("TAVILY_SEARCH_DEPTH", "basic").strip().lower()
+    if TAVILY_SEARCH_DEPTH not in {"basic", "advanced", "fast", "ultra-fast"}:
+        TAVILY_SEARCH_DEPTH = "basic"
     AI_ROUTER = {
         "base_url": os.getenv("AI_ROUTER_BASE_URL", "").rstrip("/"),
         "api_key": os.getenv("AI_ROUTER_API_KEY", ""),

@@ -1487,6 +1487,40 @@
   #view-settings #panel-groups .src-add-trigger[aria-expanded="true"] { border-color: var(--red); color: var(--red); }
   #view-settings #panel-groups .src-add-trigger[aria-expanded="true"] svg { transform: rotate(45deg); }
 
+  /* 搜索服务：统一入口 + 可选 Provider，默认设置不产生额外调用 */
+  #view-settings .search-provider-options { max-width: 800px; margin-top: 28px; }
+  #view-settings .search-provider-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 0; }
+  #view-settings .search-provider-card { min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
+  #view-settings .search-provider-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  #view-settings .search-provider-card-title { display: flex; align-items: center; gap: 9px; color: var(--text-strong); font-size: 14px; font-weight: 650; }
+  #view-settings .search-provider-card-mark { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; border-radius: 8px; background: var(--accent-tint); color: var(--text-strong); font-size: 11px; font-weight: 750; }
+  #view-settings .search-provider-card-meta { margin-top: 5px; color: var(--text-3); font-size: 11px; }
+  #view-settings .search-provider-card .f-label { margin-top: 0; }
+  #view-settings .search-provider-card .key-wrap { margin-top: 7px; }
+  #view-settings .search-provider-card .sel { min-height: 42px; }
+  #view-settings .search-provider-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 13px; }
+  #view-settings .search-provider-card-foot .f-help { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #view-settings .search-test { flex: none; min-height: 32px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+  #view-settings .search-test:hover { border-color: var(--accent); color: var(--accent); }
+  #view-settings .search-test:disabled { cursor: wait; opacity: .6; }
+  #view-settings .search-status { min-height: 18px; margin-top: 12px; color: var(--text-3); font-size: 12px; }
+  #view-settings .search-status.ok { color: var(--green-text); }
+  #view-settings .search-status.error { color: var(--red); }
+  #view-settings .search-field-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 800px; }
+  #view-settings .search-field-head .f-label { margin-top: 0; }
+  #view-settings .search-policy-value { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 13px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--text-strong); font-size: 13px; font-weight: 600; }
+  #view-settings .search-policy-value span { color: var(--text-3); font-weight: 400; }
+  #view-settings .search-provider-options { max-width: 100%; }
+  #view-settings .search-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  #view-settings .search-section-title { color: var(--text-strong); font-size: 15px; font-weight: 650; }
+  #view-settings .search-section-desc { margin-top: 4px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
+  #view-settings .search-section-note { flex: none; padding: 5px 9px; border-radius: 999px; background: var(--surface-2); color: var(--text-3); font-size: 11px; }
+  #view-settings .search-provider-cards { margin-top: 0; }
+  #view-settings .search-policy-block { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--separator); }
+  #view-settings .search-policy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  #view-settings .search-policy-field { display: grid; gap: 8px; min-width: 0; color: var(--text-2); font-size: 12px; }
+  #view-settings .search-policy-field .sel { width: 100%; min-height: 42px; }
+
   @media (max-width: 960px) {
     .brand-subtitle { display: none; }
     .analysis-evidence-note { display: none; }
@@ -1536,6 +1570,11 @@
     #view-settings #panel-groups .src-more { margin-left: 12px; margin-right: 12px; }
     #view-settings #panel-groups .src-add { grid-template-columns: 1fr; }
     #view-settings #panel-groups .src-add .f-help { grid-column: auto; }
+    #view-settings .search-provider-cards { grid-template-columns: 1fr; }
+    #view-settings .search-provider-card-foot { align-items: flex-start; }
+    #view-settings .search-policy-grid { grid-template-columns: 1fr; }
+    #view-settings .search-section-head { gap: 10px; }
+    #view-settings .search-section-note { display: none; }
   }
 </style>
 </head>
@@ -1746,11 +1785,72 @@
           <div id="panel-base" class="panel">
             <div class="panel-page-head">
               <div class="panel-page-title">搜索服务</div>
-              <div class="panel-page-desc">配置采集所用的搜索实例。</div>
+              <div class="panel-page-desc">配置采集所用的搜索实例和备用服务。</div>
             </div>
-            <label class="f-label" for="s_searxng">SearXNG 搜索地址</label>
+            <div class="search-field-head">
+              <label class="f-label" for="s_searxng">SearXNG 搜索地址</label>
+              <span class="badge pending" id="searxngConfigured">未配置</span>
+            </div>
             <div class="form-narrow"><input class="sel" id="s_searxng" placeholder="https://searxng.example.com"></div>
-            <div class="f-help">需开启 JSON API。</div>
+            <div class="f-help" id="searxngHelp">首选服务，需开启 JSON API；未配置或不可用时自动跳过。</div>
+            <div class="search-provider-options">
+              <div class="search-section-head">
+                <div>
+                  <div class="search-section-title">备用搜索服务</div>
+                  <div class="search-section-desc">按需填写 API Key；未配置的服务不会被调用。</div>
+                </div>
+                <span class="search-section-note">用于补充覆盖</span>
+              </div>
+              <div class="search-provider-cards">
+                <div class="search-provider-card">
+                  <div class="search-provider-card-head">
+                    <div>
+                      <div class="search-provider-card-title"><span class="search-provider-card-mark">B</span>Brave Search</div>
+                      <div class="search-provider-card-meta">独立网页索引 · 海外搜索补充</div>
+                    </div>
+                    <span class="badge pending" id="braveConfigured">未配置</span>
+                  </div>
+                  <label class="f-label" for="s_brave_key">API Key</label>
+                  <div class="key-wrap"><input class="sel" id="s_brave_key" type="password" autocomplete="off" placeholder="填写 Brave API Key"><button type="button" class="eye-btn" data-key-toggle="s_brave_key" aria-label="显示或隐藏 Brave API Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></div>
+                  <div class="search-provider-card-foot"><span class="f-help">后端安全保存，不回传明文</span><button class="search-test" id="testBrave" type="button">测试连接</button></div>
+                  <div class="search-status" id="braveStatus" role="status"></div>
+                </div>
+                <div class="search-provider-card">
+                  <div class="search-provider-card-head">
+                    <div>
+                      <div class="search-provider-card-title"><span class="search-provider-card-mark">T</span>Tavily</div>
+                      <div class="search-provider-card-meta">AI 搜索与证据摘要 · 重点事件补强</div>
+                    </div>
+                    <span class="badge pending" id="tavilyConfigured">未配置</span>
+                  </div>
+                  <label class="f-label" for="s_tavily_key">API Key</label>
+                  <div class="key-wrap"><input class="sel" id="s_tavily_key" type="password" autocomplete="off" placeholder="填写 Tavily API Key"><button type="button" class="eye-btn" data-key-toggle="s_tavily_key" aria-label="显示或隐藏 Tavily API Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></div>
+                  <div class="search-provider-card-foot"><span class="f-help">basic 1 credit · advanced 2 credits</span><button class="search-test" id="testTavily" type="button">测试连接</button></div>
+                  <div class="search-status" id="tavilyStatus" role="status"></div>
+                </div>
+              </div>
+              <div class="search-policy-block">
+                <div class="search-section-head">
+                  <div>
+                    <div class="search-section-title">调度策略</div>
+                    <div class="search-section-desc">日常分析建议使用故障切换；重点事件再开启多源合并。</div>
+                  </div>
+                </div>
+                <div class="search-policy-grid">
+                  <div class="search-policy-field">
+                    <span>默认调用顺序</span>
+                    <div class="search-policy-value" aria-label="默认调用顺序 SearXNG、Brave、Tavily">SearXNG <span>→</span> Brave <span>→</span> Tavily</div>
+                  </div>
+                  <label class="search-policy-field" for="s_provider_mode">
+                    <span>调用策略</span>
+                    <select class="sel" id="s_provider_mode">
+                      <option value="failover">故障切换（省额度）</option>
+                      <option value="fanout">多源合并（覆盖广）</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div id="panel-ai" class="panel hidden">
@@ -2297,6 +2397,9 @@ async function persistSettings() {
   }
   const payload = {
     SEARXNG_URL: $("s_searxng").value.trim(),
+    SEARCH_PROVIDER_MODE: $("s_provider_mode").value,
+    BRAVE_API_KEY: $("s_brave_key").value.trim(),
+    TAVILY_API_KEY: $("s_tavily_key").value.trim(),
     AI_PRIMARY_PROVIDER: $("s_provider").value,
     AI_PROVIDERS: JSON.stringify(pageProviders),
     ENABLED_GROUPS: "",
@@ -3663,6 +3766,12 @@ async function loadSettings() {
   const r = await api("/api/settings");
   const s = r.settings || {};
   $("s_searxng").value = s.SEARXNG_URL || "";
+  $("s_provider_mode").value = s.SEARCH_PROVIDER_MODE || "failover";
+  $("s_brave_key").value = s.BRAVE_API_KEY && !String(s.BRAVE_API_KEY).startsWith("****") ? s.BRAVE_API_KEY : "";
+  $("s_tavily_key").value = s.TAVILY_API_KEY && !String(s.TAVILY_API_KEY).startsWith("****") ? s.TAVILY_API_KEY : "";
+  updateSearchProviderBadge("brave", Boolean(s.BRAVE_API_KEY_CONFIGURED));
+  updateSearchProviderBadge("tavily", Boolean(s.TAVILY_API_KEY_CONFIGURED));
+  updateSearchProviderBadge("searxng", Boolean(s.SEARXNG_CONFIGURED));
   $("s_provider").value = s.AI_PRIMARY_PROVIDER || "";
   window._settings = s;
   $("settingsState").textContent = "已加载当前配置";
@@ -3929,6 +4038,46 @@ async function delSource(id) {
 async function saveSettings() {
   await persistSettings();   // 统一保存：SearXNG + 服务商注册表 + 默认服务商
 }
+
+function updateSearchProviderBadge(provider, configured) {
+  const el = $(provider + "Configured");
+  if (!el) return;
+  el.textContent = configured ? "已配置" : "未配置";
+  el.className = "badge " + (configured ? "done" : "pending");
+}
+
+async function testSearchProvider(provider) {
+  const button = $(provider === "brave" ? "testBrave" : "testTavily");
+  const status = $(provider + "Status");
+  if (!button || !status) return;
+  button.disabled = true;
+  status.className = "search-status";
+  status.textContent = "测试中…";
+  // 测试读取后端已保存配置，避免在测试接口重复传递密钥。
+  const result = await api("/api/search/test", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider }),
+  });
+  button.disabled = false;
+  if (result.ok) {
+    status.className = "search-status ok";
+    status.textContent = `连接成功 · 返回 ${result.count} 条`;
+    updateSearchProviderBadge(provider, true);
+  } else {
+    status.className = "search-status error";
+    status.textContent = result.error || "连接失败，请先保存 API Key";
+  }
+}
+
+document.querySelectorAll("[data-key-toggle]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const input = $(button.dataset.keyToggle);
+    if (!input) return;
+    input.type = input.type === "password" ? "text" : "password";
+  });
+});
+$("testBrave")?.addEventListener("click", () => void testSearchProvider("brave"));
+$("testTavily")?.addEventListener("click", () => void testSearchProvider("tavily"));
 
 /* ---------- 初始化 ---------- */
 $("authForm")?.addEventListener("submit", submitAuth);

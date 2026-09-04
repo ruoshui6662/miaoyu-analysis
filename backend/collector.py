@@ -13,7 +13,7 @@ import requests
 
 import config as _cfg
 from hotlists import fetch_for_sources
-from searx_client import SearxClient
+from search_providers import SearchRouter
 
 # 等级 → 三级可信度映射（S/A→high、B→mid、C/D→low）
 _LEVEL_CRED = {"S": "high", "A": "high", "B": "mid", "C": "low", "D": "low"}
@@ -295,7 +295,7 @@ def collect_topic(
     - 每个引擎组分别跑前 group_hits_limit 个关键词，兼顾覆盖与速度
     - 引擎受限（CAPTCHA/超时）按组记录，报告可声明数据局限
     """
-    client = SearxClient()
+    client = SearchRouter()
     groups = groups or _enabled_groups()  # 按设置页勾选过滤（ENABLED_GROUPS）
     query_log: list[dict] = []
     raw: list[dict] = []
@@ -323,6 +323,11 @@ def collect_topic(
         query_log.append({
             "group": g["name"],
             "engines": g.get("engines") or g.get("categories"),
+            "providers": sorted({
+                str(r.get("provider") or "searxng")
+                for r in raw
+                if r.get("group") == g["name"]
+            }),
             "ok_queries": ok_q,
             "failed_queries": fail_q,
             "unresponsive": unresponsive[:8],
@@ -345,6 +350,7 @@ def collect_topic(
             "snippet": r["content"],
             "published": r["published"],
             "engine": r["engine"],
+            "provider": r.get("provider") or "searxng",
             "credibility": credibility(r.get("url", ""), r.get("engine", "")),
             "group": r.get("group", ""),
             "source_name": source_name(r.get("url", ""), r.get("title", "")),
@@ -372,6 +378,7 @@ def collect_topic(
                 it = {
                     "title": h["title"], "url": h["url"], "snippet": "",
                     "published": h.get("published", ""), "engine": "hotlist",
+                    "provider": "hotlist",
                     "credibility": "mid", "group": "hotlist",
                     "source_name": h.get("source", ""), "level": h.get("level", "C"),
                     "body": "",

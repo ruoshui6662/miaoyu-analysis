@@ -1,6 +1,6 @@
 # API 接入前置与多源轮询方案
 
-> 版本 v0.1 ｜ 调研日期：2026-09-02 ｜ 状态：前置条件已整理，等待密钥与接入排期
+> 版本 v0.2 ｜ 调研日期：2026-09-02 ｜ 更新：2026-09-03 ｜ 状态：Brave/Tavily 适配器已接入，等待用户填写 Key 后人工验收
 
 ## 1. 第一性原理
 
@@ -41,6 +41,7 @@
 - 没有 `Mention` 唯一键、跨源去重和来源健康表；
 - 没有趋势时间序列，无法直接填充效果图中的变化率/折线图；
 - 没有证据记录模型，无法直接填充“关键证据”和“可信度”；
+- 搜索 Provider 已完成第一版统一路由：SearXNG 主链路，Brave/Tavily 可选故障切换或多源合并；健康度持久化与额度记账仍待后续阶段；
 - NewsNow 中国热榜公开主链路已接入首页；API Key 仍只用于 AI 与未来的 TopHubData/增强源，不能混同为热榜授权。
 
 ## 3. 免费优先的 API 清单
@@ -84,6 +85,15 @@ NewsNow 上游仓库公开说明了 `/api/s` 类数据接口、自建方式、�
 - X、微博、知乎、抖音、小红书等平台原生接口：通常没有稳定、开放、免费且适合批量舆情检索的匿名 API；登录态抓取还涉及账号安全、平台条款和反爬风险。NewsNow 是对其中部分公开榜单的第三方聚合，不等于取得了平台原生授权。
 - B 站公开接口：可以作为热榜的可选交叉校验，但部分接口未形成稳定的公开开发者契约，不能承担主链路。
 - 各类“万能热榜 API”聚合站：需要逐一核对授权、数据来源、商业使用范围和 SLA，不能仅凭“免费”接入报告事实链。
+
+### 3.4 Brave Search API / Tavily 接入状态（2026-09-03）
+
+| Provider | 官方请求 | 默认参数 | 当前实现 | 用户操作 |
+|---|---|---|---|---|
+| Brave Search | `GET https://api.search.brave.com/res/v1/web/search` | `country=CN`、`search_lang=zh-hans`、按时间窗映射 `freshness` | `backend/search_providers.py`，设置页 Key 脱敏保存、连接测试 | 注册 Brave Search API 并在设置页填写 Key |
+| Tavily | `POST https://api.tavily.com/search` | `topic=general`、`country=china`、`search_depth=basic`、不返回 answer/raw content | `backend/search_providers.py`，设置页 Key 脱敏保存、连接测试 | 注册 Tavily 并在设置页填写 Key |
+
+调用优先级固定为 `SearXNG → Brave → Tavily`。未配置或不可用的服务自动跳过：SearXNG 地址为空时直接尝试已配置的 Brave/Tavily；外部服务没有 API Key 时不发起请求。默认策略为 `failover`，只有前一个服务无结果或失败时才调用下一个；需要交叉检索时切换为 `fanout`，该策略会增加调用量。接口规范以 [Brave 官方文档](https://api-dashboard.search.brave.com/app/documentation/web-search) 和 [Tavily 官方文档](https://docs.tavily.com/documentation/api-reference/endpoint/search) 为准。
 
 ## 4. 用户需要准备的前置条件
 
