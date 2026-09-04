@@ -373,6 +373,7 @@ def api_hot_boards():
         visible_items = annotate_hot_items((b.get("items") or [])[:15])
         items = [{"title": it.get("title", ""), "url": it.get("url", ""),
                   "hot": it.get("hot", ""), "published": it.get("published", ""),
+                  "captured_at": it.get("captured_at", ""),
                   "rank": it.get("rank"), "provider": it.get("provider") or b.get("provider", ""),
                   "heat": it.get("heat", {})}
                  for it in visible_items]
@@ -380,7 +381,9 @@ def api_hot_boards():
             delta = rank_data["items"].get(content_hash(item["title"], item["url"]), {})
             item.update({"previous_rank": delta.get("previous_rank"),
                          "rank_change": delta.get("rank_change"),
-                         "is_new": delta.get("is_new", False)})
+                         "is_new": delta.get("is_new", False),
+                         "captured_at": delta.get("captured_at") or item.get("captured_at", ""),
+                         "first_seen_at": delta.get("first_seen_at", "")})
         out.append({"name": b.get("name", "热榜"), "source_id": b.get("source_id", ""),
                     "provider": b.get("provider", "public"), "count": len(items), "items": items})
     return jsonify({"boards": out, "provider": provider,

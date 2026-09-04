@@ -336,8 +336,32 @@ class PublicHotlistTests(unittest.TestCase):
         self.assertEqual(first[0]["title"], "公开热点")
         self.assertEqual(first[0]["hot"], "1.2万")
         self.assertEqual(first[0]["provider"], "newsnow")
+        self.assertTrue(first[0]["captured_at"])
         self.assertEqual(second[0]["url"], "https://example.test/a")
         self.assertEqual(get.call_count, 1)
+
+    def test_hot_boards_api_exposes_observation_and_first_seen_times(self):
+        boards = [{
+            "name": "微博热搜", "source_id": "weibo", "provider": "newsnow",
+            "items": [{"title": "带时间的热点", "url": "https://example.test/time"}],
+        }]
+        with tempfile.TemporaryDirectory(prefix="miaoyu-hot-time-api-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.object(hotlists, "fetch_aggregated", return_value=boards), \
+                 patch.object(hotlists, "quota_state", return_value={"provider": "newsnow"}), \
+                 patch.object(hotlists, "source_health", return_value={}):
+                response = make_client().get("/api/hot/boards")
+        item = response.get_json()["boards"][0]["items"][0]
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(item["captured_at"])
+        self.assertEqual(item["first_seen_at"], item["captured_at"])
+
+    def test_frontend_formats_hot_time_as_relative_observation_time(self):
+        frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("function hotRelativeTime", frontend)
+        self.assertIn("function hotTimeCell", frontend)
+        self.assertIn("最近观测", frontend)
+        self.assertIn("setInterval(() => {\n  if (HOT.boards && HOT.boards.length) renderHomeHotTable();", frontend)
 
     def test_heat_annotation_uses_uniform_rank_label_and_preserves_native_metric(self):
         annotated = hotlists.annotate_hot_items([
@@ -994,6 +1018,9 @@ class EventAggregationTests(unittest.TestCase):
         self.assertEqual(repeated["items"], 0)
         self.assertEqual(counts, {"runs": 2, "mentions": 1, "hot_items": 2})
         self.assertEqual(rank_data["items"][next(iter(rank_data["items"]))]["rank_change"], -2)
+        item = rank_data["items"][next(iter(rank_data["items"]))]
+        self.assertEqual(item["captured_at"], "2026-09-02T00:05:00+00:00")
+        self.assertEqual(item["first_seen_at"], "2026-09-02T00:00:00+00:00")
         self.assertEqual(len(history), 2)
 
     def test_hot_history_api_reads_persisted_snapshot_without_fetching(self):

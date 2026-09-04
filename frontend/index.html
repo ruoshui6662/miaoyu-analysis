@@ -1224,6 +1224,8 @@
   .home-hot-platform-more { padding: 3px 5px; border-radius: 999px; background: var(--surface); color: var(--text-3); font-size: 10px; }
   .home-hot-heat { color: var(--accent); font-weight: 650; }
   .home-hot-trend.up { color: var(--accent); } .home-hot-trend.new { color: var(--green-text); }
+  .home-hot-time { color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .home-hot-time.is-empty { color: var(--text-3); }
   .home-table-empty { padding: 30px 22px !important; color: var(--text-3) !important; text-align: center; }
   .home-hot-more { display: block; width: 100%; padding: 15px 0 17px; border: 0; border-top: 1px solid var(--separator); background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
   .home-hot-more:hover { color: var(--accent); }
@@ -1774,7 +1776,7 @@
       <div class="home-hot-tabs" id="homeHotTabs" role="tablist" aria-label="热榜平台"></div>
       <div class="home-hot-table-wrap">
         <table class="home-hot-table">
-          <thead><tr><th scope="col">排名</th><th scope="col">标题</th><th scope="col">平台</th><th scope="col">热度</th><th scope="col">趋势</th><th scope="col">上榜时间</th></tr></thead>
+          <thead><tr><th scope="col">排名</th><th scope="col">标题</th><th scope="col">平台</th><th scope="col">热度</th><th scope="col">趋势</th><th scope="col">最近观测</th></tr></thead>
           <tbody id="homeHotTableBody"><tr><td colspan="6" class="home-table-empty">榜单加载中…</td></tr></tbody>
         </table>
       </div>
@@ -3246,6 +3248,44 @@ function normHotTitle(t) {
   return String(t || "").replace(/[\s，。！？、\-—_·…“”"''【】\[\]（）()]/g, "").toLowerCase();
 }
 
+function parseHotTimestamp(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const normalized = raw.includes(" ") && !raw.includes("T") ? raw.replace(" ", "T") : raw;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function hotRelativeTime(value) {
+  const date = value instanceof Date ? value : parseHotTimestamp(value);
+  if (!date) return "—";
+  const elapsed = Math.max(0, Date.now() - date.getTime());
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes}分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}天前`;
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function hotTimeCell(item) {
+  const captured = parseHotTimestamp(item.captured_at);
+  const sourceTime = parseHotTimestamp(item.published);
+  const observed = captured || sourceTime;
+  if (!observed) return '<span class="home-hot-time is-empty">—</span>';
+  const exact = observed.toLocaleString("zh-CN", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const kind = captured ? "最近观测" : "来源时间";
+  let title = `${kind}：${exact}`;
+  if (captured && sourceTime) title += `；来源时间：${sourceTime.toLocaleString("zh-CN")}`;
+  if (item.first_seen_at) {
+    const firstSeen = parseHotTimestamp(item.first_seen_at);
+    if (firstSeen) title += `；首次观测：${firstSeen.toLocaleString("zh-CN")}`;
+  }
+  return `<time class="home-hot-time" datetime="${escAttr(observed.toISOString())}" title="${escAttr(title)}">${esc(hotRelativeTime(observed))}</time>`;
+}
+
 function allHotItems() {
   // 跨榜合并：同一热词出现在多个榜单 → 记录覆盖榜数（扩散度信号）
   const seen = {};
@@ -3256,20 +3296,29 @@ function allHotItems() {
       const meta = heatMeta(it, it.rank, (b.items || []).length);
       if (!seen[k]) {
         seen[k] = { title: it.title, url: it.url, hot: it.hot, heat: meta,
+          published: it.published || "", capturedAt: it.captured_at || "", firstSeenAt: it.first_seen_at || "",
           rankScore: meta.relativeScore, boards: new Set(), sources: [], isNew: Boolean(it.is_new) };
       } else {
         seen[k].rankScore = Math.max(seen[k].rankScore, meta.relativeScore);
         if (meta.relativeScore > seen[k].heat.relativeScore) seen[k].heat = meta;
         if (!seen[k].hot && it.hot) seen[k].hot = it.hot;
         if (!seen[k].url && it.url) seen[k].url = it.url;
+        if (!seen[k].published && it.published) seen[k].published = it.published;
         seen[k].isNew = seen[k].isNew || Boolean(it.is_new);
+        const currentCaptured = parseHotTimestamp(seen[k].capturedAt);
+        const nextCaptured = parseHotTimestamp(it.captured_at);
+        if (nextCaptured && (!currentCaptured || nextCaptured > currentCaptured)) seen[k].capturedAt = it.captured_at;
+        const currentFirst = parseHotTimestamp(seen[k].firstSeenAt);
+        const nextFirst = parseHotTimestamp(it.first_seen_at);
+        if (nextFirst && (!currentFirst || nextFirst < currentFirst)) seen[k].firstSeenAt = it.first_seen_at;
       }
       seen[k].boards.add(b.name);
       seen[k].sources.push({ name: b.name, source_id: b.source_id, rank: it.rank || meta.rank });
     }
   }
   return Object.values(seen)
-    .map(x => ({ title: x.title, url: x.url, hot: x.hot, heat: x.heat,
+    .map(x => ({ title: x.title, url: x.url, hot: x.hot, published: x.published, heat: x.heat,
+      captured_at: x.capturedAt, first_seen_at: x.firstSeenAt,
       rank: x.heat && x.heat.rank,
       rankScore: x.rankScore, board: [...x.boards].join("/"), boards: [...x.boards], sources: x.sources,
       numBoards: x.boards.size, isNew: x.isNew }))
@@ -3495,7 +3544,8 @@ function homeBoardRows(board) {
   return items.map((item, index) => {
     const rank = item.rank || index + 1;
     const heat = heatMeta(item, rank, items.length || 15);
-    return { title: item.title, url: item.url, hot: item.hot, heat, rank, rankScore: heat.relativeScore,
+    return { title: item.title, url: item.url, hot: item.hot, published: item.published,
+      captured_at: item.captured_at, first_seen_at: item.first_seen_at, heat, rank, rankScore: heat.relativeScore,
       board: board.name, boards: [board.name], sources: [{ name: board.name, source_id: board.source_id, rank }],
       numBoards: 1, isNew: Boolean(item.is_new) };
   });
@@ -3539,7 +3589,7 @@ function renderHomeHotTable() {
       <td>${homePlatformMarks(row)}</td>
       <td><span class="home-hot-heat" title="${esc(heat.tooltip)}">${esc(heat.display)}</span></td>
       <td>${trend}</td>
-      <td>—</td>
+      <td>${hotTimeCell(row)}</td>
     </tr>`;
   }).join("");
 }
@@ -4245,6 +4295,9 @@ setInterval(() => {
   if (historyIsOpen && !historyIsBeingUsed) loadHistory(histPage);
 }, 15000);
 setInterval(loadHotBoards, 300000);
+setInterval(() => {
+  if (HOT.boards && HOT.boards.length) renderHomeHotTable();
+}, 60000);
 </script>
 </body>
 </html>

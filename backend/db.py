@@ -101,6 +101,9 @@ CREATE TABLE IF NOT EXISTS hot_items (
 CREATE INDEX IF NOT EXISTS idx_hot_items_board_captured
   ON hot_items(board_id, captured_at DESC)
 ;
+CREATE INDEX IF NOT EXISTS idx_hot_items_board_key_captured
+  ON hot_items(board_id, item_key, captured_at)
+;
 CREATE TABLE IF NOT EXISTS cursors (
   source_id TEXT PRIMARY KEY,
   cursor_value TEXT NOT NULL DEFAULT '',
@@ -654,10 +657,18 @@ def hot_rank_changes(board_id: str) -> dict:
         current_id, current_at = runs[0]
         previous_id, previous_at = runs[1] if len(runs) > 1 else (None, "")
         current_rows = conn.execute(
-            "SELECT item_key, title, canonical_url, rank, hot_value, provider "
+            "SELECT item_key, title, canonical_url, rank, hot_value, provider, captured_at "
             "FROM hot_items WHERE scan_run_id=? ORDER BY COALESCE(rank, 999999), id",
             (current_id,),
         ).fetchall()
+        first_seen_rows = conn.execute(
+            "SELECT h.item_key, MIN(h.captured_at) "
+            "FROM hot_items h JOIN scan_runs r ON r.id=h.scan_run_id "
+            "WHERE h.board_id=? AND r.status='success' "
+            "GROUP BY h.item_key",
+            (board_id,),
+        ).fetchall()
+        first_seen = {str(row[0]): row[1] for row in first_seen_rows}
         previous_rows = conn.execute(
             "SELECT item_key, rank FROM hot_items WHERE scan_run_id=?",
             (previous_id,),
@@ -670,7 +681,9 @@ def hot_rank_changes(board_id: str) -> dict:
             old_rank = previous.get(key)
             items[key] = {
                 "title": row[1], "url": row[2], "rank": rank, "hot": row[4],
-                "provider": row[5], "previous_rank": old_rank,
+                "provider": row[5], "captured_at": row[6],
+                "first_seen_at": first_seen.get(key) or row[6],
+                "previous_rank": old_rank,
                 "rank_change": (old_rank - rank) if old_rank is not None and rank is not None else None,
                 "is_new": old_rank is None,
             }
