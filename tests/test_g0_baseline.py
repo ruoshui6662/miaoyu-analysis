@@ -634,6 +634,12 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("orphans:3;widows:3", frontend)
         self.assertNotIn("html2pdf()", frontend)
 
+    def test_docker_image_installs_playwright_browser_runtime(self):
+        dockerfile = (Path(app_module.ROOT) / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright", dockerfile)
+        self.assertIn("npx playwright install --with-deps chromium", dockerfile)
+        self.assertIn("chmod -R a+rX /ms-playwright", dockerfile)
+
     def test_pdf_export_endpoint_rejects_invalid_renderer_output(self):
         client = make_client()
         with patch.object(app_module.subprocess, "run") as run:

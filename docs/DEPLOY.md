@@ -40,7 +40,9 @@ python backend/backup.py restore data/backups/miaoyu-YYYYMMDD_HHMMSS.zip --yes
 
 ### 0.2.1 本地源码运行的 PDF 渲染依赖
 
-当前 PDF 导出使用 Node Playwright 调用 Chromium 原生打印，不使用 Docker 渲染服务。首次在 Windows 本地源码运行时执行：
+当前 PDF 导出使用 Node Playwright 调用 Chromium 原生打印，不使用独立 Docker 渲染服务。
+
+源码运行时，首次执行：
 
 ```powershell
 cd backend/scripts
@@ -55,7 +57,18 @@ $env:MIAOYU_CHROMIUM_PATH = 'C:\Program Files\Google\Chrome\Application\chrome.e
 python backend/app.py --port 5000
 ```
 
-导出失败时后端返回 `503`，不会下载空白 PDF。Docker 镜像暂未纳入 Chromium 运行时，Docker 部署需单独完成浏览器依赖评估后再启用该导出能力。
+导出失败时后端返回 `503`，不会下载空白 PDF。
+
+Docker 镜像会在最终运行阶段执行 `npx playwright install --with-deps chromium`，同时安装 Chromium 和 Debian 系统依赖。修改 PDF 渲染代码或依赖后必须重新构建镜像，不能只重启旧容器：
+
+```bash
+docker compose build --no-cache yuqing
+docker compose up -d yuqing
+docker compose exec yuqing node --version
+docker compose exec yuqing sh -lc 'test -d /ms-playwright && ls -la /ms-playwright && node -e "require(\"playwright\"); console.log(\"playwright OK\")"'
+```
+
+重点是确认 `/ms-playwright` 存在且 Node 可以加载 Playwright；实际导出由应用接口触发。若构建阶段出现浏览器下载失败，应先检查 Docker 宿主机到 `playwright.azureedge.net` 的网络连通性，再重试构建。
 
 ## 0.3 Cloudflare Tunnel（推荐的公网入口）
 
@@ -255,7 +268,7 @@ docker compose up -d --force-recreate
 |---|---|
 | 首页打不开 / 端口不通 | 检查容器是否 Running；宿主防火墙放行映射端口 |
 | ghcr.io 拉取超时/失败 | 国内访问波动：加容器镜像加速（Registry Mirrors），或改 §2 tar 导入 |
-| 生不成 docx | 容器内 `node --version` 应 ≥18；`backend/scripts/node_modules` 存在（见 Dockerfile 构建日志） |
+| 生不成 docx 或 PDF | 容器内 `node --version` 应 ≥18；`/app/backend/scripts/node_modules` 与 `/ms-playwright` 存在；修改渲染依赖后执行 `docker compose build --no-cache yuqing` |
 | AI 提示未配置 | `.env` 未生效：检查挂载路径或重启容器 |
 | 集采无结果 | SEARXNG_URL 是否可达；信源组在页面/配置中是否勾选 |
 | 时区错乱 | 设置 `TZ=Asia/Shanghai` 环境变量 |
@@ -270,7 +283,7 @@ docker compose up -d --force-recreate
 │   ├── app.py          # 入口：0.0.0.0:5000
 │   ├── scripts/
 │   │   ├── gen_docx.mjs      # Node docx 生成
-│   │   └── node_modules/     # 来自构建期 node-stage
+│   │   └── node_modules/     # 来自构建期 node-stage（docx + Playwright）
 │   └── docker_entrypoint.sh  # 首次初始化 .env 后启动
 ├── frontend/           # 静态页面
 ├── data/               # VOLUME：tasks/ reports/ raw/

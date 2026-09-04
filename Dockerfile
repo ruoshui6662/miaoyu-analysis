@@ -1,13 +1,14 @@
-# 阶段构建用：Node 20 LTS（docx 生成）从官方 tarball 安装，避免 apt 旧版本
+# 阶段构建用：Node 20 LTS（docx + Playwright PDF 生成）从官方 tarball 安装，避免 apt 旧版本
 # 详见 Dockerfile
 
-# ---- 构建期：仅用于 npm 安装 docx ----
+# ---- 构建期：安装 Node 依赖 ----
 FROM alpine:3.20 AS node-stage
 RUN apk add --no-cache nodejs npm tzdata
 # 国内镜像加速（可改回官方源）
 RUN npm config set registry https://registry.npmmirror.com
 COPY backend/scripts/package.json /build/package.json
-RUN cd /build && npm install --omit=dev && node -e "require('docx'); console.log('docx OK')"
+RUN cd /build && npm install --omit=dev \
+    && node -e "require('docx'); require('playwright'); console.log('node dependencies OK')"
 
 # ---- 运行期 ----
 FROM python:3.12-slim
@@ -34,10 +35,18 @@ COPY backend /app/backend
 COPY frontend /app/frontend
 COPY .env.example /app/.env.example
 
-# 4) docx 生成依赖（从构建期 node-stage 拷贝，避免重复 npm install）
+# 4) Node 依赖（从构建期 node-stage 拷贝，避免重复 npm install）
 COPY --from=node-stage /build/node_modules /app/backend/scripts/node_modules
 
-# 5) 数据目录
+# 5) PDF 渲染运行时：Playwright 需要 Chromium 本体及 Debian 系统依赖。
+#    必须在最终运行镜像安装，构建期 Alpine 的浏览器/动态库不能跨发行版复用。
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN mkdir -p /ms-playwright \
+    && cd /app/backend/scripts \
+    && npx playwright install --with-deps chromium \
+    && chmod -R a+rX /ms-playwright
+
+# 6) 数据目录
 RUN mkdir -p /app/data/tasks /app/data/reports /app/data/raw
 
 VOLUME ["/app/data"]
