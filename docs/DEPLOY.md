@@ -38,6 +38,25 @@ python backend/backup.py restore data/backups/miaoyu-YYYYMMDD_HHMMSS.zip --yes
 
 恢复会覆盖目标数据，必须显式使用 `--yes`；恢复前应停止应用并保留一份当前数据副本。
 
+### 0.2.1 本地源码运行的 PDF 渲染依赖
+
+当前 PDF 导出使用 Node Playwright 调用 Chromium 原生打印，不使用 Docker 渲染服务。首次在 Windows 本地源码运行时执行：
+
+```powershell
+cd backend/scripts
+npm install
+npx playwright install chromium
+```
+
+如果本机应用控制策略阻止 Playwright 自带 headless-shell，可设置完整 Chrome 路径后启动服务：
+
+```powershell
+$env:MIAOYU_CHROMIUM_PATH = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+python backend/app.py --port 5000
+```
+
+导出失败时后端返回 `503`，不会下载空白 PDF。Docker 镜像暂未纳入 Chromium 运行时，Docker 部署需单独完成浏览器依赖评估后再启用该导出能力。
+
 ## 0.3 Cloudflare Tunnel（推荐的公网入口）
 
 妙舆是 Flask 服务，不直接部署到 Cloudflare Pages；使用 Docker 在 NAS/VPS 运行，再用 Cloudflare Tunnel 将公网主机名转发到 `yuqing:5000`。

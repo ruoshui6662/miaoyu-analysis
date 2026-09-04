@@ -14,13 +14,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 import tempfile
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
+from urllib.parse import quote
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory, Response
+from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import (DATA_DIR_REPORTS, DATA_DIR_TASKS, MANAGED_KEYS, ROOT,
@@ -677,6 +680,62 @@ def api_report_export_docx():
                 Path(im["path"]).unlink()
             except OSError:
                 pass
+
+
+@app.post("/api/report/export-pdf")
+def api_report_export_pdf():
+    """使用 Node Playwright + Chromium 的原生打印链路导出 PDF。
+
+    前端只提交已完成排版的、无脚本报告 HTML；后端不重新拼装第二套报告模板。
+    临时输入/输出文件使用独立目录，导出失败不返回空 PDF。
+    """
+    body = request.get_json(silent=True) or {}
+    html = body.get("html")
+    filename = str(body.get("filename") or "舆情分析报告.pdf").strip()
+    if not isinstance(html, str) or not html.strip():
+        return jsonify({"error": "缺少报告渲染内容"}), 400
+    if len(html.encode("utf-8")) > 8 * 1024 * 1024:
+        return jsonify({"error": "报告渲染内容过大"}), 413
+    safe_stem = Path(filename).stem or "舆情分析报告"
+    safe_stem = "".join("_" if c in '\\/:*?\"<>|' else c for c in safe_stem).strip() or "舆情分析报告"
+    download_name = safe_stem + ".pdf"
+    script = ROOT / "backend" / "scripts" / "render_pdf.mjs"
+    node = os.getenv("MIAOYU_NODE", "node")
+    if not script.is_file():
+        return jsonify({"error": "PDF 渲染器未安装：缺少 Playwright 脚本"}), 503
+
+    with tempfile.TemporaryDirectory(prefix="_pdf_render_", dir=str(DATA_DIR_REPORTS)) as work:
+        input_path = Path(work) / "input.json"
+        output_path = Path(work) / "report.pdf"
+        input_path.write_text(json.dumps({"html": html}, ensure_ascii=False), encoding="utf-8")
+        try:
+            result = subprocess.run(
+                [node, str(script), str(input_path), str(output_path)],
+                cwd=str(script.parent), capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=90, check=False,
+            )
+        except FileNotFoundError:
+            return jsonify({"error": "未找到 Node.js，无法启动 Playwright 渲染器"}), 503
+        except subprocess.TimeoutExpired:
+            return jsonify({"error": "PDF 渲染超时，请稍后重试"}), 503
+        if result.returncode != 0 or not output_path.is_file():
+            detail = (result.stderr or result.stdout or "Playwright 未生成 PDF").strip()[-500:]
+            app.logger.error("Playwright PDF 渲染失败: %s", detail)
+            return jsonify({"error": "PDF 渲染失败，请检查 Playwright/Chromium 安装"}), 503
+        pdf = output_path.read_bytes()
+        # 只接受结构完整的 PDF；避免把 html2canvas 式的空白产物伪装成成功。
+        if len(pdf) < 1024 or not pdf.startswith(b"%PDF-") or b"/Type /Page" not in pdf:
+            app.logger.error("Playwright 返回无效 PDF: %d bytes", len(pdf))
+            return jsonify({"error": "PDF 渲染结果无效，未返回空白文件"}), 503
+        response = send_file(
+            BytesIO(pdf), mimetype="application/pdf",
+            as_attachment=True, download_name="miaoyu-report.pdf", max_age=0,
+        )
+        response.headers["Content-Disposition"] = (
+            'attachment; filename="miaoyu-report.pdf"; '
+            f"filename*=UTF-8''{quote(download_name)}"
+        )
+        return response
 
 
 @app.get("/api/reports/<path:filename>")

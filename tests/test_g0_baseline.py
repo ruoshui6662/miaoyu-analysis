@@ -622,6 +622,36 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("${IC.download}下载 Markdown", frontend)
         self.assertIn(".actions .btn-with-icon svg { width: var(--icon-md);", frontend)
 
+    def test_pdf_export_uses_playwright_backend_renderer(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        renderer = (Path(app_module.ROOT) / "backend" / "scripts" / "render_pdf.mjs").read_text(encoding="utf-8")
+        self.assertIn('fetch("/api/report/export-pdf"', frontend)
+        self.assertIn("document.fonts?.ready", renderer)
+        self.assertIn("page.pdf({", renderer)
+        self.assertIn("printBackground: true", renderer)
+        self.assertIn(".report .sec p,.report .q-card,.report .ov-card", frontend)
+        self.assertIn("break-inside:avoid;page-break-inside:avoid", frontend)
+        self.assertIn("orphans:3;widows:3", frontend)
+        self.assertNotIn("html2pdf()", frontend)
+
+    def test_pdf_export_endpoint_rejects_invalid_renderer_output(self):
+        client = make_client()
+        with patch.object(app_module.subprocess, "run") as run:
+            def write_invalid_pdf(command, **_kwargs):
+                Path(command[-1]).write_bytes(b"%PDF-1.7\n" + b"x" * 1500)
+                return type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+            run.side_effect = write_invalid_pdf
+            response = client.post("/api/report/export-pdf", json={"html": "<p>test</p>"})
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("无效", response.get_json()["error"])
+
+    def test_ai_action_buttons_share_height_but_keep_primary_hierarchy(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("#view-settings #panel-ai .ai-actions > button {", frontend)
+        self.assertIn("height: 40px; min-height: 40px", frontend)
+        self.assertIn("#view-settings #panel-ai .ai-actions > .primary { min-width: 128px;", frontend)
+        self.assertIn("#view-settings #panel-ai .ai-actions > button { height: 44px; min-height: 44px; }", frontend)
+
     def test_password_reminder_buttons_keep_mobile_horizontal_geometry(self):
         frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
         self.assertIn(".auth-reminder-actions { flex-direction: row;", frontend)

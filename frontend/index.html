@@ -6,7 +6,6 @@
 <title>妙舆</title>
 <link rel="icon" type="image/svg+xml" href="assets/miaoyu-logo.svg">
 <script src="vendor/echarts.min.js"></script>
-<script src="vendor/html2pdf.bundle.min.js"></script>
 <style>
   /* ── 视觉系统 v2（2026-09-01 重构）──
      原则：墨色阶用明度差建立层次；字号/间距走固定阶梯（整数步进 + 4pt 网格）；
@@ -522,20 +521,6 @@
   .report .sec p { text-indent: 2em; margin-bottom: 8px; font-size: 14px; line-height: 1.75; }
   .report .sec p b { font-weight: 700; }
   .print-head { display: none; }   /* 仅打印时显示页眉 */
-  /* PDF 导出离屏容器：白底黑字，固定视口外，字体/行距与报告一致 */
-  .pdf-capture {
-    position: fixed; left: -20000px; top: 0; z-index: -1;
-    width: 800px; background: #fff; color: #1f2937;
-    font-family: var(--font-sans); font-size: 13px; line-height: 1.7;
-  }
-  .pdf-capture h2 { font-size: 20px; text-align: center; margin-bottom: 12px; }
-  .pdf-capture .sec h3 { font-size: 15px; font-weight: 700; margin: 14px 0 6px; }
-  .pdf-capture .sec p { margin: 0 0 6px; text-indent: 2em; }
-  .pdf-capture .ov-grid, .pdf-capture .q-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
-  .pdf-capture .ov-card, .pdf-capture .q-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; page-break-inside: avoid; }
-  .pdf-capture .appendix table { width: 100%; border-collapse: collapse; margin: 6px 0; }
-  .pdf-capture .appendix td, .pdf-capture .appendix th { border: 1px solid #e5e7eb; padding: 4px 8px; font-size: 12px; }
-  .pdf-capture .appendix th { background: #f3f4f6; }
   .report .appendix { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
   .report .appendix table { width: 100%; border-collapse: collapse; margin-top: 8px; }
   /* 长 URL 等不可断行字符串：仅在将溢出时允许任意处断行，防 auto 布局表格被撑破容器 */
@@ -809,11 +794,43 @@
     .report h2 { font-size: 18pt; }
     .report .sec h3 { font-size: 14pt; }
     .report .sec p { font-size: 12pt; text-indent: 2em; }
-    .report .sec, .report .q-card, .report .ov-card, .report .appendix table { page-break-inside: avoid; }
-    .report .q-grid, .report .ov-grid { display: block; }
-    .report .ov-chart { height: 240px; page-break-inside: avoid; }
+    /*
+       分页的基本单位是“可完整阅读的内容块”，而不是任意一段像素。
+       只给 .sec 设置 avoid 不够：当章节本身高度超过剩余页高时，Chromium
+       会放弃章节级规则并继续拆内部段落，最终造成半段文字/半张卡片落在两页。
+       因此章节允许跨页，但卡片、段落、图表和表格行分别禁止拆分。
+    */
+    .report .sec { break-inside: auto; page-break-inside: auto; }
+    .report .sec h3 { break-after: avoid; page-break-after: avoid; }
+    .report .sec p,
+    .report .q-card,
+    .report .ov-card,
+    .report .appendix,
+    .report .appendix table,
+    .report .appendix tr,
+    .report figure,
+    .report img,
+    .report svg,
+    .report canvas {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .report .sec p { orphans: 3; widows: 3; }
+    .report img, .report svg, .report canvas { display: block; }
+    /* 图表是同一组仪表盘，A4 上继续横向排列，避免宽卡片里缩着一张小 SVG。 */
+    .report .ov-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+    .report .ov-card { min-width: 0; padding: 10px 11px; }
+    .report .q-grid { display: block; }
+    .report .q-card + .q-card { margin-top: 10px; }
+    .report .ov-card + .ov-card { margin-top: 0; }
+    .report .ov-chart { height: 190px; page-break-inside: avoid; }
     /* SVG 图表打印清晰：ECharts 用 renderer:svg，颜色转白底可读 */
-    .report .ov-chart svg { width: 100% !important; height: auto !important; }
+    .report .ov-chart svg { width: 100% !important; height: 100% !important; }
   }
 
   /* 榜单卡墙：入场 stagger（轻流体，尊重 reduced-motion） */
@@ -1387,6 +1404,12 @@
   #view-settings #panel-ai .ai-panel { padding: 18px 20px; border-radius: 14px; background: var(--surface); }
   #view-settings #panel-ai .pcard { border-top-color: var(--separator); }
   #view-settings #panel-ai .ai-actions { padding-top: 18px; }
+  #view-settings #panel-ai .ai-actions > button {
+    box-sizing: border-box; height: 40px; min-height: 40px; padding: 0 16px;
+    border-radius: var(--r-md); line-height: 1; font-size: 13px;
+  }
+  #view-settings #panel-ai .ai-actions > .btn-secondary { font-weight: 500; }
+  #view-settings #panel-ai .ai-actions > .primary { min-width: 128px; font-weight: 650; }
   #view-settings #panel-groups .src-bar {
     padding: 0; margin-bottom: 18px; background: transparent; gap: 10px; align-items: center;
   }
@@ -1579,6 +1602,7 @@
     #view-settings .search-policy-grid { grid-template-columns: 1fr; }
     #view-settings .search-section-head { gap: 10px; }
     #view-settings .search-section-note { display: none; }
+    #view-settings #panel-ai .ai-actions > button { height: 44px; min-height: 44px; }
   }
 
   /* ── 图标与报告操作规范：统一光学尺寸、基线和按钮几何 ── */
@@ -2886,7 +2910,7 @@ function renderReport(rep, jsonName) {
   $("reportActions").innerHTML = acts;
 }
 
-/* ---------- PDF 真导出（html2pdf：亮色克隆 + 图表 PNG 化 + A4 分页） ---------- */
+/* ---------- PDF 真导出（Playwright：浏览器原生打印 + A4 分页） ---------- */
 const PDF_LIGHT = {
   "--bg-page": "#ffffff", "--card": "#ffffff", "--surface": "#ffffff", "--surface-2": "#f3f4f6",
   "--text": "#1f2937", "--text-2": "#4b5563", "--text-3": "#6b7280", "--text-strong": "#111827",
@@ -2899,47 +2923,76 @@ const PDF_LIGHT = {
   "--shadow-card": "none",
 };
 
-function exportPDF() {
+async function exportPDF() {
   const rep = window._curReport;
   if (!rep) return;
-  if (!window.html2pdf) { toast("PDF 组件未加载，请刷新页面后重试"); return; }
-  // 1) 克隆报告体到离屏容器，强制亮色 token（暗色模式也能导出白底 PDF）
-  let box = document.getElementById("pdfBox");
-  if (box) box.remove();
-  box = document.createElement("div");
-  box.id = "pdfBox";
-  box.className = "pdf-capture";
-  box.innerHTML = $("reportBody").innerHTML;
-  document.body.appendChild(box);
-  Object.entries(PDF_LIGHT).forEach(([k, v]) => box.style.setProperty(k, v));
-  // 2) 图表：SVG → 亮色 canvas PNG（html2canvas 不认 ECharts SVG）
-  const _light = (v) => v.startsWith("--") ? (PDF_LIGHT[v] || "#666") : v;
-  for (const { el, kind } of (window._reportCharts || [])) {
-    const target = box.querySelector("#" + el.id);
-    if (!target) continue;
-    const opt = _chartOption(kind, rep, _light);
-    const c = echarts.init(target, null, { renderer: "canvas", width: 720, height: 300 });
-    c.setOption(opt);
-  }
-  // 3) html2pdf 分页导出
   const title = (rep.title || "舆情分析报告").replace(/[\\/:*?"<>|]/g, "_");
-  const opt = {
-    margin: [12, 12, 14, 12],
-    filename: title + ".pdf",
-    image: { type: "jpeg", quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-    pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-  };
+  const clone = $("reportBody").cloneNode(true);
+  // 当前页面图表优先保留 ECharts SVG；若使用 canvas renderer，则转为内嵌 PNG。
+  for (const { el } of (window._reportCharts || [])) {
+    const target = clone.querySelector("#" + el.id);
+    const current = document.getElementById(el.id);
+    if (!target || !current) continue;
+    const svg = current.querySelector("svg");
+    const canvas = current.querySelector("canvas");
+    if (svg) target.innerHTML = svg.outerHTML;
+    else if (canvas) {
+      const img = document.createElement("img");
+      img.src = canvas.toDataURL("image/png");
+      img.alt = "报告图表";
+      img.style.cssText = "display:block;width:100%;height:300px;object-fit:contain;";
+      target.replaceChildren(img);
+    }
+  }
+  // 复制当前页面的设计系统 CSS，再在末尾覆盖为 PDF 亮色 token。
+  const styles = [...document.querySelectorAll("style")].map(s => s.textContent || "").join("\n");
+  const lightTokens = Object.entries(PDF_LIGHT).map(([k, v]) => `${k}:${v};`).join("");
+  const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>${styles}
+    :root{${lightTokens}}
+    html,body{margin:0!important;padding:0!important;background:#fff!important;color:#1f2937!important;}
+    body{font-family:var(--font-sans);}
+    #reportBody{display:block!important;width:auto!important;max-width:none!important;margin:0!important;overflow:visible!important;}
+    .report{overflow-wrap:anywhere;}
+    /* 让 Chromium 的 print media 规则在独立 HTML 中也明确生效。 */
+    .report .sec{break-inside:auto;page-break-inside:auto;}
+    .report .sec h3{break-after:avoid;page-break-after:avoid;}
+    .report .sec p,.report .q-card,.report .ov-card,.report .appendix,
+    .report .appendix table,.report .appendix tr,.report figure,
+    .report img,.report svg,.report canvas{break-inside:avoid;page-break-inside:avoid;}
+    .report .sec p{orphans:3;widows:3;}
+    .report img,.report svg,.report canvas{display:block;}
+    /* 图表保持三列仪表盘，观点卡单列排列以保障内容完整。 */
+    .report .ov-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch;}
+    .report .ov-card{min-width:0;padding:10px 11px;}
+    .report .q-grid{display:block;}
+    .report .q-card+.q-card{margin-top:10px;}
+    .report .ov-card+.ov-card{margin-top:0;}
+    .report .ov-chart{height:190px;}
+    .report .ov-chart svg{width:100%!important;height:100%!important;}
+    @page{size:A4;margin:12mm 12mm 14mm;}
+  </style></head><body><div id="reportBody" class="report">${clone.innerHTML}</div></body></html>`;
   toast("正在生成 PDF…");
-  html2pdf().set(opt).from(box).save().then(() => {
-    box.remove();
+  try {
+    const response = await fetch("/api/report/export-pdf", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html, filename: title + ".pdf" }),
+    });
+    if (!response.ok) {
+      let detail = "PDF 渲染失败";
+      try { detail = (await response.json()).error || detail; } catch (_) { /* ignore */ }
+      throw new Error(detail);
+    }
+    const blob = await response.blob();
+    if (blob.size < 1024 || blob.type !== "application/pdf") throw new Error("PDF 文件无效");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = title + ".pdf"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast("PDF 已生成并下载");
-  }).catch((e) => {
+  } catch (e) {
     console.error("PDF 导出失败", e);
-    box.remove();
-    toast("PDF 导出失败，可改用浏览器打印");
-  });
+    toast(e?.message || "PDF 导出失败，请检查 Playwright 安装");
+  }
 }
 
 /* ---------- 下载 Word（P1-c：有图表则客户端渲染 PNG 注入 docx；无图表走原文件） ---------- */

@@ -6,7 +6,7 @@
 - 报告格式严格对齐《参考格式.docx》四段式模板（标题→引言→一、事件概况→二、原因→三、风险→四、对策，分论点"（一）（二）"句首加粗）
 - 每段行文标注来源媒体；事实仅取自权威媒体，否则明确标注局限
 - **对策与风险一一对应**（id 硬校验 + 顺序回填），严禁凭空编造
-- 导出：Word（docx）/ Markdown / PDF（浏览器打印）
+- 导出：Word（docx）/ Markdown / PDF（Node Playwright + Chromium 原生打印）
 
 相关文档：[部署指南 docs/DEPLOY.md](docs/DEPLOY.md) ｜ [开发手册与任务清单 docs/开发手册.md](docs/开发手册.md) ｜ [开源项目调研与演进路线 docs/开源项目调研与路线图.md](docs/开源项目调研与路线图.md)
 
@@ -19,7 +19,8 @@
 ```bash
 cd backend
 pip install -r requirements.txt        # 纯 Python 依赖
-cd scripts && npm install               # docx 生成（Node）
+cd scripts && npm install               # docx + PDF 生成（Node）
+npx playwright install chromium          # 首次安装 PDF 渲染所需浏览器
 cd ../.. && cp .env.example .env        # 填写 AI / SearXNG
 python backend/app.py --port 5000       # 浏览器 http://localhost:5000
 ```
@@ -127,7 +128,7 @@ backend/            Flask 后端（纯 Python，无 C 扩展依赖）
   ├─ ai_client.py    OpenAI 兼容多后端（router/deepseek/qwen）+ 429/空响应重试
   ├─ ai_prompts.py   四角色 Prompt（媒体标注/权威约束/风险 id/对策 for_id）
   ├─ pipeline.py     编排：关键词→采集→四章分析→对策校验→docx/md
-  └─ scripts/        Node docx 生成
+  └─ scripts/        Node docx + Playwright PDF 生成
 frontend/           单页前端（无构建，本地资源）
 docker-compose.*.yml Docker 部署
 docs/               部署指南 + 开发手册（任务状态清单）
