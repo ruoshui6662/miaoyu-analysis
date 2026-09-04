@@ -640,7 +640,7 @@
   @media (max-width: 760px) {
     .wrap { padding: 16px 12px 56px; }
     .header { padding: 0 14px; gap: 10px; }
-    .brand .logo { display: none; }   /* 小屏只留文字品牌，给导航让位 */
+    .brand .logo { display: flex; width: 28px; height: 28px; }   /* 保留产品识别标识，避免小屏品牌失去锚点 */
     .nav button svg { display: none; }
     .nav button { padding: 6px 12px; }
     .form-row { gap: 8px; }
@@ -994,8 +994,8 @@
   }
   @media (max-width: 600px) {
     .header { height: 60px; padding: 0 14px; }
-    .brand { font-size: 14px; }
-    .brand .logo { display: none; }
+    .brand { flex: none; gap: 8px; font-size: 14px; }
+    .brand .logo { display: flex; width: 28px; height: 28px; }
     .nav { gap: 0; }
     .nav button { height: 60px; padding: 0 9px; font-size: 13px; }
     .nav button.active::after { left: 9px; right: 9px; }

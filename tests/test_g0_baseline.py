@@ -589,6 +589,7 @@ class SecurityTests(unittest.TestCase):
         self.assertNotIn('<span class="logo">舆</span>', frontend)
         self.assertNotIn("brand-subtitle", frontend)
         self.assertNotIn("healthDot", frontend)
+        self.assertIn(".brand .logo { display: flex; width: 28px; height: 28px; }", frontend)
 
     def test_report_actions_share_icon_and_button_geometry(self):
         frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
