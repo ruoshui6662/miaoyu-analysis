@@ -1117,6 +1117,263 @@
     #view-settings .set-footer .primary { width: 100%; }
     #view-settings .service-layout { grid-template-columns: 1fr; gap: 22px; }
   }
+
+  /* ── 首页图一落地：居中入口 → 单一焦点 → 新鲜变化 → 可筛选热榜 ── */
+  .wrap { max-width: 1280px; }
+  #view-home { color: var(--text); }
+  #view-home button { font-family: inherit; }
+  .home-hero { margin: 0 auto 14px; text-align: center; }
+  .home-hero h2 { color: var(--text-strong); font-size: 26px; line-height: 1.25; letter-spacing: -.045em; font-weight: 700; }
+  .home-query { max-width: 930px; margin: 0 auto 34px; }
+  .home-query-shell { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--card); border-radius: 14px; box-shadow: var(--shadow-card); }
+  .home-query-shell input { flex: 1; min-width: 0; height: 46px; padding: 0 14px; border: 0; outline: 0; border-radius: 9px; background: var(--surface); color: var(--text-strong); font: inherit; font-size: 15px; }
+  .home-query-shell input::placeholder { color: var(--text-3); }
+  .home-query-shell input:focus { box-shadow: 0 0 0 3px rgba(229,57,53,.12); }
+  .home-query-shell .primary { flex: none; width: 118px; height: 46px; padding: 0 16px; border-radius: 9px; font-weight: 650; }
+  .home-trends { display: flex; align-items: center; gap: 12px; min-height: 28px; margin-top: 10px; padding: 0 4px; color: var(--text-2); font-size: 12px; }
+  .home-trends-label { flex: none; color: var(--text); font-weight: 600; }
+  .home-trend-items { display: flex; flex: 1; min-width: 0; gap: 0; overflow: hidden; white-space: nowrap; }
+  .home-trend-item { display: inline-flex; align-items: center; min-width: 0; max-width: 31%; padding: 0; border: 0; background: transparent; color: var(--text-2); font: inherit; text-align: left; cursor: pointer; }
+  .home-trend-item + .home-trend-item::before { content: '|'; margin: 0 13px; color: var(--border-strong); }
+  .home-trend-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-trend-refresh { flex: none; padding: 3px 0; border: 0; background: transparent; color: var(--text-2); font: inherit; cursor: pointer; }
+  .home-trend-refresh:hover { color: var(--accent); }
+  .home-focus-card, .home-fresh-card, .home-hot-card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow-card); }
+  .home-focus-card { margin-bottom: 18px; padding: 22px 24px 20px; }
+  .home-focus-layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 28px; align-items: stretch; }
+  .home-focus-main { min-width: 0; }
+  .home-focus-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+  .home-focus-eyebrow { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--text); font-size: 13px; font-weight: 700; }
+  .home-focus-eyebrow .focus-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-tint); }
+  .home-focus-eyebrow .f-help { margin-left: 3px; font-weight: 400; }
+  .home-focus-title { color: var(--text-strong); font-size: 22px; line-height: 1.35; letter-spacing: -.035em; }
+  .home-focus-desc { max-width: 720px; margin-top: 8px; color: var(--text-2); font-size: 13px; line-height: 1.7; }
+  .home-focus-action { flex: none; height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 650; cursor: pointer; }
+  .home-focus-action:hover { background: var(--accent-hover); }
+  .home-focus-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 22px; }
+  .home-focus-metric { min-width: 0; padding: 0 18px; border-left: 1px solid var(--separator); }
+  .home-focus-metric:first-child { padding-left: 0; border-left: 0; }
+  .home-focus-metric-label { color: var(--text-3); font-size: 12px; }
+  .home-focus-metric-value { margin-top: 5px; color: var(--text-strong); font-size: 19px; line-height: 1.25; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .home-focus-metric-value.hot { color: var(--accent); }
+  .home-focus-metric-value.compact { font-size: 15px; }
+  .home-focus-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+  .home-focus-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: var(--surface); color: var(--text-2); font-size: 11px; }
+  .home-focus-chip strong { color: var(--accent); font-weight: 650; }
+  .home-focus-insight { padding: 16px 18px; border-radius: 12px; background: var(--accent-tint); }
+  .home-focus-insight h3 { color: var(--text-strong); font-size: 14px; }
+  .home-focus-insight ul { margin: 10px 0 0 17px; padding: 0; color: var(--text-2); font-size: 12px; line-height: 1.75; }
+  .home-focus-insight li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-focus-insight .home-link-button { margin-top: 10px; padding: 0; color: var(--accent); font-size: 12px; font-weight: 650; }
+  .home-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 18px 22px 12px; }
+  .home-section-head h2 { display: inline; color: var(--text-strong); font-size: 16px; letter-spacing: -.025em; }
+  .home-section-head span { margin-left: 10px; color: var(--text-3); font-size: 12px; }
+  .home-link-button { border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+  .home-link-button:hover { color: var(--accent); }
+  .home-fresh-card { margin-bottom: 18px; }
+  .home-fresh-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 22px 18px; }
+  .home-fresh-item { display: grid; grid-template-columns: 32px minmax(0,1fr) auto; gap: 9px; align-items: center; min-width: 0; padding: 10px 16px; border: 0; border-left: 1px solid var(--separator); background: transparent; text-align: left; cursor: pointer; }
+  .home-fresh-item:first-child { padding-left: 0; border-left: 0; }
+  .home-fresh-item:hover .home-fresh-title { color: var(--accent); }
+  .home-platform-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; }
+  .home-platform-mark.weibo { background: #f3a019; } .home-platform-mark.zhihu { background: #1777ee; }
+  .home-platform-mark.douyin { background: #111; } .home-platform-mark.bilibili { background: #f18bb4; }
+  .home-platform-mark.baidu { background: #3478ed; } .home-platform-mark.toutiao { background: #ec4d43; }
+  .home-platform-mark.generic { background: var(--text-2); }
+  .home-fresh-title { display: block; overflow: hidden; color: var(--text-strong); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .home-fresh-meta { display: block; margin-top: 3px; overflow: hidden; color: var(--text-3); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  .home-fresh-level { flex: none; color: var(--accent); font-size: 11px; white-space: nowrap; }
+  .home-hot-card { overflow: hidden; }
+  .home-hot-head { padding-bottom: 11px; }
+  .home-hot-tools { display: flex; align-items: center; gap: 14px; color: var(--text-3); font-size: 11px; }
+  .home-hot-tools select { height: 30px; padding: 0 24px 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--text-2); font: inherit; outline: none; }
+  .home-hot-updated { white-space: nowrap; }
+  .home-hot-tabs { display: flex; gap: 7px; padding: 0 22px 12px; overflow-x: auto; scrollbar-width: none; }
+  .home-hot-tabs::-webkit-scrollbar { display: none; }
+  .home-hot-tab { flex: none; height: 32px; padding: 0 13px; border: 1px solid transparent; border-radius: 999px; background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+  .home-hot-tab:hover { color: var(--accent); }
+  .home-hot-tab.active { border-color: var(--accent); background: #fff; color: var(--accent); font-weight: 650; }
+  .home-hot-table-wrap { max-height: 440px; overflow-y: auto; scrollbar-width: none; }
+  .home-hot-table-wrap::-webkit-scrollbar { display: none; }
+  .home-hot-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .home-hot-table th { padding: 0 10px 8px; color: var(--text-3); font-size: 11px; font-weight: 400; text-align: left; }
+  .home-hot-table th:first-child, .home-hot-table td:first-child { padding-left: 22px; width: 68px; }
+  .home-hot-table th:nth-child(2) { width: auto; } .home-hot-table th:nth-child(3) { width: 145px; }
+  .home-hot-table th:nth-child(4) { width: 92px; } .home-hot-table th:nth-child(5) { width: 88px; } .home-hot-table th:nth-child(6) { width: 92px; }
+  .home-hot-table td { padding: 11px 10px; border-top: 1px solid var(--separator); color: var(--text-2); font-size: 12px; vertical-align: middle; }
+  .home-hot-table tbody tr:hover { background: rgba(17,17,17,.018); }
+  .home-hot-rank { color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .home-hot-rank.top { color: var(--accent); font-weight: 700; }
+  .home-hot-title { display: block; overflow: hidden; color: var(--text-strong); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .home-hot-subtitle { display: block; margin-top: 3px; overflow: hidden; color: var(--text-3); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  .home-hot-platforms { display: flex; align-items: center; gap: 4px; }
+  .home-hot-platforms .home-platform-mark { width: 22px; height: 22px; font-size: 10px; }
+  .home-hot-platform-more { padding: 3px 5px; border-radius: 999px; background: var(--surface); color: var(--text-3); font-size: 10px; }
+  .home-hot-heat { color: var(--accent); font-weight: 650; }
+  .home-hot-trend.up { color: var(--accent); } .home-hot-trend.new { color: var(--green-text); }
+  .home-table-empty { padding: 30px 22px !important; color: var(--text-3) !important; text-align: center; }
+  .home-hot-more { display: block; width: 100%; padding: 15px 0 17px; border: 0; border-top: 1px solid var(--separator); background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+  .home-hot-more:hover { color: var(--accent); }
+
+  @media (max-width: 860px) {
+    .home-focus-layout { grid-template-columns: 1fr; gap: 18px; }
+    .home-focus-insight { max-width: none; }
+    .home-fresh-list { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .home-fresh-item:nth-child(3) { padding-left: 0; border-left: 0; }
+    .home-fresh-item:nth-child(n+3) { border-top: 1px solid var(--separator); }
+  }
+  @media (max-width: 600px) {
+    .home-hero { margin-bottom: 12px; }
+    .home-hero h2 { font-size: 24px; }
+    .home-query { margin-bottom: 24px; }
+    .home-query-shell { display: grid; gap: 8px; padding: 8px; border-radius: 13px; }
+    .home-query-shell input { width: 100%; height: 46px; }
+    .home-query-shell .primary { width: 100%; height: 46px; }
+    .home-trends { align-items: flex-start; flex-wrap: wrap; gap: 5px 10px; margin-top: 9px; }
+    .home-trend-items { order: 3; flex-basis: 100%; }
+    .home-trend-item { max-width: 45%; }
+    .home-trend-refresh { margin-left: auto; }
+    .home-focus-card { padding: 18px 16px 16px; border-radius: 14px; }
+    .home-focus-top { display: block; }
+    .home-focus-action { width: 100%; margin-top: 15px; }
+    .home-focus-title { font-size: 19px; }
+    .home-focus-desc { font-size: 12px; }
+    .home-focus-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px 0; }
+    .home-focus-metric { padding: 0 12px; }
+    .home-focus-metric:nth-child(odd) { padding-left: 0; border-left: 0; }
+    .home-focus-metric:nth-child(n+3) { padding-top: 3px; }
+    .home-focus-metric-value { font-size: 17px; }
+    .home-focus-insight { padding: 14px; }
+    .home-section-head { align-items: flex-start; padding: 16px 16px 11px; }
+    .home-section-head > div:first-child { min-width: 0; }
+    .home-section-head span { display: block; margin: 5px 0 0; line-height: 1.45; }
+    .home-fresh-list { grid-template-columns: 1fr; padding: 0 16px 10px; }
+    .home-fresh-item, .home-fresh-item:nth-child(3) { padding: 11px 0; border-left: 0; border-top: 1px solid var(--separator); }
+    .home-fresh-item:first-child { border-top: 0; }
+    .home-hot-head { align-items: center; }
+    .home-hot-tools { gap: 8px; }
+    .home-hot-updated { display: none; }
+    .home-hot-tabs { padding-right: 16px; padding-left: 16px; }
+    .home-hot-table th { display: none; }
+    .home-hot-table, .home-hot-table tbody, .home-hot-table tr, .home-hot-table td { display: block; }
+    .home-hot-table tr { position: relative; padding: 12px 16px 12px 48px; border-top: 1px solid var(--separator); }
+    .home-hot-table td { padding: 0; border: 0; }
+    .home-hot-table td:first-child { position: absolute; left: 16px; top: 13px; width: 24px; padding: 0; }
+    .home-hot-table td:nth-child(3), .home-hot-table td:nth-child(5), .home-hot-table td:nth-child(6) { display: none; }
+    .home-hot-table td:nth-child(4) { position: absolute; top: 13px; right: 16px; }
+    .home-hot-table td:nth-child(2) { padding-right: 62px; }
+    .home-hot-title { font-size: 13px; }
+    .home-hot-platforms { display: none; }
+    .home-hot-more { padding-bottom: 15px; }
+  }
+
+  /* ── 图一页面家族：分析 / 历史 / 设置共享同一工作台语言 ── */
+  .brand-subtitle { margin-left: 2px; color: var(--text-3); font-size: 12px; font-weight: 400; letter-spacing: 0; }
+  .header .nav { margin-left: auto; }
+  .header .header-meta { margin-left: 0; }
+  #view-analyze, #view-history, #view-settings { max-width: 1180px; margin: 0 auto; }
+  #view-analyze .page-head, #view-history .page-head, #view-settings .page-head { margin-bottom: 30px; }
+  #view-analyze .page-head p, #view-history .page-head p, #view-settings .page-head p { max-width: 680px; }
+
+  /* 分析：先突出主题与动作，再承载可选参数、过程和结果。 */
+  #view-analyze .analysis-launch-card { padding: 10px; margin-bottom: 30px; border-radius: 18px; background: var(--card); box-shadow: var(--shadow-card); }
+  .analysis-query-row { display: grid; grid-template-columns: minmax(0, 1fr) 128px; gap: 10px; }
+  .analysis-query-row input { width: 100%; min-width: 0; height: 56px; padding: 0 18px; border: 0; border-radius: 12px; outline: 0; background: var(--surface); color: var(--text-strong); font: inherit; font-size: 16px; }
+  .analysis-query-row input::placeholder { color: var(--text-3); }
+  .analysis-query-row input:focus { box-shadow: 0 0 0 3px rgba(229,57,53,.12); }
+  .analysis-query-row .primary { width: 128px; height: 56px; padding: 0 18px; border-radius: 12px; font-weight: 650; }
+  .analysis-options-row { display: flex; align-items: center; gap: 18px; min-height: 44px; padding: 8px 7px 1px; color: var(--text-2); font-size: 12px; }
+  .analysis-provider { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .analysis-provider > span { color: var(--text-3); }
+  .analysis-provider select { height: 34px; min-width: 160px; padding: 0 28px 0 10px; border: 0; border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; }
+  .analysis-verify { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 10px; border-radius: 8px; background: var(--surface); cursor: pointer; }
+  .analysis-verify input { width: 15px; height: 15px; accent-color: var(--accent); }
+  .analysis-evidence-note { margin-left: auto; color: var(--text-3); text-align: right; }
+  #view-analyze .analysis-progress-card, #view-analyze .analysis-report-card, #view-analyze .analysis-recent-card { padding: 24px 28px; border-radius: 18px; background: var(--card); box-shadow: var(--shadow-card); }
+  #view-analyze .analysis-progress-card { margin-bottom: 30px; }
+  #view-analyze .analysis-progress-card .progress-box { padding: 14px 16px; border: 0; border-radius: 10px; background: var(--surface); }
+  #view-analyze .analysis-progress-card .bar { height: 5px; margin-top: 14px; }
+  #view-analyze .analysis-report-card { margin-bottom: 30px; }
+  #view-analyze .analysis-report-card .section-title { margin-bottom: 12px; font-size: 17px; }
+  #view-analyze .analysis-report-card .actions { justify-content: flex-start; margin: 0 0 22px; }
+  #view-analyze .analysis-report-card .report { max-width: 860px; margin: 0 auto; }
+  #view-analyze .analysis-recent-card { margin-bottom: 0; }
+  #view-analyze .analysis-recent-card .section-title { margin-bottom: 10px; font-size: 16px; }
+  #view-analyze .analysis-recent-card .section-title a { color: var(--text-2); }
+  #view-analyze .analysis-recent-card .section-title a:hover { color: var(--accent); }
+  #view-analyze .analysis-recent-card .tasks { padding: 0; background: transparent; box-shadow: none; }
+  #view-analyze .analysis-recent-card .tasks li { min-height: 54px; margin: 0; padding: 11px 2px; border-radius: 0; }
+  #view-analyze .analysis-recent-card .tasks li:last-child { border-bottom: 0; }
+
+  /* 历史：任务是主内容，报告归档降低一个视觉层级。 */
+  #view-history .history-tasks-card, #view-history .history-files-card { padding: 24px 28px 20px; border-radius: 18px; background: var(--card); box-shadow: var(--shadow-card); }
+  #view-history .history-tasks-card { margin-bottom: 22px; }
+  #view-history .history-files-card { margin-top: 0; box-shadow: 0 8px 28px rgba(26,27,25,.045); }
+  .history-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+  .history-card-head .section-title { margin: 0; font-size: 17px; }
+  .history-card-head p { margin-top: 5px; color: var(--text-3); font-size: 12px; }
+  .history-total { flex: none; margin-top: 2px; color: var(--text-3); font-size: 12px; }
+  #view-history .tasks { padding: 0; background: transparent; box-shadow: none; }
+  #view-history .tasks li { min-height: 58px; margin: 0; padding: 12px 4px; border-radius: 0; }
+  #view-history .tasks li:last-child { border-bottom: 0; }
+  #view-history .tasks li:hover { background: var(--surface); }
+  #view-history .tasks li > span:nth-child(2) { min-width: 0; overflow: hidden; color: var(--text-strong); text-overflow: ellipsis; white-space: nowrap; }
+  #view-history .task-meta { max-width: 54%; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+  #view-history .pager { margin-top: 18px; }
+  .history-card-footer { display: flex; justify-content: flex-end; margin-top: 14px; padding-top: 12px; }
+  .history-back { min-height: 38px; padding: 0 4px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+  .history-back:hover { color: var(--accent); }
+  #view-history .history-files-card .file-view { min-width: 0; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 设置：一级功能区固定左侧；每个面板只保留自己的主动作。 */
+  #view-settings .settings-shell { border-radius: 20px; }
+  #view-settings .set-layout { grid-template-columns: 196px minmax(0,1fr); gap: 20px; min-height: 540px; }
+  #view-settings .set-menu { margin: 16px 0 16px 16px; padding: 22px 14px; border-radius: 14px; }
+  #view-settings .set-content { padding: 32px 40px 28px 20px; }
+  #view-settings .panel-page-head { margin-bottom: 28px; }
+  #view-settings .panel-page-title { font-size: 24px; }
+  #view-settings .form-narrow { max-width: 560px; }
+  #view-settings input.sel, #view-settings select.sel, #view-settings .model-select { min-height: 44px; border-color: var(--border); background: var(--surface); }
+  #view-settings .set-footer { max-width: 848px; margin-top: 36px; padding-top: 20px; }
+  #view-settings .set-footer .primary { min-width: 128px; height: 52px; border-radius: 11px; }
+  #view-settings #panel-ai .service-layout { grid-template-columns: 220px minmax(0,1fr); gap: 24px; }
+  #view-settings #panel-ai .ai-rail { padding: 14px; border-radius: 13px; background: var(--surface); }
+  #view-settings #panel-ai .provider-item { background: transparent; }
+  #view-settings #panel-ai .provider-item:hover { background: var(--surface-2); }
+  #view-settings #panel-ai .provider-item.active { background: var(--card); box-shadow: 0 5px 18px rgba(26,27,25,.05); }
+  #view-settings #panel-ai .ai-panel { padding: 18px 20px; border-radius: 14px; background: var(--surface); }
+  #view-settings #panel-ai .pcard { border-top-color: var(--separator); }
+  #view-settings #panel-ai .ai-actions { padding-top: 18px; }
+  #view-settings #panel-groups .src-bar { padding: 12px 14px; border-radius: 12px; background: var(--surface); }
+  #view-settings #panel-groups #srcList { margin-top: 14px; }
+  #view-settings #panel-groups .src-add { margin-top: 18px; padding: 16px; border-radius: 12px; background: var(--surface); }
+
+  @media (max-width: 960px) {
+    .brand-subtitle { display: none; }
+    .analysis-evidence-note { display: none; }
+  }
+  @media (max-width: 760px) {
+    #view-analyze .page-head, #view-history .page-head, #view-settings .page-head { margin-bottom: 24px; }
+    #view-analyze .analysis-launch-card { padding: 8px; border-radius: 15px; }
+    .analysis-query-row { grid-template-columns: 1fr; gap: 8px; }
+    .analysis-query-row input { height: 50px; font-size: 15px; }
+    .analysis-query-row .primary { width: 100%; height: 50px; }
+    .analysis-options-row { align-items: stretch; flex-wrap: wrap; gap: 8px; padding: 9px 2px 1px; }
+    .analysis-provider { flex: 1 1 100%; justify-content: space-between; }
+    .analysis-provider select { flex: 1; max-width: 210px; }
+    .analysis-verify { min-height: 40px; }
+    #view-analyze .analysis-progress-card, #view-analyze .analysis-report-card, #view-analyze .analysis-recent-card,
+    #view-history .history-tasks-card, #view-history .history-files-card { padding: 20px 18px; border-radius: 16px; }
+    .history-card-head { gap: 12px; }
+    #view-history .tasks li { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+    #view-history .tasks li > span:nth-child(2) { flex: 1; }
+    #view-history .task-meta { width: 100%; max-width: none; margin-left: 0; padding-left: 0; text-align: left; white-space: normal; }
+    #view-history .history-files-card .file-view { max-width: calc(100% - 76px); }
+    #view-settings .set-layout { min-height: 0; }
+    #view-settings .set-content { padding: 0 2px; }
+    #view-settings #panel-ai .service-layout { grid-template-columns: 1fr; }
+    #view-settings #panel-ai .ai-rail, #view-settings #panel-ai .ai-panel { padding: 14px; }
+  }
 </style>
 </head>
 <body>
@@ -1124,6 +1381,7 @@
   <div class="brand">
     <span class="logo">舆</span>
     <span>妙舆</span>
+    <span class="brand-subtitle">全网舆情分析</span>
     <span class="dot" id="healthDot" title="后端服务状态"></span>
   </div>
   <div class="nav">
@@ -1149,80 +1407,94 @@
 </div>
 
 <div class="wrap">
-  <!-- ========== 首页（态势面板）：只做热点展示 + 极简发起 ========== -->
+  <!-- ========== 首页（研判入口）：先回答“现在发生了什么”，再进入分析 ========== -->
   <div id="view-home">
-    <!-- 页面锚点：一句话说明产品价值 -->
-    <div class="hero">
-      <h2>全网舆情态势</h2>
-      <p>从正在发生的变化出发，用公开证据形成可追溯的研判</p>
-    </div>
+    <section class="home-hero" aria-labelledby="homeTitle">
+      <h2 id="homeTitle">洞察舆情，把握先机</h2>
+    </section>
 
-    <!-- 极简搜索条：输入主题即发起分析，回车开始；过程在「分析」工作区呈现 -->
-    <div class="card qbar">
-      <div class="form-row">
-        <input type="text" id="topic" placeholder="你要追踪什么？" autocomplete="off" onkeydown="if(event.key==='Enter')startHome()">
+    <section class="home-query" aria-label="开始研判">
+      <div class="home-query-shell">
+        <input type="text" id="topic" placeholder="输入事件、关键词或话题，了解全网舆情" autocomplete="off" onkeydown="if(event.key==='Enter')startHome()">
         <button class="primary" onclick="startHome()">开始研判</button>
       </div>
       <div id="hint"></div>
-    </div>
+      <div class="home-trends" aria-label="今日热搜">
+        <span class="home-trends-label">今日热搜：</span>
+        <div class="home-trend-items" id="homeTrendItems"><span class="f-help">正在更新</span></div>
+        <button type="button" class="home-trend-refresh" onclick="renderHomeTrends(true)">换一批</button>
+      </div>
+    </section>
 
-    <!-- 态势主体：榜单墙（左）+ 舆情雷达（右）+ 概览/扩散（下） -->
-    <div class="dash">
-      <div class="card plain dash-boards">
-        <div class="section-title"><span><span class="sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span>全网热点速览 <span class="f-help" id="hotUpdated"></span></span></div>
-        <div class="bw-wall" id="boardWall"><div class="f-help">榜单加载中…</div></div>
+    <section class="home-focus-card" id="homeFocusCard" aria-labelledby="homeFocusTitle">
+      <div id="homeFocusContent"><div class="f-help">焦点加载中…</div></div>
+    </section>
+
+    <section class="home-fresh-card" id="homeFreshCard" aria-labelledby="homeFreshTitle">
+      <div class="home-section-head">
+        <div><h2 id="homeFreshTitle">刚刚发生</h2><span>过去 10 分钟内的新发、上升或跨平台事件</span></div>
+        <button type="button" class="home-link-button" onclick="showView('history')">查看更多 →</button>
       </div>
-      <div class="card dash-radar">
-        <div class="section-title" title="对比上次扫描，捕捉新上榜热点"><span><span class="sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg></span>舆情雷达 <span class="radar-live" title="持续监测中"></span></span><span class="f-help" id="radarMeta"></span></div>
-        <div class="radar-list" id="radarList"><div class="f-help">雷达启动中…</div></div>
+      <div class="home-fresh-list" id="homeFreshList"><div class="f-help">雷达启动中…</div></div>
+    </section>
+
+    <section class="home-hot-card" id="homeHotCard" aria-labelledby="homeHotTitle">
+      <div class="home-section-head home-hot-head">
+        <div><h2 id="homeHotTitle">当前热榜</h2></div>
+        <div class="home-hot-tools"><select id="homeHotSort" aria-label="热榜排序" onchange="renderHomeHotTable()"><option value="heat">按热度</option><option value="rank">按榜内位置</option></select><span id="homeHotUpdated" class="home-hot-updated"></span></div>
       </div>
-      <div class="card dash-widget w-overview">
-        <div class="section-title"><span><span class="sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></span>热度概览</span></div>
-        <div id="hotStats"></div>
+      <div class="home-hot-tabs" id="homeHotTabs" role="tablist" aria-label="热榜平台"></div>
+      <div class="home-hot-table-wrap">
+        <table class="home-hot-table">
+          <thead><tr><th scope="col">排名</th><th scope="col">标题</th><th scope="col">平台</th><th scope="col">热度</th><th scope="col">趋势</th><th scope="col">上榜时间</th></tr></thead>
+          <tbody id="homeHotTableBody"><tr><td colspan="6" class="home-table-empty">榜单加载中…</td></tr></tbody>
+        </table>
       </div>
-      <div class="card dash-widget w-spread">
-        <div class="section-title"><span><span class="sec-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></svg></span>跨榜扩散热词 <span class="f-help">同时登上多个榜单</span></span></div>
-        <div class="spread-chips" id="hotSpread"></div>
-      </div>
-    </div>
+      <button type="button" class="home-hot-more" onclick="document.querySelector('.home-hot-table-wrap').scrollTo({top: 0, behavior: 'smooth'})">继续浏览 →</button>
+    </section>
   </div>
 
   <!-- ========== 分析工作区：发起/进度/报告/最近分析 ========== -->
   <div id="view-analyze" class="hidden">
-    <div class="page-head">
+    <div class="page-head analysis-head">
       <div class="page-kicker">分析工作区</div>
       <h2>开始一次研判</h2>
       <p>输入一个事件、主体或政策，系统会从公开信源整理事实、原因、风险与对策。</p>
     </div>
-    <div class="card qbar">
-      <div class="form-row">
+    <div class="card qbar analysis-launch-card">
+      <div class="analysis-query-row">
         <input type="text" id="topicFull" placeholder="输入舆情主题：假装上班公司 / 孙宇晨 / 某品牌事件…" autocomplete="off" onkeydown="if(event.key==='Enter')startFull()">
-        <select id="provider">
-          <option value="">自动选择</option>
-          <option value="router">本地网关</option>
-          <option value="deepseek">DeepSeek</option>
-          <option value="qwen">通义千问</option>
-        </select>
-        <label class="inline-opt"><input type="checkbox" id="verify"> 事实校验轮</label>
         <button class="primary" id="runBtn" onclick="startFull()">开始研判</button>
+      </div>
+      <div class="analysis-options-row">
+        <label class="analysis-provider" for="provider"><span>分析服务</span>
+          <select id="provider">
+            <option value="">自动选择</option>
+            <option value="router">本地网关</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="qwen">通义千问</option>
+          </select>
+        </label>
+        <label class="analysis-verify"><input type="checkbox" id="verify"> <span>启用事实校验轮</span></label>
+        <span class="analysis-evidence-note">结论来自公开信源，报告保留证据链接</span>
       </div>
       <div id="hintFull"></div>
     </div>
 
-    <div class="card hidden" id="progressCard">
+    <div class="card analysis-progress-card hidden" id="progressCard">
       <div class="section-title">分析进度 <span id="progressState" class="badge pending">排队中</span></div>
       <div class="progress-box" id="progressText">任务已创建...</div>
       <div class="bar"><div id="barFill"></div></div>
     </div>
 
-    <div class="card hidden" id="reportCard">
+    <div class="card analysis-report-card hidden" id="reportCard">
       <div class="print-head" id="printHead"></div>
       <div class="section-title">分析报告</div>
       <div class="actions" id="reportActions"></div>
       <div class="report" id="reportBody"></div>
     </div>
 
-    <div class="card thin">
+    <div class="card thin analysis-recent-card">
       <div class="section-title">最近分析 <a href="javascript:void(0)" onclick="showView('history')" style="font-size:12px;font-weight:600" id="recentAllLink">全部历史 ›</a></div>
       <ul class="tasks" id="taskList"><li style="color:var(--muted)">暂无任务</li></ul>
     </div>
@@ -1230,29 +1502,34 @@
 
   <!-- ========== 历史（二级视图） ========== -->
   <div id="view-history" class="hidden">
-    <div class="page-head">
+    <div class="page-head history-head">
       <div class="page-kicker">工作记录</div>
       <h2>历史研判</h2>
       <p>回到之前的主题，继续查看证据、编辑内容或导出报告。</p>
     </div>
     <div class="card history-tasks-card">
-      <div class="section-title">历史任务 <span class="f-help" id="historyTotal"></span></div>
+      <div class="history-card-head">
+        <div><div class="section-title">历史任务</div><p>按创建时间倒序排列，已完成任务可直接打开报告。</p></div>
+        <span class="history-total" id="historyTotal"></span>
+      </div>
       <ul class="tasks" id="historyList"><li style="color:var(--muted)">加载中…</li></ul>
       <div class="pager" id="historyPager"></div>
-      <div class="src-bar" style="margin-top:6px">
-        <button class="primary" style="padding:8px 16px;font-size:13px" onclick="showView('home')">← 返回首页</button>
+      <div class="history-card-footer">
+        <button class="history-back" type="button" onclick="showView('home')">← 返回首页</button>
       </div>
     </div>
 
     <div class="card history-files-card">
-      <div class="section-title">历史报告文件 <span class="f-help">（docx / markdown，重启不丢）</span></div>
+      <div class="history-card-head">
+        <div><div class="section-title">报告归档</div><p>保留 Word 与 Markdown 文件，服务重启后仍可继续下载。</p></div>
+      </div>
       <ul class="tasks" id="reportFiles2"></ul>
     </div>
   </div>
 
   <!-- ========== 设置 ========== -->
   <div id="view-settings" class="hidden">
-    <div class="page-head">
+    <div class="page-head settings-head">
       <div class="page-kicker">系统偏好</div>
       <h2>设置</h2>
       <p>让采集范围和分析服务符合你的工作方式。</p>
@@ -1383,7 +1660,7 @@
             <div class="f-help" style="margin-top:8px">勾选 = 优先关注并标注等级（S/A/B/C/D）；<b>未勾选或名单外的信源仍会采集保留</b>，报告中按可信度规则标注，不丢失信息。事实裁决：S/A 级方可作事实依据。</div>
           </div>
 
-          <div class="set-footer">
+          <div class="set-footer" id="settingsFooter">
             <button class="primary" onclick="saveSettings()">保存设置</button>
             <span class="f-help">保存后立即生效，无需重启服务</span>
           </div>
@@ -1479,6 +1756,8 @@ function showPanel(name, btn) {
     b.classList.toggle("active", active);
     b.setAttribute("aria-current", active ? "page" : "false");
   });
+  const settingsFooter = $("settingsFooter");
+  if (settingsFooter) settingsFooter.classList.toggle("hidden", name !== "panel-base");
   localStorage.setItem("settings_panel", name);
   if (name === "panel-groups") loadSources();
   if (name === "panel-ai") loadAiProviders();
@@ -2390,10 +2669,13 @@ async function loadHotBoards(force) {
   const srcTxt = (p && p.provider === "tophubdata")
     ? `TopHubData · 当日已用 ${p.used}/${p.limit}`
     : (newsnowCount ? `NewsNow 公开源 · ${newsnowCount} 个榜单在线` : "公开 HTML 兜底 · 自动降级");
-  $("hotUpdated").innerHTML = `<span class="hot-meta">${srcTxt}</span> <button class="ht" onclick="loadHotBoards(true)" title="刷新">${IC.refresh}刷新</button>`;
-  renderBoardsWall();
-  renderHotStats();
-  renderHotSpread();
+  const updatedHtml = `<span class="hot-meta">${srcTxt}</span> <button class="ht" onclick="loadHotBoards(true)" title="刷新">${IC.refresh}刷新</button>`;
+  if ($("hotUpdated")) $("hotUpdated").innerHTML = updatedHtml;
+  if ($("homeHotUpdated")) $("homeHotUpdated").innerHTML = `${srcTxt}`;
+  renderHomeTrends();
+  renderHomeFocus();
+  renderHomeFresh();
+  renderHomeHotTable();
   renderRadar();
 }
 
@@ -2471,20 +2753,23 @@ function allHotItems() {
       const meta = heatMeta(it, it.rank, (b.items || []).length);
       if (!seen[k]) {
         seen[k] = { title: it.title, url: it.url, hot: it.hot, heat: meta,
-          rankScore: meta.relativeScore, boards: new Set() };
+          rankScore: meta.relativeScore, boards: new Set(), sources: [], isNew: Boolean(it.is_new) };
       } else {
         seen[k].rankScore = Math.max(seen[k].rankScore, meta.relativeScore);
         if (meta.relativeScore > seen[k].heat.relativeScore) seen[k].heat = meta;
         if (!seen[k].hot && it.hot) seen[k].hot = it.hot;
         if (!seen[k].url && it.url) seen[k].url = it.url;
+        seen[k].isNew = seen[k].isNew || Boolean(it.is_new);
       }
       seen[k].boards.add(b.name);
+      seen[k].sources.push({ name: b.name, source_id: b.source_id, rank: it.rank || meta.rank });
     }
   }
   return Object.values(seen)
     .map(x => ({ title: x.title, url: x.url, hot: x.hot, heat: x.heat,
       rank: x.heat && x.heat.rank,
-      rankScore: x.rankScore, board: [...x.boards].join("/"), numBoards: x.boards.size }))
+      rankScore: x.rankScore, board: [...x.boards].join("/"), boards: [...x.boards], sources: x.sources,
+      numBoards: x.boards.size, isNew: x.isNew }))
     // 跨平台出现是最强的公共信号；只有在覆盖数相同时才比较榜内相对位置。
     .sort((a, b) => b.numBoards - a.numBoards || b.rankScore - a.rankScore);
 }
@@ -2531,6 +2816,202 @@ function renderBoardsWall() {
     </div>
     <div class="signal-lead-action"><button class="btn-ghost-sm" onclick="analyzeHot('${leadTitleAttr}')">分析这个热点 →</button></div>
   </div><div class="hot-board-grid" aria-label="六个平台热榜">${boardCards}</div>`;
+}
+
+/* 首页新布局：所有视图只从 HOT 快照取数，避免焦点、雷达、榜单各自复制一套数据。 */
+const HOME_BOARD_ORDER = ["微博热搜", "知乎热榜", "抖音热点", "B站热门", "百度热搜", "今日头条热榜"];
+const HOME_BOARD_META = {
+  "微博热搜": { short: "微", cls: "weibo" },
+  "知乎热榜": { short: "知", cls: "zhihu" },
+  "抖音热点": { short: "抖", cls: "douyin" },
+  "B站热门": { short: "B", cls: "bilibili" },
+  "百度热搜": { short: "百", cls: "baidu" },
+  "今日头条热榜": { short: "头", cls: "toutiao" },
+};
+
+function homeBoardMeta(name) {
+  return HOME_BOARD_META[name] || { short: String(name || "榜").slice(0, 1), cls: "generic" };
+}
+
+function homeBoards() {
+  const rank = Object.fromEntries(HOME_BOARD_ORDER.map((name, index) => [name, index]));
+  return HOT.boards.filter(b => Object.prototype.hasOwnProperty.call(rank, b.name))
+    .sort((a, b) => rank[a.name] - rank[b.name]);
+}
+
+function homeJsq(value) {
+  return String(value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/[\r\n]+/g, " ");
+}
+
+function homeAction(title, url) {
+  return `onclick="openHotByName('${homeJsq(title)}', '${homeJsq(url)}', event)" onkeydown="if(event.key==='Enter'||event.key===' '){openHotByName('${homeJsq(title)}', '${homeJsq(url)}', event);event.preventDefault();}"`;
+}
+
+function homePlatformMarks(row) {
+  const sources = Array.isArray(row.sources) && row.sources.length
+    ? row.sources
+    : String(row.board || "").split("/").filter(Boolean).map(name => ({ name }));
+  const visible = sources.slice(0, 3).map(source => {
+    const meta = homeBoardMeta(source.name);
+    return `<span class="home-platform-mark ${meta.cls}" title="${esc(source.name)}">${esc(meta.short)}</span>`;
+  }).join("");
+  const more = sources.length > 3 ? `<span class="home-hot-platform-more">+${sources.length - 3}</span>` : "";
+  return `<div class="home-hot-platforms">${visible}${more}</div>`;
+}
+
+function homeRawCount() {
+  return homeBoards().reduce((sum, board) => sum + (Array.isArray(board.items) ? board.items.length : 0), 0);
+}
+
+function renderHomeTrends(force) {
+  const box = $("homeTrendItems");
+  if (!box) return;
+  const items = allHotItems();
+  if (!items.length) { box.innerHTML = '<span class="f-help">暂无热点数据</span>'; return; }
+  const width = Math.min(4, items.length);
+  if (force) HOT.tickerOffset = ((HOT.tickerOffset || 0) + width) % items.length;
+  const offset = HOT.tickerOffset || 0;
+  const selected = Array.from({ length: width }, (_, index) => items[(offset + index) % items.length]);
+  box.innerHTML = selected.map(item => `<button type="button" class="home-trend-item" ${homeAction(item.title, item.url)}><span title="${esc(item.title)}">${esc(item.title)}</span></button>`).join("");
+}
+
+function renderHomeFocus() {
+  const box = $("homeFocusContent");
+  if (!box) return;
+  const boards = homeBoards();
+  const all = allHotItems();
+  if (!boards.length || !all.length) {
+    box.innerHTML = '<div class="f-help">暂无公开榜单数据，数据服务恢复后会自动更新。</div>';
+    return;
+  }
+  const lead = all[0];
+  const leadKey = normHotTitle(lead.title);
+  const matching = boards.map(board => {
+    const item = (board.items || []).find(candidate => normHotTitle(candidate.title) === leadKey);
+    return item ? { name: board.name, rank: item.rank || "—" } : null;
+  }).filter(Boolean);
+  const leadBoards = matching.length || lead.numBoards || 1;
+  const heat = heatMeta(lead, lead.rank, lead.heat && lead.heat.board_size);
+  const status = lead.isNew ? "新上榜" : (leadBoards > 1 ? `跨 ${leadBoards} 个平台` : "持续关注");
+  const trend = lead.isNew ? "新上榜" : "持续关注";
+  const totalBoards = boards.length;
+  const totalItems = homeRawCount();
+  const insights = [lead, ...all.filter(item => normHotTitle(item.title) !== leadKey)].slice(0, 3);
+  const analyzeAction = `onclick="analyzeHot('${homeJsq(lead.title)}')" onkeydown="if(event.key==='Enter'||event.key===' '){analyzeHot('${homeJsq(lead.title)}');event.preventDefault();}"`;
+  const chips = matching.length
+    ? matching.map(item => `<span class="home-focus-chip">${esc(item.name)} <strong>${esc(String(item.rank))}</strong></span>`).join("")
+    : `<span class="home-focus-chip">${esc(lead.board || "公开榜单")} <strong>在榜</strong></span>`;
+  box.innerHTML = `<div class="home-focus-layout">
+    <div class="home-focus-main">
+      <div class="home-focus-top">
+        <div>
+          <div class="home-focus-eyebrow"><span class="focus-dot" aria-hidden="true"></span>当前关注焦点 <span class="f-help">跨平台覆盖优先，榜内位置其次</span></div>
+          <h2 class="home-focus-title" id="homeFocusTitle">${esc(lead.title || "暂无升温主题")} <span class="home-focus-chip"><strong>${esc(heat.display)}</strong></span></h2>
+          <p class="home-focus-desc">${leadBoards > 1 ? "相关信息已出现在多个公开平台，" : "该热点已进入公开榜单，"}热度标注统一按榜内位置计算，来源原生热度仅作参考；若要形成结论，请进入分析工作区补充公开证据。</p>
+        </div>
+        <button type="button" class="home-focus-action" ${analyzeAction}>开始研判</button>
+      </div>
+      <div class="home-focus-metrics">
+        <div class="home-focus-metric"><div class="home-focus-metric-label">热度评级</div><div class="home-focus-metric-value hot">${esc(heat.display)}</div></div>
+        <div class="home-focus-metric"><div class="home-focus-metric-label">覆盖平台</div><div class="home-focus-metric-value">${totalBoards} 个</div></div>
+        <div class="home-focus-metric"><div class="home-focus-metric-label">热点条目</div><div class="home-focus-metric-value">${totalItems} 条</div></div>
+        <div class="home-focus-metric"><div class="home-focus-metric-label">上榜情况</div><div class="home-focus-metric-value compact">${matching.length ? `已上榜 ${matching.length} 个` : "已上榜"}</div></div>
+        <div class="home-focus-metric"><div class="home-focus-metric-label">持续趋势</div><div class="home-focus-metric-value compact">${trend}</div></div>
+      </div>
+      <div class="home-focus-chips"><span class="home-focus-chip"><strong>${esc(status)}</strong></span>${chips}</div>
+    </div>
+    <aside class="home-focus-insight" aria-label="要点速览">
+      <h3>要点速览</h3>
+      <ul>${insights.map(item => `<li title="${esc(item.title)}">${esc(item.title)}</li>`).join("")}</ul>
+      <button type="button" class="home-link-button" ${analyzeAction}>查看完整分析 →</button>
+    </aside>
+  </div>`;
+}
+
+function homeFreshItems() {
+  const groups = HOT.radarNewByBoard || [];
+  const fresh = [];
+  for (let offset = 0; offset < 10 && fresh.length < 4; offset++) {
+    for (const group of groups) {
+      const item = group.items[offset];
+      if (!item) continue;
+      fresh.push({ ...item, board: group.board, fallback: false });
+      if (fresh.length >= 4) break;
+    }
+  }
+  if (fresh.length) return fresh;
+  return allHotItems().slice(0, 4).map(item => ({ ...item, board: item.board || "公开榜单", fallback: true }));
+}
+
+function renderHomeFresh() {
+  const box = $("homeFreshList");
+  if (!box) return;
+  const items = homeFreshItems();
+  if (!items.length) { box.innerHTML = '<div class="f-help">暂无榜单变化，雷达将随刷新持续监测。</div>'; return; }
+  box.innerHTML = items.map(item => {
+    const meta = homeBoardMeta(item.board);
+    const heat = heatMeta(item, item.rank, item.heat && item.heat.board_size);
+    const status = item.fallback ? "当前快照" : (item.is_new ? "新上榜" : "榜单变化");
+    return `<button type="button" class="home-fresh-item" ${homeAction(item.title, item.url)} aria-label="${esc(item.title)}">
+      <span class="home-platform-mark ${meta.cls}" aria-hidden="true">${esc(meta.short)}</span>
+      <span><span class="home-fresh-title">${esc(item.title)}</span><span class="home-fresh-meta">${esc(item.board)} · ${status}</span></span>
+      <span class="home-fresh-level">${esc(heat.display)}</span>
+    </button>`;
+  }).join("");
+}
+
+function homeBoardRows(board) {
+  const items = board && Array.isArray(board.items) ? board.items : [];
+  return items.map((item, index) => {
+    const rank = item.rank || index + 1;
+    const heat = heatMeta(item, rank, items.length || 15);
+    return { title: item.title, url: item.url, hot: item.hot, heat, rank, rankScore: heat.relativeScore,
+      board: board.name, boards: [board.name], sources: [{ name: board.name, source_id: board.source_id, rank }],
+      numBoards: 1, isNew: Boolean(item.is_new) };
+  });
+}
+
+function selectHomeHotTab(value) {
+  HOT.active = value || "all";
+  renderHomeHotTable();
+}
+
+function renderHomeHotTable() {
+  const tabs = $("homeHotTabs");
+  const body = $("homeHotTableBody");
+  if (!tabs || !body) return;
+  const boards = homeBoards();
+  const rawCount = homeRawCount();
+  const tabData = [{ value: "all", label: "全部平台" }, ...HOME_BOARD_ORDER.map(name => ({ value: name, label: name }))];
+  tabs.innerHTML = tabData.map(tab => {
+    const count = tab.value === "all" ? rawCount : ((boards.find(board => board.name === tab.value) || {}).items || []).length;
+    const active = HOT.active === tab.value ? " active" : "";
+    return `<button type="button" role="tab" aria-selected="${HOT.active === tab.value}" class="home-hot-tab${active}" onclick="selectHomeHotTab('${homeJsq(tab.value)}')">${esc(tab.label)} <span>${count}</span></button>`;
+  }).join("");
+  let rows = HOT.active === "all"
+    ? allHotItems()
+    : homeBoardRows(boards.find(board => board.name === HOT.active));
+  const sort = $("homeHotSort") ? $("homeHotSort").value : "heat";
+  rows = rows.slice().sort((a, b) => sort === "rank"
+    ? (a.rank || 999) - (b.rank || 999) || b.numBoards - a.numBoards
+    : b.numBoards - a.numBoards || (b.rankScore || 0) - (a.rankScore || 0));
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="home-table-empty">该平台暂无可用榜单数据</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map((row, index) => {
+    const heat = heatMeta(row, row.rank, row.heat && row.heat.board_size);
+    const trend = row.isNew ? '<span class="home-hot-trend new">↑ 新</span>' : '<span class="home-hot-trend">—</span>';
+    const subtitle = row.numBoards > 1 ? `跨 ${row.numBoards} 个平台` : (row.board || "公开榜单");
+    return `<tr class="home-hot-row" tabindex="0" ${homeAction(row.title, row.url)}>
+      <td><span class="home-hot-rank${index < 3 ? " top" : ""}">${esc(String(row.rank || index + 1))}</span></td>
+      <td><span class="home-hot-title" title="${esc(row.title)}">${esc(row.title)}</span><span class="home-hot-subtitle">${esc(subtitle)}</span></td>
+      <td>${homePlatformMarks(row)}</td>
+      <td><span class="home-hot-heat" title="${esc(heat.tooltip)}">${esc(heat.display)}</span></td>
+      <td>${trend}</td>
+      <td>—</td>
+    </tr>`;
+  }).join("");
 }
 
 function openHotByName(title, url, ev) {
