@@ -340,6 +340,68 @@ class TaskRouteTests(unittest.TestCase):
         self.assertEqual(payload["report"]["title"], "离线验收主题")
         self.assertEqual(payload["report"]["sections"], 1)
 
+    def test_history_groups_runs_and_keeps_exports_under_report(self):
+        tasks = [
+            {
+                "id": "done-new", "topic": "开局之年看山西", "status": "done",
+                "step": "done", "detail": "完成，耗时 42.0s",
+                "created_at": "2026-09-03 12:00:00", "finished_at": "2026-09-03 12:00:42",
+                "provider": "auto", "verify": False, "error": "",
+                "report_summary": {
+                    "title": "开局之年看山西舆情分析报告", "sections": 5,
+                    "elapsed_sec": 42, "docx": "C:/reports/shanxi.docx",
+                    "md": "C:/reports/shanxi.md",
+                },
+            },
+            {
+                "id": "failed-old", "topic": "  开局之年看山西  ", "status": "error",
+                "step": "error", "detail": "任务失败: internal",
+                "created_at": "2026-09-02 12:00:00", "finished_at": "2026-09-02 12:00:01",
+                "provider": "auto", "verify": False,
+                "error": "'gbk' codec can't encode character '\u26a0'",
+                "report_summary": None,
+            },
+            {
+                "id": "running", "topic": "另一主题", "status": "running",
+                "step": "collect", "detail": "正在采集公开信源",
+                "created_at": "2026-09-03 13:00:00", "finished_at": "",
+                "provider": "router", "verify": True, "error": "",
+                "report_summary": None,
+            },
+        ]
+        with patch.object(app_module, "db_task_list", return_value=tasks):
+            response = make_client().get("/api/history?per=8")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["total"], 2)
+        self.assertEqual(payload["total_runs"], 3)
+        group = next(item for item in payload["items"] if item["topic"] == "开局之年看山西")
+        self.assertEqual(group["run_count"], 2)
+        self.assertEqual(group["status"], "done")
+        self.assertEqual([item["label"] for item in group["latest"]["report"]["exports"]],
+                         ["Word", "Markdown"])
+        self.assertEqual(group["latest"]["report"]["exports"][0]["url"],
+                         "/api/reports/shanxi.docx")
+        self.assertNotIn("gbk", group["runs"][1]["detail"].lower())
+        self.assertIn("字符兼容", group["runs"][1]["detail"])
+
+    def test_history_filters_by_latest_status_and_search(self):
+        tasks = [
+            {"id": "a", "topic": "品牌发布", "status": "done", "step": "done",
+             "detail": "完成", "created_at": "2026-09-03 12:00:00", "finished_at": "",
+             "provider": "auto", "verify": False, "error": "", "report_summary": None},
+            {"id": "b", "topic": "政策讨论", "status": "running", "step": "collect",
+             "detail": "采集中", "created_at": "2026-09-03 13:00:00", "finished_at": "",
+             "provider": "auto", "verify": False, "error": "", "report_summary": None},
+        ]
+        with patch.object(app_module, "db_task_list", return_value=tasks):
+            response = make_client().get("/api/history?status=active&q=政策")
+
+        payload = response.get_json()
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(payload["items"][0]["topic"], "政策讨论")
+
 
 class RiskNormalizationTests(unittest.TestCase):
     def test_missing_risk_ids_are_generated_and_advice_can_be_matched(self):

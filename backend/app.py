@@ -5,6 +5,7 @@
 接口：
     POST /api/analyze          {topic, provider?, verify?} → {task_id}
     GET  /api/tasks            → 历史任务列表
+    GET  /api/history          → 按主题组织的研判记录与报告导出
     GET  /api/tasks/<id>       → 任务状态/进度/报告
     GET  /api/reports/<file>   → 下载报告文件（docx/xlsx/json）
 """
@@ -182,6 +183,141 @@ def api_tasks():
     total = len(all_items)
     items = all_items[(page - 1) * per: page * per]
     return jsonify({"items": items, "total": total, "page": page, "per_page": per})
+
+
+def _history_report_summary(value) -> dict:
+    """把任务摘要收敛为历史页所需的报告元数据，不暴露服务器文件路径。"""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            value = {}
+    if not isinstance(value, dict):
+        value = {}
+
+    exports = []
+    for field, kind, label in (("docx", "DOCX", "Word"), ("md", "MD", "Markdown")):
+        raw_path = str(value.get(field) or "").strip()
+        if not raw_path:
+            continue
+        name = Path(raw_path).name
+        if not name:
+            continue
+        exports.append({
+            "kind": kind,
+            "label": label,
+            "name": name,
+            "url": f"/api/reports/{name}",
+        })
+
+    try:
+        sections = max(0, int(value.get("sections") or 0))
+    except (TypeError, ValueError):
+        sections = 0
+    return {
+        "title": str(value.get("title") or "").strip(),
+        "sections": sections,
+        "elapsed_sec": value.get("elapsed_sec"),
+        "exports": exports,
+    }
+
+
+def _history_failure_message(error: str) -> str:
+    """历史页只给出用户可行动的原因；完整异常仍留在日志与任务详情中。"""
+    detail = (error or "").lower()
+    if "codec can't encode" in detail or "unicodeencodeerror" in detail:
+        return "报告生成时遇到字符兼容问题，可以重新研判。"
+    if "timeout" in detail or "timed out" in detail:
+        return "采集或分析服务响应超时，可以稍后重试。"
+    if "unauthorized" in detail or "api key" in detail or "401" in detail:
+        return "分析服务认证失败，请检查接口设置后重试。"
+    return "本次研判未完成，可以查看设置后重新发起。"
+
+
+def _history_run(task: dict) -> dict:
+    status = task.get("status") or "pending"
+    report = _history_report_summary(task.get("report_summary"))
+    if status == "error":
+        detail = _history_failure_message(task.get("error") or task.get("detail") or "")
+    else:
+        detail = str(task.get("detail") or "").strip()
+    return {
+        "id": task.get("id") or "",
+        "status": status,
+        "step": task.get("step") or "",
+        "detail": detail,
+        "created_at": task.get("created_at") or "",
+        "finished_at": task.get("finished_at") or "",
+        "provider": task.get("provider") or "auto",
+        "verify": bool(task.get("verify")),
+        "report": report,
+        "can_open": status in {"pending", "running", "done"},
+        "can_retry": status == "error",
+    }
+
+
+@app.get("/api/history")
+def api_history():
+    """按主题组织历史研判；报告格式是任务结果的子资源，不再与任务平级。"""
+    try:
+        page = max(1, int(request.args.get("page", 1) or 1))
+        per = min(50, max(1, int(request.args.get("per", 8) or 8)))
+        days = max(0, min(3650, int(request.args.get("days", 0) or 0)))
+    except (TypeError, ValueError):
+        return jsonify({"error": "分页或时间范围参数无效"}), 400
+
+    query = " ".join((request.args.get("q") or "").split()).casefold()
+    status_filter = (request.args.get("status") or "all").strip().lower()
+    if status_filter not in {"all", "active", "done", "error"}:
+        return jsonify({"error": "状态筛选参数无效"}), 400
+    sort_order = (request.args.get("sort") or "newest").strip().lower()
+    if sort_order not in {"newest", "oldest"}:
+        return jsonify({"error": "排序参数无效"}), 400
+
+    cutoff = datetime.now() - timedelta(days=days) if days else None
+    grouped: dict[str, dict] = {}
+    for task in db_task_list(500):
+        topic = " ".join(str(task.get("topic") or "").split()) or "未命名主题"
+        if query and query not in topic.casefold():
+            continue
+        if cutoff:
+            try:
+                created = datetime.strptime(task.get("created_at") or "", "%Y-%m-%d %H:%M:%S")
+            except (TypeError, ValueError):
+                created = None
+            if created and created < cutoff:
+                continue
+
+        key = topic.casefold()
+        if key not in grouped:
+            grouped[key] = {"id": task.get("id") or key, "topic": topic, "runs": []}
+        grouped[key]["runs"].append(_history_run(task))
+
+    groups = []
+    for group in grouped.values():
+        group["runs"].sort(key=lambda item: item["created_at"], reverse=True)
+        latest = group["runs"][0]
+        group["latest"] = latest
+        group["status"] = latest["status"]
+        group["run_count"] = len(group["runs"])
+        group["completed_count"] = sum(run["status"] == "done" for run in group["runs"])
+        if status_filter == "active" and latest["status"] not in {"pending", "running"}:
+            continue
+        if status_filter in {"done", "error"} and latest["status"] != status_filter:
+            continue
+        groups.append(group)
+
+    groups.sort(key=lambda item: item["latest"]["created_at"], reverse=sort_order == "newest")
+    total_groups = len(groups)
+    total_runs = sum(group["run_count"] for group in groups)
+    start = (page - 1) * per
+    return jsonify({
+        "items": groups[start:start + per],
+        "total": total_groups,
+        "total_runs": total_runs,
+        "page": page,
+        "per_page": per,
+    })
 
 
 @app.get("/api/tasks/<tid>")
