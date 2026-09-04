@@ -1008,6 +1008,22 @@ class EventAggregationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["items"][0]["title"], "历史条目")
 
+    def test_ui2_container_hierarchy_flattens_secondary_sections(self):
+        frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("/* ── UI-2 容器减法", frontend)
+        self.assertIn("--r-xl: 14px", frontend)
+        self.assertIn("#view-home .home-fresh-card", frontend)
+        self.assertIn("#view-analyze .analysis-progress-card", frontend)
+        self.assertIn("#view-history .history-group {", frontend)
+        self.assertIn("#view-settings #panel-groups .src-group {", frontend)
+
+    def test_home_actions_have_distinct_visual_and_semantic_roles(self):
+        frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('class="primary" onclick="startHome()">开始研判</button>', frontend)
+        self.assertIn('class="home-focus-action" ${analyzeAction}>分析此热点 →</button>', frontend)
+        self.assertNotIn('class="home-link-button" ${analyzeAction}>查看完整分析 →</button>', frontend)
+        self.assertNotIn('aria-label="要点速览"', frontend)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1155,7 +1155,7 @@
   .home-trend-refresh:hover { color: var(--accent); }
   .home-focus-card, .home-fresh-card, .home-hot-card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow-card); }
   .home-focus-card { margin-bottom: 18px; padding: 22px 24px 20px; }
-  .home-focus-layout { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 28px; align-items: stretch; }
+  .home-focus-layout { display: grid; grid-template-columns: 1fr; align-items: stretch; }
   .home-focus-main { min-width: 0; }
   .home-focus-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
   .home-focus-eyebrow { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--text); font-size: 13px; font-weight: 700; }
@@ -1175,11 +1175,6 @@
   .home-focus-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
   .home-focus-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: var(--surface); color: var(--text-2); font-size: 11px; }
   .home-focus-chip strong { color: var(--accent); font-weight: 650; }
-  .home-focus-insight { padding: 16px 18px; border-radius: 12px; background: var(--accent-tint); }
-  .home-focus-insight h3 { color: var(--text-strong); font-size: 14px; }
-  .home-focus-insight ul { margin: 10px 0 0 17px; padding: 0; color: var(--text-2); font-size: 12px; line-height: 1.75; }
-  .home-focus-insight li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .home-focus-insight .home-link-button { margin-top: 10px; padding: 0; color: var(--accent); font-size: 12px; font-weight: 650; }
   .home-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 18px 22px 12px; }
   .home-section-head h2 { display: inline; color: var(--text-strong); font-size: 16px; letter-spacing: -.025em; }
   .home-section-head span { margin-left: 10px; color: var(--text-3); font-size: 12px; }
@@ -1235,7 +1230,6 @@
 
   @media (max-width: 860px) {
     .home-focus-layout { grid-template-columns: 1fr; gap: 18px; }
-    .home-focus-insight { max-width: none; }
     .home-fresh-list { grid-template-columns: repeat(2, minmax(0,1fr)); }
     .home-fresh-item:nth-child(3) { padding-left: 0; border-left: 0; }
     .home-fresh-item:nth-child(n+3) { border-top: 1px solid var(--separator); }
@@ -1261,7 +1255,6 @@
     .home-focus-metric:nth-child(odd) { padding-left: 0; border-left: 0; }
     .home-focus-metric:nth-child(n+3) { padding-top: 3px; }
     .home-focus-metric-value { font-size: 17px; }
-    .home-focus-insight { padding: 14px; }
     .home-section-head { align-items: flex-start; padding: 16px 16px 11px; }
     .home-section-head > div:first-child { min-width: 0; }
     .home-section-head span { display: block; margin: 5px 0 0; line-height: 1.45; }
@@ -1618,6 +1611,91 @@
     .actions a.pri,
     .actions button.pri,
     .actions button.txt { height: 44px; min-height: 44px; }
+  }
+
+  /* ── UI-2 容器减法：用空间和排版分组，边界只表达真正的层级 ── */
+  :root {
+    --r-sm: 6px;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --r-xl: 14px;
+  }
+  .card { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+
+  /* 首页：焦点是唯一主卡；新鲜动态和热榜回归页面流。 */
+  #view-home .home-focus-card {
+    border-radius: var(--r-xl); box-shadow: var(--shadow-card);
+  }
+  #view-home .home-fresh-card,
+  #view-home .home-hot-card {
+    background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  }
+  #view-home .home-fresh-card { padding-top: 6px; }
+  #view-home .home-hot-card { padding-top: 4px; }
+  #view-home .home-fresh-list { padding-bottom: 6px; }
+
+  /* 顶部按钮负责“输入新主题”；焦点卡只提供轻量的上下文动作。 */
+  #view-home .home-focus-action {
+    display: inline-flex; align-items: center; gap: 5px; height: auto;
+    padding: 4px 0; border: 0; border-radius: 0;
+    background: transparent; color: var(--accent); font-size: 12px;
+    font-weight: 650; white-space: nowrap;
+  }
+  #view-home .home-focus-action:hover { background: transparent; color: var(--accent-hover); }
+
+  /* 分析：输入和报告保留工作面；进度、最近记录只用节奏分隔。 */
+  #view-analyze .analysis-launch-card,
+  #view-analyze .analysis-report-card {
+    background: var(--card); border-radius: var(--r-xl); box-shadow: var(--shadow-card);
+  }
+  #view-analyze .analysis-progress-card,
+  #view-analyze .analysis-recent-card {
+    border: 0; border-top: 1px solid var(--separator); border-radius: 0;
+    background: transparent; box-shadow: none;
+  }
+
+  /* 历史：外层不再套卡，主题记录以分隔列表承担结构。 */
+  #view-history > .card.history-workspace-card {
+    padding-left: 0; padding-right: 0; background: transparent;
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+  #view-history .history-groups { gap: 0; }
+  #view-history .history-group {
+    border-top: 1px solid var(--separator); border-radius: 0;
+    background: transparent;
+  }
+  #view-history .history-group:hover { background: var(--surface); }
+  #view-history .history-detail-inner { border-radius: var(--r-md); }
+  #view-history .history-run { border-radius: 0; background: transparent; border-top: 1px solid var(--separator); }
+
+  /* 设置：保留一个工作台外壳，来源分类和模型面板平铺。 */
+  #view-settings .settings-shell { background: var(--card); border-radius: var(--r-xl); }
+  #view-settings #panel-ai .ai-rail,
+  #view-settings #panel-ai .ai-panel {
+    padding-left: 0; padding-right: 0; border-radius: 0;
+    background: transparent; box-shadow: none;
+  }
+  #view-settings #panel-ai .provider-item.active {
+    border-radius: var(--r-md); background: var(--accent-tint); box-shadow: none;
+  }
+  #view-settings #panel-groups #srcList { gap: 28px 34px; }
+  #view-settings #panel-groups .src-group {
+    border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  }
+  #view-settings #panel-groups .src-group-head {
+    background: transparent; border-bottom: 1px solid var(--separator);
+  }
+  #view-settings .search-provider-card {
+    border: 0; border-radius: var(--r-lg); background: var(--surface);
+  }
+
+  @media (max-width: 760px) {
+    #view-home .home-focus-card { border-radius: var(--r-lg); }
+    #view-home .home-focus-action { width: auto; margin-top: 12px; }
+    #view-analyze .analysis-launch-card,
+    #view-analyze .analysis-report-card { border-radius: var(--r-lg); }
+    #view-settings .settings-shell { border-radius: var(--r-lg); }
+    #view-settings #panel-groups #srcList { gap: 20px; }
   }
 </style>
 </head>
@@ -3354,7 +3432,6 @@ function renderHomeFocus() {
   const trend = lead.isNew ? "新上榜" : "持续关注";
   const totalBoards = boards.length;
   const totalItems = homeRawCount();
-  const insights = [lead, ...all.filter(item => normHotTitle(item.title) !== leadKey)].slice(0, 3);
   const analyzeAction = `onclick="analyzeHot('${homeJsq(lead.title)}')" onkeydown="if(event.key==='Enter'||event.key===' '){analyzeHot('${homeJsq(lead.title)}');event.preventDefault();}"`;
   const chips = matching.length
     ? matching.map(item => `<span class="home-focus-chip">${esc(item.name)} <strong>${esc(String(item.rank))}</strong></span>`).join("")
@@ -3367,7 +3444,7 @@ function renderHomeFocus() {
           <h2 class="home-focus-title" id="homeFocusTitle">${esc(lead.title || "暂无升温主题")} <span class="home-focus-chip"><strong>${esc(heat.display)}</strong></span></h2>
           <p class="home-focus-desc">${leadBoards > 1 ? "相关信息已出现在多个公开平台，" : "该热点已进入公开榜单，"}热度标注统一按榜内位置计算，来源原生热度仅作参考；若要形成结论，请进入分析工作区补充公开证据。</p>
         </div>
-        <button type="button" class="home-focus-action" ${analyzeAction}>开始研判</button>
+        <button type="button" class="home-focus-action" ${analyzeAction}>分析此热点 →</button>
       </div>
       <div class="home-focus-metrics">
         <div class="home-focus-metric"><div class="home-focus-metric-label">热度评级</div><div class="home-focus-metric-value hot">${esc(heat.display)}</div></div>
@@ -3378,11 +3455,6 @@ function renderHomeFocus() {
       </div>
       <div class="home-focus-chips"><span class="home-focus-chip"><strong>${esc(status)}</strong></span>${chips}</div>
     </div>
-    <aside class="home-focus-insight" aria-label="要点速览">
-      <h3>要点速览</h3>
-      <ul>${insights.map(item => `<li title="${esc(item.title)}">${esc(item.title)}</li>`).join("")}</ul>
-      <button type="button" class="home-link-button" ${analyzeAction}>查看完整分析 →</button>
-    </aside>
   </div>`;
 }
 
