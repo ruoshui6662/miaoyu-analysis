@@ -747,6 +747,41 @@
   .auth-submit { width: 100%; height: 44px; margin-top: 8px; }
   .auth-logout { margin-left: auto; color: rgba(255, 255, 255, .72); background: transparent; border: 1px solid rgba(255, 255, 255, .18); }
   .auth-logout:hover { color: #fff; background: rgba(255, 255, 255, .1); }
+  .auth-reminder {
+    position: fixed; inset: 0; z-index: 99; display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: color-mix(in srgb, var(--bg-page) 78%, transparent);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .auth-reminder.hidden { display: none; }
+  .auth-reminder-card {
+    width: min(460px, 100%); padding: 28px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 18px; box-shadow: var(--shadow-card);
+  }
+  .auth-reminder-kicker { color: var(--red); font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+  .auth-reminder-card h2 { margin: 8px 0 6px; color: var(--text-strong); font-size: 21px; }
+  .auth-reminder-card p { color: var(--text-2); font-size: 13px; line-height: 1.65; }
+  .auth-reminder-actions { display: flex; gap: 10px; margin-top: 22px; }
+  /* 同组决策按钮共享几何规格，仅用填充/描边表达主次。 */
+  #passwordReminder .auth-reminder-actions button {
+    box-sizing: border-box; flex: 1 1 0; width: 0; min-width: 0; height: 44px; min-height: 44px;
+    margin: 0; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 600; line-height: 1;
+  }
+  #passwordReminder .auth-reminder-actions .primary { background: var(--red); border: 1px solid var(--red); color: #fff; }
+  #passwordReminder .auth-reminder-actions .btn-secondary { background: var(--card); border-color: var(--border-strong); color: var(--text-strong); }
+  .account-form { max-width: 560px; }
+  .account-notice { margin-bottom: 24px; padding: 12px 14px; border-radius: 10px; color: var(--text-2); background: var(--surface-2); font-size: 13px; line-height: 1.55; }
+  .account-notice.warn { color: var(--red); background: var(--red-bg); }
+  .account-user { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; color: var(--text-strong); }
+  .account-user span:last-child { color: var(--text-3); font-size: 12px; }
+  .account-actions { display: flex; align-items: center; gap: 12px; margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--separator); }
+  .account-actions .primary { min-width: 128px; min-height: 44px; }
+  .account-status { min-height: 20px; color: var(--text-3); font-size: 12px; }
+  .account-status.ok { color: var(--green-text); }
+  .account-status.error { color: var(--red); }
+  @media (max-width: 760px) {
+    .auth-reminder-actions, .account-actions { flex-direction: column; align-items: stretch; }
+    .account-actions .primary { width: 100%; }
+  }
 
   @media print {
     .header, .card:not(#reportCard), .actions, #reportActions, .tasks, .section-title, .hidden, .toast-host { display: none !important; }
@@ -1030,10 +1065,6 @@
     padding: 0 12px 14px; color: var(--text-3);
     font-size: 12px; font-weight: 600; letter-spacing: .04em;
   }
-  #view-settings .set-menu-foot {
-    margin-top: auto; padding: 18px 12px 0; color: var(--text-3);
-    font-size: 12px; line-height: 1.7;
-  }
   #view-settings .set-item {
     position: relative; height: 44px; padding: 0 12px;
     border: 0; border-radius: 10px; color: var(--text-2);
@@ -1078,8 +1109,7 @@
       scrollbar-width: none;
     }
     #view-settings .set-menu::-webkit-scrollbar { display: none; }
-    #view-settings .set-menu-head,
-    #view-settings .set-menu-foot { display: none; }
+    #view-settings .set-menu-head { display: none; }
     #view-settings .set-item {
       flex: 0 0 auto; width: auto; min-height: 40px; height: 40px; padding: 0 12px;
     }
@@ -1150,9 +1180,12 @@
   .home-fresh-item:first-child { padding-left: 0; border-left: 0; }
   .home-fresh-item:hover .home-fresh-title { color: var(--accent); }
   .home-platform-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; }
-  .home-platform-mark.weibo { background: #f3a019; } .home-platform-mark.zhihu { background: #1777ee; }
-  .home-platform-mark.douyin { background: #111; } .home-platform-mark.bilibili { background: #f18bb4; }
-  .home-platform-mark.baidu { background: #3478ed; } .home-platform-mark.toutiao { background: #ec4d43; }
+  .home-platform-mark.logo { overflow: hidden; background: var(--surface); border: 1px solid var(--separator); color: var(--text-strong); }
+  .home-platform-mark.logo svg, .home-platform-mark.logo img { display: block; width: 17px; height: 17px; object-fit: contain; }
+  /* 品牌色只用于无资产时的兼容首字母；真实 Logo 容器保持中性，避免颜色与图形叠加。 */
+  .home-platform-mark:not(.logo).weibo { background: #f3a019; } .home-platform-mark:not(.logo).zhihu { background: #1777ee; }
+  .home-platform-mark:not(.logo).douyin { background: #111; } .home-platform-mark:not(.logo).bilibili { background: #f18bb4; }
+  .home-platform-mark:not(.logo).baidu { background: #3478ed; } .home-platform-mark:not(.logo).toutiao { background: #ec4d43; }
   .home-platform-mark.generic { background: var(--text-2); }
   .home-fresh-title { display: block; overflow: hidden; color: var(--text-strong); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
   .home-fresh-meta { display: block; margin-top: 3px; overflow: hidden; color: var(--text-3); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -1245,7 +1278,8 @@
   .brand-subtitle { margin-left: 2px; color: var(--text-3); font-size: 12px; font-weight: 400; letter-spacing: 0; }
   .header .nav { margin-left: auto; }
   .header .header-meta { margin-left: 0; }
-  #view-analyze, #view-history, #view-settings { max-width: 1180px; margin: 0 auto; }
+  #view-analyze, #view-history { max-width: 1180px; margin: 0 auto; }
+  #view-settings { max-width: 1124px; margin: 0 auto; }
   #view-analyze .page-head, #view-history .page-head, #view-settings .page-head { margin-bottom: 30px; }
   #view-analyze .page-head p, #view-history .page-head p, #view-settings .page-head p { max-width: 680px; }
 
@@ -1331,7 +1365,7 @@
 
   /* 设置：一级功能区固定左侧；每个面板只保留自己的主动作。 */
   #view-settings .settings-shell { border-radius: 20px; }
-  #view-settings .set-layout { grid-template-columns: 196px minmax(0,1fr); gap: 20px; min-height: 540px; }
+  #view-settings .set-layout { grid-template-columns: 196px minmax(0,1fr); gap: 20px; min-height: 520px; }
   #view-settings .set-menu { margin: 16px 0 16px 16px; padding: 22px 14px; border-radius: 14px; }
   #view-settings .set-content { padding: 32px 40px 28px 20px; }
   #view-settings .panel-page-head { margin-bottom: 28px; }
@@ -1348,9 +1382,110 @@
   #view-settings #panel-ai .ai-panel { padding: 18px 20px; border-radius: 14px; background: var(--surface); }
   #view-settings #panel-ai .pcard { border-top-color: var(--separator); }
   #view-settings #panel-ai .ai-actions { padding-top: 18px; }
-  #view-settings #panel-groups .src-bar { padding: 12px 14px; border-radius: 12px; background: var(--surface); }
-  #view-settings #panel-groups #srcList { margin-top: 14px; }
-  #view-settings #panel-groups .src-add { margin-top: 18px; padding: 16px; border-radius: 12px; background: var(--surface); }
+  #view-settings #panel-groups .src-bar {
+    padding: 0; margin-bottom: 18px; background: transparent; gap: 10px; align-items: center;
+  }
+  #view-settings #panel-groups .src-stat { display: none; }
+  #view-settings #panel-groups .src-bar input {
+    min-width: 0; height: 42px; padding-left: 15px; background: var(--card); border-radius: 11px;
+  }
+  #view-settings #panel-groups .src-add-trigger {
+    flex: none; min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); border-radius: 11px; background: var(--card); color: var(--text-strong);
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  #view-settings #panel-groups .src-add-trigger:hover { border-color: var(--border-hover); background: var(--surface); }
+  #view-settings #panel-groups .src-add-trigger svg { width: 15px; height: 15px; color: var(--red); }
+  #view-settings #panel-groups #srcList {
+    margin-top: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;
+    align-items: start;
+  }
+  #view-settings #panel-groups .src-group {
+    display: flex; flex-direction: column; min-width: 0; margin-bottom: 0; border: 1px solid var(--border);
+    border-radius: 14px; background: var(--card); overflow: hidden; box-shadow: var(--shadow-card);
+  }
+  #view-settings #panel-groups .src-group-head {
+    width: 100%; min-height: 56px; padding: 14px 16px; gap: 10px; border: 0; border-bottom: 1px solid var(--separator);
+    color: var(--text); background: var(--card); text-align: left; cursor: pointer;
+  }
+  #view-settings #panel-groups .src-group-head:hover { background: var(--surface); }
+  #view-settings #panel-groups .src-group-head .gi { width: 18px; height: 18px; color: var(--red); }
+  #view-settings #panel-groups .src-group-head .gi svg { width: 18px; height: 18px; }
+  #view-settings #panel-groups .src-group-head .gn { font-size: 14px; }
+  #view-settings #panel-groups .src-group-head .gc { display: inline-flex; align-items: center; font-size: 12px; color: var(--text-3); }
+  #view-settings #panel-groups .src-group-head .arrow { width: 15px; height: 15px; margin-left: 2px; font-size: 0; }
+  #view-settings #panel-groups .src-group-head .arrow svg { width: 15px; height: 15px; transition: transform .18s ease; }
+  #view-settings #panel-groups .src-group.is-expanded .src-group-head .arrow svg { transform: rotate(180deg); }
+  #view-settings #panel-groups .src-items { display: block; padding: 6px 14px 0; }
+  #view-settings #panel-groups .src-item {
+    min-width: 0; min-height: 48px; padding: 6px 2px; gap: 9px; border-top: 0; background: transparent;
+  }
+  #view-settings #panel-groups .src-item + .src-item { border-top: 1px solid var(--separator); }
+  #view-settings #panel-groups .src-item:hover { background: transparent; }
+  #view-settings #panel-groups .src-source-mark {
+    width: 27px; height: 27px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px; overflow: hidden; background: var(--surface-2); color: var(--text-2);
+  }
+  #view-settings #panel-groups .src-source-mark svg { width: 15px; height: 15px; }
+  #view-settings #panel-groups .src-source-mark.has-logo { background: var(--surface); color: var(--text-strong); }
+  #view-settings #panel-groups .src-source-mark.has-logo svg { width: 17px; height: 17px; }
+  #view-settings #panel-groups .src-source-mark img { max-width: 17px; max-height: 17px; display: block; object-fit: contain; }
+  #view-settings #panel-groups .src-source-mark.is-pending { background: var(--surface-2); color: var(--text-3); }
+  #view-settings #panel-groups .src-source-mark.is-pending svg { width: 15px; height: 15px; }
+  /* 一个来源槽位只能呈现一个标识；fallback 仅在本地图片加载失败后通过状态类显示。 */
+  #view-settings #panel-groups .src-source-mark .src-favicon-fallback { display: none !important; }
+  #view-settings #panel-groups .src-source-mark .src-favicon-fallback.is-visible { display: inline-flex !important; }
+  #view-settings #panel-groups .src-source-mark .src-favicon-fallback,
+  #view-settings #panel-groups .src-source-mark .src-favicon-fallback svg { width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; }
+  #view-settings #panel-groups .src-item .nm {
+    min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-strong); font-size: 13px; font-weight: 500;
+  }
+  #view-settings #panel-groups .src-item .hm { display: none; }
+  #view-settings #panel-groups .src-item .lvl {
+    width: 26px; height: 26px; border-radius: 7px; color: var(--text-2); background: var(--surface-2);
+    font-size: 11px; font-weight: 700;
+  }
+  #view-settings #panel-groups .src-item .lvl-S { color: #a43d32; background: var(--red-bg); }
+  #view-settings #panel-groups .src-item .lvl-A { color: var(--green-text); background: var(--green-bg); }
+  #view-settings #panel-groups .src-item .lvl-B { color: #8b681f; background: var(--warn-bg); }
+  #view-settings #panel-groups .src-item .lvl-C,
+  #view-settings #panel-groups .src-item .lvl-D { color: var(--text-2); background: var(--surface-2); }
+  #view-settings #panel-groups .src-toggle {
+    width: 44px; height: 36px; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; cursor: pointer;
+  }
+  #view-settings #panel-groups .src-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  #view-settings #panel-groups .src-switch {
+    width: 30px; height: 18px; position: relative; border-radius: 99px; background: var(--border-strong); transition: background .16s;
+  }
+  #view-settings #panel-groups .src-switch::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--card);
+    box-shadow: 0 1px 2px rgba(16,24,40,.18); transition: transform .16s ease;
+  }
+  #view-settings #panel-groups .src-toggle input:checked + .src-switch { background: var(--red); }
+  #view-settings #panel-groups .src-toggle input:checked + .src-switch::after { transform: translateX(12px); }
+  #view-settings #panel-groups .src-toggle input:focus-visible + .src-switch { box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 18%, transparent); }
+  #view-settings #panel-groups .src-item .del {
+    order: 5; margin-left: 0; width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-3); opacity: .7; font-size: 0; cursor: pointer; border: 0; background: transparent;
+  }
+  #view-settings #panel-groups .src-item .del:hover { color: var(--red); opacity: 1; }
+  #view-settings #panel-groups .src-item .del svg { width: 15px; height: 15px; }
+  #view-settings #panel-groups .src-more {
+    min-height: 42px; margin: 2px 14px 8px; padding: 0 2px; display: inline-flex; align-items: center; justify-content: space-between;
+    border: 0; border-top: 1px solid var(--separator); background: transparent; color: var(--text-3); font-size: 12px; cursor: pointer;
+  }
+  #view-settings #panel-groups .src-more:hover { color: var(--red); }
+  #view-settings #panel-groups .src-more svg { width: 14px; height: 14px; }
+  #view-settings #panel-groups .src-group.is-expanded .src-more svg { transform: rotate(180deg); }
+  #view-settings #panel-groups .src-add {
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr) 160px 150px auto; margin-top: 18px; padding: 16px;
+    border: 1px solid var(--border); border-radius: 14px; background: var(--card);
+  }
+  #view-settings #panel-groups .src-add .primary { min-height: 38px; border-radius: 9px; }
+  #view-settings #panel-groups .src-add .f-help { grid-column: 1 / -1; }
+  #view-settings #panel-groups .src-add-trigger[aria-expanded="true"] { border-color: var(--red); color: var(--red); }
+  #view-settings #panel-groups .src-add-trigger[aria-expanded="true"] svg { transform: rotate(45deg); }
 
   @media (max-width: 960px) {
     .brand-subtitle { display: none; }
@@ -1391,6 +1526,16 @@
     #view-settings .set-content { padding: 0 2px; }
     #view-settings #panel-ai .service-layout { grid-template-columns: 1fr; }
     #view-settings #panel-ai .ai-rail, #view-settings #panel-ai .ai-panel { padding: 14px; }
+    #view-settings #panel-groups .src-bar { align-items: stretch; flex-wrap: nowrap; }
+    #view-settings #panel-groups .src-bar input { flex: 1; width: 0; }
+    #view-settings #panel-groups .src-add-trigger { padding: 0 12px; }
+    #view-settings #panel-groups .src-add-trigger > span:not(.src-add-icon) { display: none; }
+    #view-settings #panel-groups #srcList { grid-template-columns: 1fr; gap: 12px; }
+    #view-settings #panel-groups .src-group-head { min-height: 54px; padding: 13px 14px; }
+    #view-settings #panel-groups .src-items { padding-left: 12px; padding-right: 12px; }
+    #view-settings #panel-groups .src-more { margin-left: 12px; margin-right: 12px; }
+    #view-settings #panel-groups .src-add { grid-template-columns: 1fr; }
+    #view-settings #panel-groups .src-add .f-help { grid-column: auto; }
   }
 </style>
 </head>
@@ -1572,7 +1717,7 @@
     <div class="page-head settings-head">
       <div class="page-kicker">系统偏好</div>
       <h2>设置</h2>
-      <p>让采集范围和分析服务符合你的工作方式。</p>
+      <p>调整采集与分析服务。</p>
     </div>
     <div class="card settings-shell">
       <div class="set-layout">
@@ -1580,34 +1725,37 @@
           <div class="set-menu-head">设置内容</div>
           <button type="button" class="set-item active" data-panel="panel-base" aria-controls="panel-base" aria-current="page" onclick="showPanel('panel-base',this)">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.82 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.15.4.37.75.6 1 .28.3.67.48 1.1.5h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg>
-            基本设置
+            搜索服务
           </button>
           <button type="button" class="set-item" data-panel="panel-ai" aria-controls="panel-ai" aria-current="false" onclick="showPanel('panel-ai',this)">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
-            AI 接口
+            分析模型
           </button>
           <button type="button" class="set-item" data-panel="panel-groups" aria-controls="panel-groups" aria-current="false" onclick="showPanel('panel-groups',this)">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg>
-            信源采集
+            信息来源
           </button>
-          <!-- 后续新功能在此追加菜单项，如：监测任务 / 报告模板 / 安全 -->
-          <div class="set-menu-foot">保存后立即生效<br>无需重启服务</div>
+          <button type="button" class="set-item" data-panel="panel-account" aria-controls="panel-account" aria-current="false" onclick="showPanel('panel-account',this)">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5"/></svg>
+            账户管理
+          </button>
+          <!-- 后续新功能在此追加菜单项，如：监测任务 / 报告模板 -->
         </aside>
 
         <section class="set-content" aria-live="polite">
           <div id="panel-base" class="panel">
             <div class="panel-page-head">
-              <div class="panel-page-title">基本设置</div>
-              <div class="panel-page-desc">配置采集所用的搜索实例。保存后立即生效，无需重启服务。</div>
+              <div class="panel-page-title">搜索服务</div>
+              <div class="panel-page-desc">配置采集所用的搜索实例。</div>
             </div>
             <label class="f-label" for="s_searxng">SearXNG 搜索地址</label>
             <div class="form-narrow"><input class="sel" id="s_searxng" placeholder="https://searxng.example.com"></div>
-            <div class="f-help">公网或内网 SearXNG 实例（JSON API 需开启）。</div>
+            <div class="f-help">需开启 JSON API。</div>
           </div>
 
           <div id="panel-ai" class="panel hidden">
             <div class="panel-page-head">
-              <div class="panel-page-title">AI 接口 <span class="badge done" id="settingsState">配置保存即生效</span></div>
+              <div class="panel-page-title">分析模型 <span class="badge done" id="settingsState">配置保存即生效</span></div>
               <div class="panel-page-desc">管理分析所用的大模型服务；任意 OpenAI 兼容接口都可添加为服务商。</div>
             </div>
             <div class="service-layout">
@@ -1620,7 +1768,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                   <span>添加服务商</span>
                 </button>
-                <p class="f-help" style="margin-top:10px">任意 OpenAI 兼容接口都可添加为服务商并命名；点击服务商编辑配置，绿点表示当前生效。</p>
+                <p class="f-help" style="margin-top:10px">点击服务商编辑；绿点表示当前生效。</p>
               </div>
               <div class="ai-panel">
                 <div class="panel-head">
@@ -1667,7 +1815,7 @@
               </div>
             </div>
             <div class="group-title">默认服务商 <span class="badge pending" id="defaultProviderBadge"></span></div>
-            <div class="f-help">自动模式下按注册顺序选用第一个可用的服务商；也可固定使用某一个。</div>
+            <div class="f-help">自动模式按顺序选择可用服务商。</div>
             <div class="form-narrow" style="margin-top:8px">
               <select class="sel" id="s_provider" onchange="onDefaultProvider(this.value)"></select>
             </div>
@@ -1676,18 +1824,25 @@
 
           <div id="panel-groups" class="panel hidden">
             <div class="panel-page-head">
-              <div class="panel-page-title">信源采集</div>
-              <div class="panel-page-desc">管理信源目录与可信等级（S/A/B/C/D）；勾选仅作优先关注与标注，名单外信源仍会采集。</div>
+              <div class="panel-page-title">信息来源</div>
+              <div class="panel-page-desc">管理信源目录与可信等级。</div>
             </div>
             <div class="src-bar">
               <span class="src-stat" id="srcStat">—</span>
-              <input id="srcSearch" placeholder="搜索信源名称/域名…" oninput="renderSources()">
+              <input id="srcSearch" aria-label="搜索来源" placeholder="搜索来源名称…" oninput="renderSources()">
+              <button type="button" class="src-add-trigger" id="srcAddTrigger" aria-label="添加来源" aria-expanded="false" aria-controls="srcAddForm" onclick="toggleSourceForm()">
+                <span class="src-add-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span>添加来源</span>
+              </button>
             </div>
             <div id="srcList"></div>
-            <div class="src-add">
-              <input id="addName" placeholder="名称，如：XX市应急管理局">
-              <input id="addHost" placeholder="域名，如：gov.cn（无需 http://）">
+            <div class="src-add hidden" id="srcAddForm">
+              <label class="sr-only" for="addName">来源名称</label>
+              <input id="addName" placeholder="来源名称，如：XX市应急管理局">
+              <label class="sr-only" for="addHost">来源地址</label>
+              <input id="addHost" placeholder="来源地址（仅用于采集）">
+              <label class="sr-only" for="addCat">来源分类</label>
               <select id="addCat"></select>
+              <label class="sr-only" for="addLevel">可信等级</label>
               <select id="addLevel">
                 <option value="C">C·社媒/门户</option>
                 <option value="B">B·行业/财经</option>
@@ -1695,14 +1850,36 @@
                 <option value="S">S·官方权威</option>
                 <option value="D">D·无法核实</option>
               </select>
-              <button class="primary" onclick="addSource()">添加</button>
+              <button class="primary" type="button" onclick="addSource()">保存来源</button>
             </div>
-            <div class="f-help" style="margin-top:8px">勾选 = 优先关注并标注等级（S/A/B/C/D）；<b>未勾选或名单外的信源仍会采集保留</b>，报告中按可信度规则标注，不丢失信息。事实裁决：S/A 级方可作事实依据。</div>
+            <div class="f-help" style="margin-top:14px">开启的来源会参与后续采集；S/A 级优先作为事实依据。</div>
+          </div>
+
+          <div id="panel-account" class="panel hidden">
+            <div class="panel-page-head">
+              <div class="panel-page-title">账户管理</div>
+              <div class="panel-page-desc">设置登录密码，修改后立即生效。</div>
+            </div>
+            <form id="accountForm" class="account-form">
+              <div id="accountNotice" class="account-notice">登录账号固定为 admin。</div>
+              <div class="f-label">登录账号</div>
+              <div class="account-user"><span>admin</span><span>固定账号</span></div>
+              <label class="f-label" for="currentPassword">当前密码</label>
+              <input class="sel" id="currentPassword" type="password" autocomplete="current-password" minlength="8" required>
+              <label class="f-label" for="newPassword">新密码</label>
+              <input class="sel" id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+              <div class="f-help">至少 8 个字符，建议使用不易猜测的组合。</div>
+              <label class="f-label" for="confirmPassword">确认新密码</label>
+              <input class="sel" id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+              <div class="account-actions">
+                <button class="primary" type="submit">保存密码</button>
+                <div id="accountStatus" class="account-status" role="status"></div>
+              </div>
+            </form>
           </div>
 
           <div class="set-footer" id="settingsFooter">
             <button class="primary" onclick="saveSettings()">保存设置</button>
-            <span class="f-help">保存后立即生效，无需重启服务</span>
           </div>
         </section>
       </div>
@@ -1715,13 +1892,28 @@
 <div id="authGate" class="auth-gate hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
   <form id="authForm" class="auth-card">
     <h2 id="authTitle">登录妙舆</h2>
-    <p>请输入管理员令牌后访问任务、设置、报告等功能。</p>
-    <label class="auth-label" for="authToken">管理员令牌</label>
-    <input id="authToken" class="auth-input" type="password" autocomplete="current-password"
-           minlength="6" placeholder="至少 6 个字符" required>
+    <p>请输入账号密码后访问任务、设置、报告等功能。</p>
+    <label class="auth-label" for="authUsername">账号</label>
+    <input id="authUsername" class="auth-input" type="text" autocomplete="username"
+           autocapitalize="none" spellcheck="false" placeholder="admin" required>
+    <label class="auth-label" for="authPassword">密码</label>
+    <input id="authPassword" class="auth-input" type="password" autocomplete="current-password"
+           minlength="8" placeholder="请输入密码" required>
     <div id="authError" class="auth-error" role="alert"></div>
     <button id="authSubmit" class="primary auth-submit" type="submit">登录</button>
   </form>
+</div>
+
+<div id="passwordReminder" class="auth-reminder hidden" role="dialog" aria-modal="true" aria-labelledby="passwordReminderTitle">
+  <div class="auth-reminder-card">
+    <div class="auth-reminder-kicker">安全提醒</div>
+    <h2 id="passwordReminderTitle">请修改初始密码</h2>
+    <p>当前账户仍在使用初始密码。为避免他人直接登录，请前往“设置 → 账户管理”保存一个新的登录密码。</p>
+    <div class="auth-reminder-actions">
+      <button type="button" class="primary" onclick="goToAccountSettings()">立即修改</button>
+      <button type="button" class="btn-secondary" onclick="closePasswordReminder()">稍后提醒</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1748,6 +1940,9 @@ const IC = (() => {
     pencil: S('<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>'),
     refresh: S('<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>'),
     globe: S('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a13.5 13.5 0 0 1 0 18 13.5 13.5 0 0 1 0-18z"/>'),
+    plus: S('<path d="M12 5v14M5 12h14"/>'),
+    chevronDown: S('<path d="m6 9 6 6 6-6"/>'),
+    trash: S('<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 14h10l1-14"/><path d="M9 7V4h6v3"/>'),
   };
 })();
 /* 信源分类图标（覆盖后端 emoji，统一单色线条） */
@@ -1801,6 +1996,7 @@ function showPanel(name, btn) {
   localStorage.setItem("settings_panel", name);
   if (name === "panel-groups") loadSources();
   if (name === "panel-ai") loadAiProviders();
+  if (name === "panel-account") loadAccountStatus();
 }
 function openDefaultPanel() {
   const last = localStorage.getItem("settings_panel");
@@ -1811,9 +2007,11 @@ function openDefaultPanel() {
 let authNoticeShown = false;
 let authLoginBusy = false;
 let authAuthenticated = false;
+let authMustChange = false;
 
-function setAuthAuthenticated(value) {
+function setAuthAuthenticated(value, info) {
   authAuthenticated = Boolean(value);
+  authMustChange = authAuthenticated && Boolean(info && info.must_change_password);
   const logout = $("authLogout");
   if (logout) logout.classList.toggle("hidden", !authAuthenticated);
 }
@@ -1830,29 +2028,54 @@ function openAuthGate(message) {
   gate.classList.remove("hidden");
   const error = $("authError");
   if (error) error.textContent = message || "";
-  const input = $("authToken");
+  const input = $("authUsername");
   if (input) setTimeout(() => input.focus(), 0);
 }
 
 function closeAuthGate() {
   const gate = $("authGate");
   if (gate) gate.classList.add("hidden");
-  const input = $("authToken");
-  if (input) input.value = "";
+  const username = $("authUsername");
+  const password = $("authPassword");
+  if (username) username.value = "";
+  if (password) password.value = "";
   const error = $("authError");
   if (error) error.textContent = "";
+}
+
+function showPasswordReminder() {
+  const reminder = $("passwordReminder");
+  if (reminder) reminder.classList.remove("hidden");
+}
+
+function closePasswordReminder() {
+  const reminder = $("passwordReminder");
+  if (reminder) reminder.classList.add("hidden");
+}
+
+function goToAccountSettings() {
+  closePasswordReminder();
+  showView("settings");
+  showPanel("panel-account", null);
 }
 
 async function submitAuth(event) {
   event.preventDefault();
   if (authLoginBusy) return;
-  const input = $("authToken");
+  const usernameInput = $("authUsername");
+  const passwordInput = $("authPassword");
   const button = $("authSubmit");
   const error = $("authError");
-  const token = (input?.value || "").trim();
-  if (token.length < 6) {
-    if (error) error.textContent = "管理员令牌至少需要 6 个字符";
-    input?.focus();
+  const username = (usernameInput?.value || "").trim();
+  const password = passwordInput?.value || "";
+  if (username !== "admin") {
+    if (error) error.textContent = "账号必须为 admin";
+    usernameInput?.focus();
+    return;
+  }
+  if (password.length < 8) {
+    if (error) error.textContent = "密码至少需要 8 个字符";
+    passwordInput?.focus();
     return;
   }
   authLoginBusy = true;
@@ -1861,16 +2084,17 @@ async function submitAuth(event) {
     const r = await fetch("/api/auth/login", {
       method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ username, password }),
     });
     const body = await r.json().catch(() => ({}));
     if (!r.ok || !body.ok) {
       if (error) error.textContent = body.error || "管理员令牌无效";
       return;
     }
-    setAuthAuthenticated(true);
+    setAuthAuthenticated(true, body);
     authNoticeShown = false;
     closeAuthGate();
+    if (body.must_change_password) showPasswordReminder();
     refreshTasks();
     if (!$('view-history').classList.contains('hidden')) loadHistory(histPage);
     loadAiProviders();
@@ -1885,6 +2109,8 @@ async function submitAuth(event) {
 async function logoutAuth() {
   await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
   setAuthAuthenticated(false);
+  authMustChange = false;
+  closePasswordReminder();
   authNoticeShown = true;
   openAuthGate();
 }
@@ -2411,7 +2637,7 @@ function renderReport(rep, jsonName) {
   $("reportBody").innerHTML = html;
   initReportCharts(rep);
   if (rep.ai_ready === false) {
-    $("reportBody").innerHTML += `<div class="hint"><b>AI 分析未执行。</b><br>${esc(rep.ai_warning || "请在设置页配置 AI 接口后重新分析。")}</div>`;
+    $("reportBody").innerHTML += `<div class="hint"><b>AI 分析未执行。</b><br>${esc(rep.ai_warning || "请在设置页配置分析模型后重新分析。")}</div>`;
   }
   let acts = "";
   if (rep.docx) acts += `<button class="pri btn-with-icon" onclick="downloadDocx()">${IC.download}下载 Word 报告</button>`;
@@ -2722,7 +2948,7 @@ async function loadHotBoards(force) {
 function buildRadarNewByBoard(boards) {
   const hasServerDiff = boards.some(b => (b.items || []).some(it => typeof it.is_new === "boolean"));
   if (hasServerDiff) {
-    return boards.map(b => ({ board: b.name, items: (b.items || []).filter(it => it.is_new === true) }))
+    return boards.map(b => ({ board: b.name, source_id: b.source_id, items: (b.items || []).filter(it => it.is_new === true) }))
       .filter(group => group.items.length);
   }
 
@@ -2737,7 +2963,7 @@ function buildRadarNewByBoard(boards) {
     const currentItems = b.items || [];
     const previousTitles = new Set(Array.isArray(previous[boardKey]) ? previous[boardKey] : []);
     const fresh = currentItems.filter(it => !previousTitles.has(normHotTitle(it.title)));
-    if (fresh.length) groups.push({ board: b.name, items: fresh });
+    if (fresh.length) groups.push({ board: b.name, source_id: b.source_id, items: fresh });
     next[boardKey] = currentItems.map(it => normHotTitle(it.title)).filter(Boolean).slice(0, 100);
   }
   try { localStorage.setItem("hot_prev_by_board", JSON.stringify(next)); } catch (e) {}
@@ -2868,9 +3094,42 @@ const HOME_BOARD_META = {
   "百度热搜": { short: "百", cls: "baidu" },
   "今日头条热榜": { short: "头", cls: "toutiao" },
 };
+const HOME_BOARD_ID_BY_NAME = {
+  "微博热搜": "weibo",
+  "知乎热榜": "zhihu",
+  "抖音热点": "douyin",
+  "B站热门": "bilibili",
+  "百度热搜": "baidu",
+  "今日头条热榜": "toutiao",
+};
+/* 首页只使用仓库内已核验的六个平台资产，避免 favicon/首字母/热度颜色混用。 */
+const HOME_PLATFORM_ASSETS = {
+  weibo: "assets/source-logos/library/source-56.svg",
+  zhihu: "assets/source-logos/library/source-57.svg",
+  douyin: "assets/source-logos/library/source-82.svg",
+  bilibili: "assets/source-logos/library/b.svg",
+  baidu: "assets/source-logos/library/source-81.svg",
+  toutiao: "assets/source-logos/library/source-51.ico",
+};
 
-function homeBoardMeta(name) {
-  return HOME_BOARD_META[name] || { short: String(name || "榜").slice(0, 1), cls: "generic" };
+function homeBoardId(name, sourceId) {
+  if (sourceId && Object.prototype.hasOwnProperty.call(HOME_PLATFORM_ASSETS, sourceId)) return sourceId;
+  return HOME_BOARD_ID_BY_NAME[name] || "";
+}
+
+function homeBoardMeta(name, sourceId) {
+  const id = homeBoardId(name, sourceId);
+  const canonicalName = HOME_BOARD_ORDER.find(boardName => HOME_BOARD_ID_BY_NAME[boardName] === id) || name;
+  return HOME_BOARD_META[canonicalName] || { short: String(name || "榜").slice(0, 1), cls: "generic" };
+}
+
+function homePlatformMark(name, meta, title, sourceId) {
+  const id = homeBoardId(name, sourceId);
+  const asset = HOME_PLATFORM_ASSETS[id];
+  if (asset) {
+    return `<span class="home-platform-mark logo ${meta.cls}" title="${esc(title || name)}" aria-hidden="true"><img src="${asset}" alt="" loading="lazy" decoding="async"></span>`;
+  }
+  return `<span class="home-platform-mark ${meta.cls}" title="${esc(title || name)}" aria-hidden="true">${esc(meta.short)}</span>`;
 }
 
 function homeBoards() {
@@ -2892,8 +3151,8 @@ function homePlatformMarks(row) {
     ? row.sources
     : String(row.board || "").split("/").filter(Boolean).map(name => ({ name }));
   const visible = sources.slice(0, 3).map(source => {
-    const meta = homeBoardMeta(source.name);
-    return `<span class="home-platform-mark ${meta.cls}" title="${esc(source.name)}">${esc(meta.short)}</span>`;
+    const meta = homeBoardMeta(source.name, source.source_id);
+    return homePlatformMark(source.name, meta, source.name, source.source_id);
   }).join("");
   const more = sources.length > 3 ? `<span class="home-hot-platform-more">+${sources.length - 3}</span>` : "";
   return `<div class="home-hot-platforms">${visible}${more}</div>`;
@@ -2975,7 +3234,7 @@ function homeFreshItems() {
     for (const group of groups) {
       const item = group.items[offset];
       if (!item) continue;
-      fresh.push({ ...item, board: group.board, fallback: false });
+      fresh.push({ ...item, board: group.board, source_id: group.source_id, fallback: false });
       if (fresh.length >= 4) break;
     }
   }
@@ -2989,11 +3248,11 @@ function renderHomeFresh() {
   const items = homeFreshItems();
   if (!items.length) { box.innerHTML = '<div class="f-help">暂无榜单变化，雷达将随刷新持续监测。</div>'; return; }
   box.innerHTML = items.map(item => {
-    const meta = homeBoardMeta(item.board);
+    const meta = homeBoardMeta(item.board, item.source_id);
     const heat = heatMeta(item, item.rank, item.heat && item.heat.board_size);
     const status = item.fallback ? "当前快照" : (item.is_new ? "新上榜" : "榜单变化");
     return `<button type="button" class="home-fresh-item" ${homeAction(item.title, item.url)} aria-label="${esc(item.title)}">
-      <span class="home-platform-mark ${meta.cls}" aria-hidden="true">${esc(meta.short)}</span>
+      ${homePlatformMark(item.board, meta, item.board, item.source_id)}
       <span><span class="home-fresh-title">${esc(item.title)}</span><span class="home-fresh-meta">${esc(item.board)} · ${status}</span></span>
       <span class="home-fresh-level">${esc(heat.display)}</span>
     </button>`;
@@ -3411,15 +3670,169 @@ async function loadSettings() {
   loadSources();
 }
 
+async function loadAccountStatus() {
+  const r = await api("/api/auth/status");
+  if (r.authenticated === false) return;
+  const notice = $("accountNotice");
+  if (notice) {
+    notice.className = "account-notice" + (r.must_change_password ? " warn" : "");
+    notice.textContent = r.must_change_password
+      ? "当前仍使用初始密码，请修改并保存后再继续使用。"
+      : "密码已设置。修改后立即生效，原有登录会话将被刷新。";
+  }
+}
+
+async function submitPasswordChange(event) {
+  event.preventDefault();
+  const current = $("currentPassword");
+  const next = $("newPassword");
+  const confirm = $("confirmPassword");
+  const status = $("accountStatus");
+  const button = event.submitter || event.target.querySelector("button[type=submit]");
+  const setStatus = (message, tone) => {
+    if (!status) return;
+    status.textContent = message || "";
+    status.className = "account-status" + (tone ? " " + tone : "");
+  };
+  const currentPassword = current?.value || "";
+  const newPassword = next?.value || "";
+  const confirmPassword = confirm?.value || "";
+  if (newPassword.length < 8) { setStatus("新密码至少需要 8 个字符", "error"); next?.focus(); return; }
+  if (newPassword !== confirmPassword) { setStatus("两次输入的新密码不一致", "error"); confirm?.focus(); return; }
+  if (!currentPassword) { setStatus("请输入当前密码", "error"); current?.focus(); return; }
+  if (button) { button.disabled = true; button.textContent = "保存中…"; }
+  const r = await api("/api/auth/password", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword, confirm_password: confirmPassword }),
+  });
+  if (r.ok) {
+    authMustChange = false;
+    setAuthAuthenticated(true, r);
+    current.value = ""; next.value = ""; confirm.value = "";
+    setStatus("密码已保存", "ok");
+    const notice = $("accountNotice");
+    if (notice) { notice.className = "account-notice"; notice.textContent = "密码已设置。修改后立即生效，原有登录会话将被刷新。"; }
+    closePasswordReminder();
+    toast("密码已保存");
+  } else {
+    setStatus(r.error || "密码保存失败，请重试", "error");
+  }
+  if (button) { button.disabled = false; button.textContent = "保存密码"; }
+}
+
 /* ---------- 精细信源（C1a/C1b） ---------- */
 let SRC = null;
 let srcTimer = null;
+const SOURCE_LABELS = {
+  gov: "政府权威", media: "主流媒体", finance: "商业财经", tech: "科技行业", portal: "门户平台",
+  social: "社交平台", overseas_main: "海外媒体", overseas_cn: "境外华文", overseas_comm: "海外社区", hotlist: "热榜平台",
+};
+const SOURCE_LOGO_REGISTRY = [
+  { slug: "sinaweibo", names: ["微博", "新浪微博", "微博热搜", "微博热搜榜"], hosts: ["weibo.com", "weibo.cn"] },
+  { slug: "zhihu", names: ["知乎", "知乎热榜", "知乎日报", "知乎日报Today"], hosts: ["zhihu.com"] },
+  { slug: "bilibili", names: ["B站", "哔哩哔哩", "哔哩哔哩全站日榜", "B站热门"], hosts: ["bilibili.com"] },
+  { slug: "xiaohongshu", names: ["小红书"], hosts: ["xiaohongshu.com", "xhslink.com"] },
+  { slug: "baidu", names: ["百度", "百度百家号", "百度热搜", "百度贴吧"], hosts: ["baidu.com"] },
+  { slug: "wechat", names: ["微信", "微信公众号", "微信24h热文榜", "微信今日视频榜"], hosts: ["weixin.qq.com", "mp.weixin.qq.com"] },
+  { slug: "douban", names: ["豆瓣", "豆瓣电影", "豆瓣小组"], hosts: ["douban.com"] },
+  { slug: "v2ex", names: ["V2EX"], hosts: ["v2ex.com"] },
+  { slug: "tiktok", names: ["抖音", "抖音热点", "抖音总榜", "TikTok"], hosts: ["douyin.com", "tiktok.com"] },
+];
+let SOURCE_LOGO_LIBRARY = [];
+let sourceLogoLibraryReady = false;
+
+async function loadSourceLogoLibrary() {
+  try {
+    const response = await fetch("assets/source-logos/library/manifest.json", { cache: "no-store" });
+    if (!response.ok) throw new Error("logo manifest unavailable");
+    const payload = await response.json();
+    SOURCE_LOGO_LIBRARY = Array.isArray(payload.entries) ? payload.entries : [];
+  } catch (_) {
+    SOURCE_LOGO_LIBRARY = [];
+  } finally {
+    sourceLogoLibraryReady = true;
+  }
+}
+
+function sourceNormalize(value) {
+  return String(value || "").toLowerCase()
+    .replace(/[\s·•・_\-—:：/\\()[\]【】（）]/g, "")
+    .replace(/(热搜榜|热榜|总榜|日榜|榜单|排行榜|热门|热点|平台|网站|新闻|资讯)$/g, "");
+}
+
+function sourceHosts(it) {
+  return String(it && it.host || "").split(",")
+    .map(host => host.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0])
+    .filter(Boolean);
+}
+
+function sourceLogoSlug(it) {
+  const name = sourceNormalize(it && it.name);
+  const hosts = sourceHosts(it);
+  const byHost = SOURCE_LOGO_REGISTRY.find(entry => hosts.some(host => entry.hosts.some(base => host === base || host.endsWith("." + base))));
+  if (byHost) return byHost.slug;
+  // 有官网域名时，身份由域名决定；名称只给无域名热榜使用，避免跨来源串牌。
+  if (hosts.length) return "";
+  let best = null;
+  for (const entry of SOURCE_LOGO_REGISTRY) {
+    for (const alias of entry.names) {
+      const normalized = sourceNormalize(alias);
+      if (!normalized || !name) continue;
+      let score = 0;
+      if (name === normalized) score = 1;
+      else if (name.includes(normalized) || normalized.includes(name)) score = Math.min(name.length, normalized.length) / Math.max(name.length, normalized.length) * .9;
+      if (score > (best ? best.score : 0)) best = { slug: entry.slug, score };
+    }
+  }
+  return best && best.score >= .55 ? best.slug : "";
+}
+
+function sourceLibraryEntry(it) {
+  if (!sourceLogoLibraryReady || !SOURCE_LOGO_LIBRARY.length) return null;
+  const hosts = sourceHosts(it);
+  const name = sourceNormalize(it && it.name);
+  return SOURCE_LOGO_LIBRARY.find(entry => {
+    if (entry.status !== "fetched" || !entry.asset || entry.provider === "none") return false;
+    const entryHosts = Array.isArray(entry.hosts) ? entry.hosts : [];
+    if (hosts.length) return hosts.some(host => entryHosts.some(base => host === base || host.endsWith("." + base)));
+    const aliases = Array.isArray(entry.aliases) ? entry.aliases : [];
+    return aliases.some(alias => sourceNormalize(alias) === name);
+  }) || null;
+}
+
+function sourcePendingMark() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"></rect><path d="M8 12h8M12 8v8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>';
+}
+
+function sourceAssetError(img) {
+  if (img) {
+    img.hidden = true;
+    const fallback = img.nextElementSibling;
+    if (fallback) {
+      fallback.hidden = false;
+      fallback.classList.add("is-visible");
+    }
+  }
+}
+
+function sourceGroupLabel(g) {
+  return SOURCE_LABELS[g.key] || g.label || "其他来源";
+}
+
+function sourceMark(it, groupKey) {
+  const slug = sourceLogoSlug(it);
+  if (slug) return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="assets/source-logos.svg#${slug}"></use></svg>`;
+  const libraryEntry = sourceLibraryEntry(it);
+  if (libraryEntry) return `<img src="assets/source-logos/library/${escAttr(String(libraryEntry.asset).replace(/^\.\//, ""))}" loading="lazy" decoding="async" alt="" onerror="sourceAssetError(this)"><span class="src-favicon-fallback" hidden>${sourcePendingMark()}</span>`;
+  return sourcePendingMark();
+}
 
 async function loadSources() {
+  await loadSourceLogoLibrary();
   SRC = await api("/api/sources");
   if (!SRC.groups) return;
   $("addCat").innerHTML = SRC.groups
-    .map(g => `<option value="${g.key}">${g.label}</option>`).join("");
+    .map(g => `<option value="${g.key}">${esc(sourceGroupLabel(g))}</option>`).join("");
   renderSources();
 }
 
@@ -3431,35 +3844,46 @@ function renderSources() {
   for (const g of SRC.groups) {
     const items = g.items.filter(it => !q || (it.name || "").toLowerCase().includes(q) || (it.host || "").includes(q));
     if (!items.length) continue;
-    const open = g.open || (!g.open && g.key !== "open" && ["gov", "media"].includes(g.key)) ? "open" : "";
-    html += `<div class="src-group ${open}" data-key="${g.key}">
-      <div class="src-group-head" onclick="toggleGroup('${g.key}')">
-        <span class="gi">${CAT_ICON[g.key] || ""}</span><span class="gn">${g.label}</span>
-        <span class="gc">${g.enabled_count}/${g.items.length} 启用</span><span class="arrow">▶</span>
-      </div><div class="src-items">`;
-    for (const it of items) {
-      const tag = it.stype === "hotlist" ? '<span class="tag">榜</span>'
-        : it.stype === "feed" ? '<span class="tag">聚</span>' : "";
-      const del = it.manual ? `<span class="del" title="删除（手动添加）" onclick="delSource(${it.id})">✕</span>` : "";
+    const expanded = Boolean(g.open) || Boolean(q);
+    const visibleItems = expanded ? items : items.slice(0, 3);
+    const moreLabel = expanded ? "收起来源" : `查看全部 ${items.length} 个来源`;
+    html += `<div class="src-group ${expanded ? "is-expanded" : ""}" data-key="${g.key}">
+      <button type="button" class="src-group-head" onclick="toggleGroup('${g.key}')" aria-expanded="${expanded}">
+        <span class="gi">${CAT_ICON[g.key] || IC.globe}</span><span class="gn">${esc(sourceGroupLabel(g))}</span>
+        <span class="gc">${g.enabled_count} 启用</span><span class="arrow">${IC.chevronDown}</span>
+      </button><div class="src-items">`;
+    for (const it of visibleItems) {
+      const del = it.manual ? `<button type="button" class="del" aria-label="删除 ${esc(it.name)}" title="删除手动来源" onclick="delSource(${it.id})">${IC.trash}</button>` : "";
+      const logoSlug = sourceLogoSlug(it);
+      const libraryEntry = sourceLibraryEntry(it);
+      const markClass = logoSlug || libraryEntry ? "has-logo" : "is-pending";
       html += `<div class="src-item">
-        <input type="checkbox" ${it.enabled ? "checked" : ""} onchange="toggleSource(${it.id}, this.checked)">
-        <span class="lvl lvl-${it.level}">${it.level}</span>
+        <span class="src-source-mark ${markClass}" aria-hidden="true">${sourceMark(it, g.key)}</span>
         <span class="nm">${esc(it.name)}</span>
-        <span class="hm">${esc(it.host)}</span>${tag}${del}</div>`;
+        <span class="lvl lvl-${it.level}" title="可信等级 ${it.level}">${it.level}</span>${del}
+        <label class="src-toggle" title="${it.enabled ? "停用" : "启用"} ${esc(it.name)}">
+          <input type="checkbox" aria-label="${it.enabled ? "停用" : "启用"} ${esc(it.name)}" ${it.enabled ? "checked" : ""} onchange="toggleSource(${it.id}, this.checked)">
+          <span class="src-switch" aria-hidden="true"></span>
+        </label></div>`;
     }
-    html += `</div></div>`;
+    html += `</div><button type="button" class="src-more" onclick="toggleGroup('${g.key}')"><span>${moreLabel}</span>${IC.chevronDown}</button></div>`;
   }
   $("srcList").innerHTML = html || '<div class="f-help">无匹配信源</div>';
-  document.querySelectorAll(".src-group").forEach(el => {
-    if (el.classList.contains("open")) { const g = SRC.groups.find(x => x.key === el.dataset.key); if (g) g.open = true; }
-  });
 }
 
 function toggleGroup(key) {
-  const el = document.querySelector(`.src-group[data-key="${key}"]`);
-  el.classList.toggle("open");
   const g = SRC.groups.find(x => x.key === key);
-  if (g) g.open = el.classList.contains("open");
+  if (g) { g.open = !g.open; renderSources(); }
+}
+
+function toggleSourceForm(force) {
+  const form = $("srcAddForm");
+  const trigger = $("srcAddTrigger");
+  if (!form || !trigger) return;
+  const open = typeof force === "boolean" ? force : form.classList.contains("hidden");
+  form.classList.toggle("hidden", !open);
+  trigger.setAttribute("aria-expanded", String(open));
+  if (open) $("addName").focus();
 }
 
 function toggleSource(id, checked) {
@@ -3486,11 +3910,11 @@ async function addSource() {
     name: $("addName").value.trim(), host: $("addHost").value.trim(),
     category: $("addCat").value, level: $("addLevel").value,
   };
-  if (!payload.name || !payload.host) { toast("请填写名称和域名", "error"); return; }
+  if (!payload.name || !payload.host) { toast("请填写来源名称和地址", "error"); return; }
   const r = await api("/api/sources/add", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
   });
-  if (r.ok) { $("addName").value = ""; $("addHost").value = ""; toast("已添加，默认启用"); await loadSources(); }
+  if (r.ok) { $("addName").value = ""; $("addHost").value = ""; toggleSourceForm(false); toast("已添加，默认启用"); await loadSources(); }
   else toast("添加失败：" + (r.error || ""), "error");
 }
 
@@ -3508,13 +3932,15 @@ async function saveSettings() {
 
 /* ---------- 初始化 ---------- */
 $("authForm")?.addEventListener("submit", submitAuth);
+$("accountForm")?.addEventListener("submit", submitPasswordChange);
 
 async function bootstrapAuth() {
   try {
     const r = await fetch("/api/auth/status", { credentials: "same-origin", cache: "no-store" });
     const body = await r.json();
-    setAuthAuthenticated(body.authenticated);
+    setAuthAuthenticated(body.authenticated, body);
     if (!body.authenticated) showAuthRequiredNotice();
+    else if (body.must_change_password) showPasswordReminder();
     return Boolean(body.authenticated);
   } catch (e) {
     return false;

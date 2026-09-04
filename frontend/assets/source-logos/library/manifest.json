@@ -1,0 +1,1757 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-04T04:56:05.6567993Z",
+  "nas_base": "http://192.168.68.112:50560",
+  "policy": "只入库经内容签名校验的图片/SVG；相似候选不直接冒充官方 Logo",
+  "entries": [
+    {
+      "name": "中国政府网",
+      "aliases": [
+        "中国政府网"
+      ],
+      "hosts": [
+        "gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-1",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:37.8393515Z"
+    },
+    {
+      "name": "中央纪委国家监委",
+      "aliases": [
+        "中央纪委国家监委"
+      ],
+      "hosts": [
+        "ccdi.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-2",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:37.9054678Z"
+    },
+    {
+      "name": "最高人民法院",
+      "aliases": [
+        "最高人民法院"
+      ],
+      "hosts": [
+        "court.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-3",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:37.9717397Z"
+    },
+    {
+      "name": "最高人民检察院",
+      "aliases": [
+        "最高人民检察院"
+      ],
+      "hosts": [
+        "spp.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-4",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:38.0413470Z"
+    },
+    {
+      "name": "国家发展改革委",
+      "aliases": [
+        "国家发展改革委"
+      ],
+      "hosts": [
+        "ndrc.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-5",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:38.0907754Z"
+    },
+    {
+      "name": "外交部",
+      "aliases": [
+        "外交部"
+      ],
+      "hosts": [
+        "mfa.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-6",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:38.1477425Z"
+    },
+    {
+      "name": "工业和信息化部",
+      "aliases": [
+        "工业和信息化部"
+      ],
+      "hosts": [
+        "miit.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-7",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:38.2074938Z"
+    },
+    {
+      "name": "教育部",
+      "aliases": [
+        "教育部"
+      ],
+      "hosts": [
+        "moe.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-8",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:38.2581179Z"
+    },
+    {
+      "name": "公安部",
+      "aliases": [
+        "公安部"
+      ],
+      "hosts": [
+        "mps.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-9",
+      "status": "fetched",
+    "provider": "official-site",
+    "asset": "./mps-official.png",
+    "source_url": "https://ywtb.mps.gov.cn/newhome/favicon.ico",
+    "asset_kind": "png",
+    "asset_size": 15384,
+    "license": "Official site icon; review site brand/use rules",
+      "notes": [
+      "Official Ministry of Public Security government service favicon"
+      ],
+      "checked_at": "2026-09-04T04:51:38.3516044Z"
+    },
+    {
+      "name": "财政部",
+      "aliases": [
+        "财政部"
+      ],
+      "hosts": [
+        "mof.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-10",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:38.4011022Z"
+    },
+    {
+      "name": "市场监管总局",
+      "aliases": [
+        "市场监管总局"
+      ],
+      "hosts": [
+        "samr.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-11",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:59.1091054Z"
+    },
+    {
+      "name": "国家统计局",
+      "aliases": [
+        "国家统计局"
+      ],
+      "hosts": [
+        "stats.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-12",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:59.1734504Z"
+    },
+    {
+      "name": "中国人民银行",
+      "aliases": [
+        "中国人民银行"
+      ],
+      "hosts": [
+        "pbc.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-13",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:59.2326904Z"
+    },
+    {
+      "name": "国防部",
+      "aliases": [
+        "国防部"
+      ],
+      "hosts": [
+        "mod.gov.cn"
+      ],
+      "category": "gov",
+      "slug": "source-14",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:51:59.2869854Z"
+    },
+    {
+      "name": "人民日报",
+      "aliases": [
+        "人民日报"
+      ],
+      "hosts": [
+        "people.com.cn",
+        "peopleapp.com"
+      ],
+      "category": "media",
+      "slug": "source-15",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-15.ico",
+      "source_url": "https://people.com.cn/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 1150,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:51:59.7612502Z"
+    },
+    {
+      "name": "新华社",
+      "aliases": [
+        "新华社"
+      ],
+      "hosts": [
+        "xinhuanet.com",
+        "news.cn"
+      ],
+      "category": "media",
+      "slug": "source-16",
+    "status": "pending",
+    "provider": "none",
+    "asset": "",
+    "source_url": "",
+    "asset_kind": "",
+    "asset_size": 0,
+    "license": "Not fetched",
+      "notes": [
+      "Generic NAS result rejected; no high-confidence logo found"
+      ],
+      "checked_at": "2026-09-04T04:52:00.5792508Z"
+    },
+    {
+      "name": "央视新闻",
+      "aliases": [
+        "央视新闻"
+      ],
+      "hosts": [
+        "cctv.com"
+      ],
+      "category": "media",
+      "slug": "source-17",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-17.ico",
+      "source_url": "https://cctv.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 1150,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:02.4876331Z"
+    },
+    {
+      "name": "央广网",
+      "aliases": [
+        "央广网"
+      ],
+      "hosts": [
+        "cnr.cn"
+      ],
+      "category": "media",
+      "slug": "source-18",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:52:27.5800027Z"
+    },
+    {
+      "name": "光明网",
+      "aliases": [
+        "光明网"
+      ],
+      "hosts": [
+        "gmw.cn"
+      ],
+      "category": "media",
+      "slug": "source-19",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-19.ico",
+      "source_url": "https://gmw.cn/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 32988,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:28.1497986Z"
+    },
+    {
+      "name": "中国新闻网",
+      "aliases": [
+        "中国新闻网"
+      ],
+      "hosts": [
+        "chinanews.com"
+      ],
+      "category": "media",
+      "slug": "source-20",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-20.ico",
+      "source_url": "https://chinanews.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 5430,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:29.1354473Z"
+    },
+    {
+      "name": "环球网",
+      "aliases": [
+        "环球网"
+      ],
+      "hosts": [
+        "huanqiu.com"
+      ],
+      "category": "media",
+      "slug": "source-21",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-21.ico",
+      "source_url": "https://huanqiu.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 4286,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:29.4844765Z"
+    },
+    {
+      "name": "中国青年报",
+      "aliases": [
+        "中国青年报"
+      ],
+      "hosts": [
+        "cyol.com"
+      ],
+      "category": "media",
+      "slug": "source-22",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-22.png",
+      "source_url": "https://cyol.com/favicon.ico",
+      "asset_kind": "png",
+      "asset_size": 3260,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:30.0364021Z"
+    },
+    {
+      "name": "人民政协报",
+      "aliases": [
+        "人民政协报"
+      ],
+      "hosts": [
+        "rmzxb.com.cn"
+      ],
+      "category": "media",
+      "slug": "source-23",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:52:30.1164963Z"
+    },
+    {
+      "name": "凤凰网",
+      "aliases": [
+        "凤凰网"
+      ],
+      "hosts": [
+        "ifeng.com"
+      ],
+      "category": "media",
+      "slug": "source-24",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-24.png",
+      "source_url": "https://ifeng.com/favicon.ico",
+      "asset_kind": "png",
+      "asset_size": 4038,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:30.9566399Z"
+    },
+    {
+      "name": "中国网",
+      "aliases": [
+        "中国网"
+      ],
+      "hosts": [
+        "china.com.cn"
+      ],
+      "category": "media",
+      "slug": "source-25",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:52:47.3351677Z"
+    },
+    {
+      "name": "经济参考报",
+      "aliases": [
+        "经济参考报"
+      ],
+      "hosts": [
+        "jjckb.cn"
+      ],
+      "category": "media",
+      "slug": "source-26",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:52:47.3736165Z"
+    },
+    {
+      "name": "证券时报",
+      "aliases": [
+        "证券时报"
+      ],
+      "hosts": [
+        "stcn.com"
+      ],
+      "category": "media",
+      "slug": "source-27",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-27.png",
+      "source_url": "https://stcn.com/favicon.ico",
+      "asset_kind": "png",
+      "asset_size": 915,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:48.6621802Z"
+    },
+    {
+      "name": "财联社",
+      "aliases": [
+        "财联社"
+      ],
+      "hosts": [
+        "cls.cn"
+      ],
+      "category": "media",
+      "slug": "source-28",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-28.ico",
+      "source_url": "https://cdnjs.cls.cn/www/20200601/image/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 1150,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:52:49.7590697Z"
+    },
+    {
+      "name": "观察者网",
+      "aliases": [
+        "观察者网"
+      ],
+      "hosts": [
+        "guancha.cn"
+      ],
+      "category": "media",
+      "slug": "source-29",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:53:05.7710912Z"
+    },
+    {
+      "name": "参考消息",
+      "aliases": [
+        "参考消息"
+      ],
+      "hosts": [
+        "cankaoxiaoxi.com"
+      ],
+      "category": "media",
+      "slug": "source-30",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:53:06.3361707Z"
+    },
+    {
+      "name": "澎湃新闻",
+      "aliases": [
+        "澎湃新闻"
+      ],
+      "hosts": [
+        "thepaper.cn"
+      ],
+      "category": "finance",
+      "slug": "source-31",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-31.ico",
+      "source_url": "https://thepaper.cn/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 4286,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:53:07.1856794Z"
+    },
+    {
+      "name": "界面新闻",
+      "aliases": [
+        "界面新闻"
+      ],
+      "hosts": [
+        "jiemian.com"
+      ],
+      "category": "finance",
+      "slug": "source-32",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:53:07.7443526Z"
+    },
+    {
+      "name": "第一财经",
+      "aliases": [
+        "第一财经"
+      ],
+      "hosts": [
+        "yicai.com"
+      ],
+      "category": "finance",
+      "slug": "source-33",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:53:32.8272824Z"
+    },
+    {
+      "name": "财新网",
+      "aliases": [
+        "财新网"
+      ],
+      "hosts": [
+        "caixin.com"
+      ],
+      "category": "finance",
+      "slug": "source-34",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:53:33.4515506Z"
+    },
+    {
+      "name": "21世纪经济报道",
+      "aliases": [
+        "21世纪经济报道"
+      ],
+      "hosts": [
+        "21jingji.com"
+      ],
+      "category": "finance",
+      "slug": "21",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./21.ico",
+      "source_url": "https://21jingji.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 894,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:53:34.3076366Z"
+    },
+    {
+      "name": "中国经济网",
+      "aliases": [
+        "中国经济网"
+      ],
+      "hosts": [
+        "ce.cn"
+      ],
+      "category": "finance",
+      "slug": "source-36",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:53:59.3961245Z"
+    },
+    {
+      "name": "每日经济新闻",
+      "aliases": [
+        "每日经济新闻"
+      ],
+      "hosts": [
+        "nbd.com.cn"
+      ],
+      "category": "finance",
+      "slug": "source-37",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-37.ico",
+      "source_url": "https://nbd.com.cn/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 4286,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:54:00.4512696Z"
+    },
+    {
+      "name": "新京报",
+      "aliases": [
+        "新京报"
+      ],
+      "hosts": [
+        "bjnews.com.cn"
+      ],
+      "category": "finance",
+      "slug": "source-38",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:54:25.5372508Z"
+    },
+    {
+      "name": "南方都市报",
+      "aliases": [
+        "南方都市报"
+      ],
+      "hosts": [
+        "nddaily.com"
+      ],
+      "category": "finance",
+      "slug": "source-39",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:54:25.5815109Z"
+    },
+    {
+      "name": "封面新闻",
+      "aliases": [
+        "封面新闻"
+      ],
+      "hosts": [
+        "thecover.cn"
+      ],
+      "category": "finance",
+      "slug": "source-40",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:54:50.6573071Z"
+    },
+    {
+      "name": "红星新闻",
+      "aliases": [
+        "红星新闻"
+      ],
+      "hosts": [
+        "redstar.com.cn"
+      ],
+      "category": "finance",
+      "slug": "source-41",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:54:50.7105282Z"
+    },
+    {
+      "name": "36氪",
+      "aliases": [
+        "36氪"
+      ],
+      "hosts": [
+        "36kr.com"
+      ],
+      "category": "tech",
+      "slug": "36",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:54:51.2285511Z"
+    },
+    {
+      "name": "虎嗅",
+      "aliases": [
+        "虎嗅"
+      ],
+      "hosts": [
+        "huxiu.com"
+      ],
+      "category": "tech",
+      "slug": "source-43",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-43.png",
+      "source_url": "https://huxiu.com/favicon.ico",
+      "asset_kind": "png",
+      "asset_size": 1589,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:54:52.1355185Z"
+    },
+    {
+      "name": "钛媒体",
+      "aliases": [
+        "钛媒体"
+      ],
+      "hosts": [
+        "tmtpost.com"
+      ],
+      "category": "tech",
+      "slug": "source-44",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:54:52.6739360Z"
+    },
+    {
+      "name": "爱范儿",
+      "aliases": [
+        "爱范儿"
+      ],
+      "hosts": [
+        "ifanr.com"
+      ],
+      "category": "tech",
+      "slug": "source-45",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-45.ico",
+      "source_url": "https://ifanr.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 584554,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:54:53.9146640Z"
+    },
+    {
+      "name": "晚点LatePost",
+      "aliases": [
+        "晚点LatePost"
+      ],
+      "hosts": [
+        "latepost.com"
+      ],
+      "category": "tech",
+      "slug": "latepost",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:54:54.5038683Z"
+    },
+    {
+      "name": "雷锋网",
+      "aliases": [
+        "雷锋网"
+      ],
+      "hosts": [
+        "leiphone.com"
+      ],
+      "category": "tech",
+      "slug": "source-47",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-47.ico",
+      "source_url": "https://leiphone.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 1150,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:54:55.6937584Z"
+    },
+    {
+      "name": "IT之家",
+      "aliases": [
+        "IT之家"
+      ],
+      "hosts": [
+        "ithome.com"
+      ],
+      "category": "tech",
+      "slug": "it",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./it.ico",
+      "source_url": "https://ithome.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 5430,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:54:56.2066092Z"
+    },
+    {
+      "name": "微信公众号",
+      "aliases": [
+        "微信公众号"
+      ],
+      "hosts": [
+        "mp.weixin.qq.com"
+      ],
+      "category": "portal",
+      "slug": "source-49",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-49.svg",
+      "source_url": "https://cdn.simpleicons.org/wechat",
+      "asset_kind": "svg",
+      "asset_size": 1345,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:54:57.0004064Z"
+    },
+    {
+      "name": "百度百家号",
+      "aliases": [
+        "百度百家号"
+      ],
+      "hosts": [
+        "baijiahao.baidu.com"
+      ],
+      "category": "portal",
+      "slug": "source-50",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-50.svg",
+      "source_url": "https://cdn.simpleicons.org/baidu",
+      "asset_kind": "svg",
+      "asset_size": 1406,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:54:57.2075160Z"
+    },
+    {
+      "name": "今日头条",
+      "aliases": [
+        "今日头条"
+      ],
+      "hosts": [
+        "toutiao.com"
+      ],
+      "category": "portal",
+      "slug": "source-51",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-51.ico",
+      "source_url": "https://toutiao.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 7888,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:54:57.7165299Z"
+    },
+    {
+      "name": "搜狐新闻",
+      "aliases": [
+        "搜狐新闻"
+      ],
+      "hosts": [
+        "sohu.com"
+      ],
+      "category": "portal",
+      "slug": "source-52",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:55:00.0341269Z"
+    },
+    {
+      "name": "网易新闻",
+      "aliases": [
+        "网易新闻"
+      ],
+      "hosts": [
+        "163.com"
+      ],
+      "category": "portal",
+      "slug": "source-53",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:55:00.7002850Z"
+    },
+    {
+      "name": "腾讯新闻",
+      "aliases": [
+        "腾讯新闻"
+      ],
+      "hosts": [
+        "qq.com"
+      ],
+      "category": "portal",
+      "slug": "source-54",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-54.svg",
+      "source_url": "https://cdn.simpleicons.org/wechat",
+      "asset_kind": "svg",
+      "asset_size": 1345,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:00.9166421Z"
+    },
+    {
+      "name": "新浪新闻",
+      "aliases": [
+        "新浪新闻"
+      ],
+      "hosts": [
+        "sina.com.cn"
+      ],
+      "category": "portal",
+      "slug": "source-55",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-55.ico",
+      "source_url": "https://sina.com.cn/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 5430,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:01.4931056Z"
+    },
+    {
+      "name": "微博",
+      "aliases": [
+        "微博"
+      ],
+      "hosts": [
+        "weibo.com",
+        "weibo.cn"
+      ],
+      "category": "social",
+      "slug": "source-56",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-56.svg",
+      "source_url": "https://cdn.simpleicons.org/sinaweibo",
+      "asset_kind": "svg",
+      "asset_size": 1508,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:01.7019574Z"
+    },
+    {
+      "name": "知乎",
+      "aliases": [
+        "知乎"
+      ],
+      "hosts": [
+        "zhihu.com"
+      ],
+      "category": "social",
+      "slug": "source-57",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-57.svg",
+      "source_url": "https://cdn.simpleicons.org/zhihu",
+      "asset_kind": "svg",
+      "asset_size": 933,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:01.9149541Z"
+    },
+    {
+      "name": "B站",
+      "aliases": [
+        "B站"
+      ],
+      "hosts": [
+        "bilibili.com"
+      ],
+      "category": "social",
+      "slug": "b",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./b.svg",
+      "source_url": "https://cdn.simpleicons.org/bilibili",
+      "asset_kind": "svg",
+      "asset_size": 1396,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:02.1330169Z"
+    },
+    {
+      "name": "小红书",
+      "aliases": [
+        "小红书"
+      ],
+      "hosts": [
+        "xiaohongshu.com"
+      ],
+      "category": "social",
+      "slug": "source-59",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-59.svg",
+      "source_url": "https://cdn.simpleicons.org/xiaohongshu",
+      "asset_kind": "svg",
+      "asset_size": 3599,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:02.3539930Z"
+    },
+    {
+      "name": "百度贴吧",
+      "aliases": [
+        "百度贴吧"
+      ],
+      "hosts": [
+        "tieba.baidu.com"
+      ],
+      "category": "social",
+      "slug": "source-60",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-60.svg",
+      "source_url": "https://cdn.simpleicons.org/baidu",
+      "asset_kind": "svg",
+      "asset_size": 1406,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:02.5568192Z"
+    },
+    {
+      "name": "豆瓣",
+      "aliases": [
+        "豆瓣"
+      ],
+      "hosts": [
+        "douban.com"
+      ],
+      "category": "social",
+      "slug": "source-61",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-61.svg",
+      "source_url": "https://cdn.simpleicons.org/douban",
+      "asset_kind": "svg",
+      "asset_size": 325,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:02.7646024Z"
+    },
+    {
+      "name": "V2EX",
+      "aliases": [
+        "V2EX"
+      ],
+      "hosts": [
+        "v2ex.com"
+      ],
+      "category": "social",
+      "slug": "v2ex",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./v2ex.svg",
+      "source_url": "https://cdn.simpleicons.org/v2ex",
+      "asset_kind": "svg",
+      "asset_size": 365,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验"
+      ],
+      "checked_at": "2026-09-04T04:55:02.9738809Z"
+    },
+    {
+      "name": "Buzzing·海外主流媒体",
+      "aliases": [
+        "Buzzing·海外主流媒体"
+      ],
+      "hosts": [],
+      "category": "overseas_main",
+      "slug": "buzzing",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:55:02.9853425Z"
+    },
+    {
+      "name": "BBC",
+      "aliases": [
+        "BBC"
+      ],
+      "hosts": [
+        "bbc.com",
+        "bbc.co.uk"
+      ],
+      "category": "overseas_main",
+      "slug": "bbc",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./bbc.ico",
+      "source_url": "https://bbc.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 15086,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:08.0386455Z"
+    },
+    {
+      "name": "路透社 Reuters",
+      "aliases": [
+        "路透社 Reuters"
+      ],
+      "hosts": [
+        "reuters.com"
+      ],
+      "category": "overseas_main",
+      "slug": "reuters",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./reuters.ico",
+      "source_url": "https://reuters.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 4418,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:12.3515353Z"
+    },
+    {
+      "name": "纽约时报 NYT",
+      "aliases": [
+        "纽约时报 NYT"
+      ],
+      "hosts": [
+        "nytimes.com"
+      ],
+      "category": "overseas_main",
+      "slug": "nyt",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./nyt.png",
+      "source_url": "https://nytimes.com/favicon.ico",
+      "asset_kind": "png",
+      "asset_size": 1648,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:17.7813488Z"
+    },
+    {
+      "name": "金融时报 FT",
+      "aliases": [
+        "金融时报 FT"
+      ],
+      "hosts": [
+        "ft.com"
+      ],
+      "category": "overseas_main",
+      "slug": "ft",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:55:22.6052287Z"
+    },
+    {
+      "name": "华尔街日报 WSJ",
+      "aliases": [
+        "华尔街日报 WSJ"
+      ],
+      "hosts": [
+        "wsj.com"
+      ],
+      "category": "overseas_main",
+      "slug": "wsj",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./wsj.ico",
+      "source_url": "https://wsj.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 13094,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:26.0552455Z"
+    },
+    {
+      "name": "彭博 Bloomberg",
+      "aliases": [
+        "彭博 Bloomberg"
+      ],
+      "hosts": [
+        "bloomberg.com"
+      ],
+      "category": "overseas_main",
+      "slug": "bloomberg",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./bloomberg.ico",
+      "source_url": "https://bloomberg.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 15406,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:29.6645872Z"
+    },
+    {
+      "name": "经济学人 Economist",
+      "aliases": [
+        "经济学人 Economist"
+      ],
+      "hosts": [
+        "economist.com"
+      ],
+      "category": "overseas_main",
+      "slug": "economist",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./economist.ico",
+      "source_url": "https://economist.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 5558,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:32.8272311Z"
+    },
+    {
+      "name": "卫报 The Guardian",
+      "aliases": [
+        "卫报 The Guardian"
+      ],
+      "hosts": [
+        "theguardian.com"
+      ],
+      "category": "overseas_main",
+      "slug": "the-guardian",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./the-guardian.ico",
+      "source_url": "https://theguardian.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 4286,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:39.1855061Z"
+    },
+    {
+      "name": "香港01",
+      "aliases": [
+        "香港01"
+      ],
+      "hosts": [
+        "hk01.com"
+      ],
+      "category": "overseas_cn",
+      "slug": "01",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./01.ico",
+      "source_url": "https://hk01.com/favicon.ico",
+      "asset_kind": "ico",
+      "asset_size": 15086,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:44.2108502Z"
+    },
+    {
+      "name": "星岛头条",
+      "aliases": [
+        "星岛头条"
+      ],
+      "hosts": [
+        "stheadline.com"
+      ],
+      "category": "overseas_cn",
+      "slug": "source-73",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:55:49.0173499Z"
+    },
+    {
+      "name": "联合早报",
+      "aliases": [
+        "联合早报"
+      ],
+      "hosts": [
+        "zaobao.com.sg"
+      ],
+      "category": "overseas_cn",
+      "slug": "source-74",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./source-74.svg",
+      "source_url": "https://zaobao.com.sg/favicon.svg",
+      "asset_kind": "svg",
+      "asset_size": 6209,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:55:51.6330138Z"
+    },
+    {
+      "name": "明报",
+      "aliases": [
+        "明报"
+      ],
+      "hosts": [
+        "mingpao.com"
+      ],
+      "category": "overseas_cn",
+      "slug": "source-75",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [],
+      "checked_at": "2026-09-04T04:55:57.5963336Z"
+    },
+    {
+      "name": "FT中文网",
+      "aliases": [
+        "FT中文网"
+      ],
+      "hosts": [
+        "ftchinese.com"
+      ],
+      "category": "overseas_cn",
+      "slug": "ft",
+      "status": "fetched",
+      "provider": "official-site",
+      "asset": "./ft.jpg",
+      "source_url": "https://d2785ji6wtdqx8.cloudfront.net/img/friend-share-icon.jpg",
+      "asset_kind": "jpg",
+      "asset_size": 7608,
+      "license": "官网图标，按来源站点品牌/使用规则复核",
+      "notes": [
+        "来自信源官网图标入口，需人工复核品牌规范"
+      ],
+      "checked_at": "2026-09-04T04:56:04.4834688Z"
+    },
+    {
+      "name": "Buzzing·海外社区",
+      "aliases": [
+        "Buzzing·海外社区"
+      ],
+      "hosts": [],
+      "category": "overseas_comm",
+      "slug": "buzzing",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:56:04.5819606Z"
+    },
+    {
+      "name": "微博热搜",
+      "aliases": [
+        "微博热搜"
+      ],
+      "hosts": [],
+      "category": "hotlist",
+      "slug": "source-78",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-78.svg",
+      "source_url": "https://cdn.simpleicons.org/sinaweibo",
+      "asset_kind": "svg",
+      "asset_size": 1508,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验",
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:56:04.7914598Z"
+    },
+    {
+      "name": "知乎热榜",
+      "aliases": [
+        "知乎热榜"
+      ],
+      "hosts": [],
+      "category": "hotlist",
+      "slug": "source-79",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-79.svg",
+      "source_url": "https://cdn.simpleicons.org/zhihu",
+      "asset_kind": "svg",
+      "asset_size": 933,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验",
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:56:05.0026536Z"
+    },
+    {
+      "name": "B站热门",
+      "aliases": [
+        "B站热门"
+      ],
+      "hosts": [],
+      "category": "hotlist",
+      "slug": "b",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./b.svg",
+      "source_url": "https://cdn.simpleicons.org/bilibili",
+      "asset_kind": "svg",
+      "asset_size": 1396,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验",
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:56:05.2250154Z"
+    },
+    {
+      "name": "百度热搜",
+      "aliases": [
+        "百度热搜"
+      ],
+      "hosts": [],
+      "category": "hotlist",
+      "slug": "source-81",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-81.svg",
+      "source_url": "https://cdn.simpleicons.org/baidu",
+      "asset_kind": "svg",
+      "asset_size": 1406,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验",
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:56:05.4311601Z"
+    },
+    {
+      "name": "抖音热点",
+      "aliases": [
+        "抖音热点"
+      ],
+      "hosts": [],
+      "category": "hotlist",
+      "slug": "source-82",
+      "status": "fetched",
+      "provider": "simple-icons",
+      "asset": "./source-82.svg",
+      "source_url": "https://cdn.simpleicons.org/tiktok",
+      "asset_kind": "svg",
+      "asset_size": 722,
+      "license": "CC0-1.0 (资产库声明；品牌权利仍归原权利人)",
+      "notes": [
+        "已通过本地品牌映射核验",
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:56:05.6403932Z"
+    },
+    {
+      "name": "今日头条热榜",
+      "aliases": [
+        "今日头条热榜"
+      ],
+      "hosts": [],
+      "category": "hotlist",
+      "slug": "source-83",
+      "status": "pending",
+      "provider": "none",
+      "asset": "",
+      "source_url": "",
+      "asset_kind": "",
+      "asset_size": 0,
+      "license": "未入库",
+      "notes": [
+        "目录无官网域名，仅保留为待匹配来源"
+      ],
+      "checked_at": "2026-09-04T04:56:05.6521456Z"
+    }
+  ]
+}

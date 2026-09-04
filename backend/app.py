@@ -41,8 +41,12 @@ from db import (
 from pipeline import gen_docx as pipeline_gen_docx, render_markdown, run_analysis
 from source_catalog import CATALOG, CATEGORIES
 from observability import JsonFormatter, begin_request, finish_request
-from security import (MIN_TOKEN_LENGTH, SESSION_COOKIE, attach_session_cookie,
-                      authorized, client_key, limiter, verify_admin_token)
+from security import (DEFAULT_ADMIN_USERNAME, MIN_PASSWORD_LENGTH,
+                      MIN_TOKEN_LENGTH, SESSION_COOKIE, attach_session_cookie,
+                      authenticated_username, authorized, client_key,
+                      create_session, limiter, password_must_change,
+                      revoke_session, set_admin_password, verify_admin_password,
+                      verify_admin_token)
 
 
 _root_logger = logging.getLogger()
@@ -708,21 +712,47 @@ def api_settings_get():
 
 @app.get("/api/auth/status")
 def api_auth_status():
-    """返回当前会话是否已认证，不返回令牌或令牌配置内容。"""
-    return jsonify({"authenticated": authorized()})
+    """返回当前会话状态，不返回密码、令牌或密码哈希。"""
+    authenticated = authorized()
+    return jsonify({
+        "authenticated": authenticated,
+        "username": authenticated_username() if authenticated else "",
+        "must_change_password": password_must_change() if authenticated else False,
+    })
 
 
 @app.post("/api/auth/login")
 def api_auth_login():
-    """验证管理员令牌并建立 HttpOnly 会话 Cookie。"""
+    """验证站内账号密码并建立随机 HttpOnly 会话 Cookie。"""
     body = request.get_json(silent=True) or {}
+    username = str(body.get("username") or "").strip()
+    password = str(body.get("password") or "")
+    if username or password:
+        if username != DEFAULT_ADMIN_USERNAME:
+            return jsonify({"ok": False, "error": "用户名必须为 admin"}), 401
+        if not verify_admin_password(username, password):
+            return jsonify({"ok": False, "error": "用户名或密码错误"}), 401
+        sid = create_session(username)
+        response = jsonify({
+            "ok": True,
+            "username": username,
+            "must_change_password": password_must_change(),
+        })
+        response.set_cookie(
+            SESSION_COOKIE, sid, max_age=86400,
+            httponly=True, samesite="Lax", secure=bool(request.is_secure),
+        )
+        return response
+
+    # 兼容旧版脚本/部署：Bearer 令牌仍可用于 API，但不作为网页登录方式。
     token = str(body.get("token") or "").strip()
     if not verify_admin_token(token):
         return jsonify({"ok": False,
-                        "error": f"管理员令牌无效（至少需要{MIN_TOKEN_LENGTH}个字符）"}), 401
+                        "error": f"账号密码无效；旧版令牌至少需要{MIN_TOKEN_LENGTH}个字符"}), 401
+    sid = create_session()
     response = jsonify({"ok": True})
     response.set_cookie(
-        SESSION_COOKIE, token, max_age=86400,
+        SESSION_COOKIE, sid, max_age=86400,
         httponly=True, samesite="Lax", secure=bool(request.is_secure),
     )
     return response
@@ -730,8 +760,32 @@ def api_auth_login():
 
 @app.post("/api/auth/logout")
 def api_auth_logout():
+    revoke_session(request.cookies.get(SESSION_COOKIE, ""))
     response = jsonify({"ok": True})
     response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
+@app.post("/api/auth/password")
+def api_auth_password():
+    """修改站内管理员密码，成功后旧会话全部失效并续发当前会话。"""
+    body = request.get_json(silent=True) or {}
+    current_password = str(body.get("current_password") or "")
+    new_password = str(body.get("new_password") or "")
+    confirm_password = str(body.get("confirm_password") or "")
+    if len(new_password) < MIN_PASSWORD_LENGTH:
+        return jsonify({"ok": False, "error": f"新密码至少需要 {MIN_PASSWORD_LENGTH} 个字符"}), 400
+    if new_password != confirm_password:
+        return jsonify({"ok": False, "error": "两次输入的新密码不一致"}), 400
+    if not set_admin_password(current_password, new_password):
+        return jsonify({"ok": False, "error": "当前密码错误，未修改密码"}), 400
+    sid = create_session(DEFAULT_ADMIN_USERNAME)
+    response = jsonify({"ok": True, "username": DEFAULT_ADMIN_USERNAME,
+                        "must_change_password": False})
+    response.set_cookie(
+        SESSION_COOKIE, sid, max_age=86400,
+        httponly=True, samesite="Lax", secure=bool(request.is_secure),
+    )
     return response
 
 

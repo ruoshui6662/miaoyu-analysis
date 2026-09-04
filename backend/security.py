@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import secrets
@@ -16,12 +17,113 @@ from config import DATA_DIR
 LOGGER = logging.getLogger("miaoyu.security")
 TOKEN_ENV = "MIAOYU_ADMIN_TOKEN"
 TOKEN_FILE = DATA_DIR / "admin_token"
+ACCOUNT_FILE = DATA_DIR / "admin_account.json"
 SESSION_COOKIE = "miaoyu_session"
 MIN_TOKEN_LENGTH = 6
+MIN_PASSWORD_LENGTH = 8
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "password"
+
+_ACCOUNT_LOCK = threading.RLock()
+_SESSIONS_LOCK = threading.Lock()
+_SESSIONS: dict[str, tuple[str, float]] = {}
 
 
 def _valid_token(value: str) -> bool:
     return len(str(value or "").strip()) >= MIN_TOKEN_LENGTH
+
+
+def _password_hash(password: str, salt: bytes | None = None) -> tuple[str, str]:
+    salt = salt or secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", str(password).encode("utf-8"), salt, 240_000
+    )
+    return salt.hex(), digest.hex()
+
+
+def _read_account() -> dict:
+    try:
+        data = json.loads(ACCOUNT_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and data.get("username") == DEFAULT_ADMIN_USERNAME \
+                and data.get("salt") and data.get("password_hash"):
+            return data
+    except (OSError, ValueError, TypeError):
+        pass
+    return {}
+
+
+def _write_account(account: dict) -> None:
+    ACCOUNT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temp = ACCOUNT_FILE.with_suffix(".tmp")
+    temp.write_text(json.dumps(account, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:
+        os.chmod(temp, 0o600)
+    except OSError:
+        pass
+    temp.replace(ACCOUNT_FILE)
+
+
+def admin_account() -> dict:
+    """读取或初始化站内管理员账户；密码只以 PBKDF2 哈希形式落盘。"""
+    with _ACCOUNT_LOCK:
+        account = _read_account()
+        if account:
+            return account
+        salt, digest = _password_hash(DEFAULT_ADMIN_PASSWORD)
+        account = {
+            "username": DEFAULT_ADMIN_USERNAME,
+            "salt": salt,
+            "password_hash": digest,
+            "must_change_password": True,
+            "updated_at": int(time.time()),
+        }
+        try:
+            _write_account(account)
+        except OSError as exc:
+            LOGGER.error("无法持久化管理员账户: %s", exc)
+        return account
+
+
+def verify_admin_password(username: str, password: str) -> bool:
+    account = admin_account()
+    supplied_user = str(username or "").strip()
+    supplied_password = str(password or "")
+    if supplied_user != DEFAULT_ADMIN_USERNAME or not supplied_password:
+        return False
+    try:
+        _, digest = _password_hash(supplied_password, bytes.fromhex(account["salt"]))
+    except (KeyError, ValueError):
+        return False
+    return secrets.compare_digest(digest, str(account.get("password_hash") or ""))
+
+
+def password_must_change() -> bool:
+    return bool(admin_account().get("must_change_password", True))
+
+
+def set_admin_password(current_password: str, new_password: str) -> bool:
+    """校验旧密码并更新密码；成功后所有既有会话失效。"""
+    if len(str(new_password or "")) < MIN_PASSWORD_LENGTH:
+        return False
+    if not verify_admin_password(DEFAULT_ADMIN_USERNAME, current_password):
+        return False
+    with _ACCOUNT_LOCK:
+        account = admin_account()
+        salt, digest = _password_hash(new_password)
+        account.update({
+            "salt": salt,
+            "password_hash": digest,
+            "must_change_password": False,
+            "updated_at": int(time.time()),
+        })
+        try:
+            _write_account(account)
+        except OSError as exc:
+            LOGGER.error("无法保存管理员密码: %s", exc)
+            return False
+    with _SESSIONS_LOCK:
+        _SESSIONS.clear()
+    return True
 
 
 def admin_token() -> str:
@@ -57,11 +159,49 @@ def request_token() -> str:
     header = request.headers.get("X-Admin-Token", "").strip()
     if header:
         return header
-    return request.cookies.get(SESSION_COOKIE, "").strip()
+    return ""
+
+
+def _session_user(value: str) -> str:
+    sid = str(value or "").strip()
+    if not sid:
+        return ""
+    with _SESSIONS_LOCK:
+        session = _SESSIONS.get(sid)
+        if not session:
+            return ""
+        username, expires_at = session
+        if expires_at <= time.time():
+            _SESSIONS.pop(sid, None)
+            return ""
+        return username
+
+
+def create_session(username: str = DEFAULT_ADMIN_USERNAME) -> str:
+    sid = secrets.token_urlsafe(32)
+    with _SESSIONS_LOCK:
+        _SESSIONS[sid] = (username, time.time() + 86400)
+        if len(_SESSIONS) > 4096:
+            now = time.time()
+            _SESSIONS.update({k: v for k, v in _SESSIONS.items() if v[1] > now})
+    return sid
+
+
+def revoke_session(value: str) -> None:
+    with _SESSIONS_LOCK:
+        _SESSIONS.pop(str(value or "").strip(), None)
+
+
+def authenticated_username() -> str:
+    username = _session_user(request.cookies.get(SESSION_COOKIE, ""))
+    if username:
+        return username
+    # 兼容既有 Bearer/X-Admin-Token 自动化调用；网页会话不会走这里。
+    return DEFAULT_ADMIN_USERNAME if verify_admin_token(request_token()) else ""
 
 
 def authorized() -> bool:
-    return verify_admin_token(request_token())
+    return bool(authenticated_username())
 
 
 def verify_admin_token(value: str) -> bool:
@@ -74,13 +214,14 @@ def verify_admin_token(value: str) -> bool:
 
 
 def attach_session_cookie(response):
-    """令牌请求成功后转为 HttpOnly 会话，便于下载链接等非 fetch 请求复用。"""
+    """兼容令牌请求，并将其转换为随机 HttpOnly 会话。"""
     supplied = request.headers.get("Authorization", "")
     if supplied.lower().startswith("bearer ") and secrets.compare_digest(
         supplied[7:].strip(), admin_token()
     ):
+        sid = create_session()
         response.set_cookie(
-            SESSION_COOKIE, supplied[7:].strip(), max_age=86400,
+            SESSION_COOKIE, sid, max_age=86400,
             httponly=True, samesite="Lax", secure=bool(request.is_secure),
         )
     return response

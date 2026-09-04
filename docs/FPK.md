@@ -42,9 +42,9 @@ python scripts/build_fpk.py --fnpack /path/to/fnpack --version 0.1.1
 - 服务端口：manifest 默认 `5000`，由 `${TRIM_SERVICE_PORT}` 映射到容器 `5000`。
 - 运行数据：`${TRIM_PKGVAR}/data`，用于 SQLite、报告、任务和原始素材，升级不覆盖。
 - 配置文件：`${TRIM_PKGETC}/.env`，首次安装从模板生成，升级时保留用户现有文件。
-- `.env` 中的 AI Key、管理员 Token 等敏感信息不进入 Git 或 FPK。
+- `.env` 中的 AI Key、Bearer 管理员 Token 等敏感信息不进入 Git 或 FPK；网页登录密码保存在运行数据目录的 `admin_account.json` 哈希文件中。
 
-首次安装后，在 fnOS 应用配置目录生成 `.env`，填写 `MIAOYU_ADMIN_TOKEN`（至少 6 个字符）和需要的 AI/SearXNG 配置，再启动应用。
+首次安装后，在 fnOS 应用配置目录生成 `.env`，按需填写 `MIAOYU_ADMIN_TOKEN`（至少 6 个字符）和需要的 AI/SearXNG 配置，再启动应用。网页登录账号固定为 `admin`，初始密码为 `password`；首次登录后必须在“设置 → 账户管理”修改并保存。
 
 ## 飞牛侧验收
 

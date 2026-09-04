@@ -453,6 +453,10 @@ class SecurityTests(unittest.TestCase):
         self.assertNotIn("prompt(", frontend)
         self.assertIn("authRequired", frontend)
         self.assertIn("authGate", frontend)
+        self.assertIn("authUsername", frontend)
+        self.assertIn("authPassword", frontend)
+        self.assertIn("panel-account", frontend)
+        self.assertIn("/api/auth/password", frontend)
         self.assertIn(".auth-gate.hidden { display: none; }", frontend)
         self.assertNotIn("sessionStorage.getItem(\"miaoyu_admin_token\")", frontend)
 
@@ -473,6 +477,19 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("跨平台覆盖优先，榜内位置其次", frontend)
         self.assertNotIn(".sort((a, b) => hotNum(b.hot) - hotNum(a.hot))", frontend)
 
+    def test_home_platform_marks_use_canonical_local_assets(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("HOME_PLATFORM_ASSETS", frontend)
+        for asset in (
+            "source-56.svg", "source-57.svg", "source-82.svg", "b.svg", "source-81.svg", "source-51.ico",
+        ):
+            self.assertIn(f"assets/source-logos/library/{asset}", frontend)
+        self.assertIn("function homeBoardId(name, sourceId)", frontend)
+        self.assertIn("homePlatformMark(source.name, meta, source.name, source.source_id)", frontend)
+        self.assertIn(".home-platform-mark:not(.logo).weibo", frontend)
+        self.assertIn(".home-platform-mark.logo { overflow: hidden; background: var(--surface);", frontend)
+        self.assertNotIn("const HOME_BOARD_LOGOS", frontend)
+
     def test_auth_login_sets_cookie_and_logout_revokes_session(self):
         client = app_module.app.test_client()
         token = os.environ["MIAOYU_ADMIN_TOKEN"]
@@ -492,6 +509,46 @@ class SecurityTests(unittest.TestCase):
 
         self.assertEqual(client.post("/api/auth/logout").status_code, 200)
         self.assertFalse(client.get("/api/auth/status").get_json()["authenticated"])
+
+    def test_account_password_login_and_change_requires_admin_username(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-admin-account-") as tmp:
+            with patch.object(security, "ACCOUNT_FILE", Path(tmp) / "admin_account.json"):
+                with security._SESSIONS_LOCK:
+                    security._SESSIONS.clear()
+                client = app_module.app.test_client()
+                self.assertEqual(client.post("/api/auth/login", json={
+                    "username": "operator", "password": "password",
+                }).status_code, 401)
+                first = client.post("/api/auth/login", json={
+                    "username": "admin", "password": "password",
+                })
+                self.assertEqual(first.status_code, 200)
+                self.assertTrue(first.get_json()["must_change_password"])
+                self.assertEqual(client.get("/api/auth/status").get_json()["username"], "admin")
+
+                changed = client.post("/api/auth/password", json={
+                    "current_password": "password",
+                    "new_password": "local-pass-2026",
+                    "confirm_password": "local-pass-2026",
+                })
+                self.assertEqual(changed.status_code, 200)
+                self.assertFalse(changed.get_json()["must_change_password"])
+                self.assertFalse(security.verify_admin_password("admin", "password"))
+                self.assertTrue(security.verify_admin_password("admin", "local-pass-2026"))
+
+                old_login = app_module.app.test_client().post("/api/auth/login", json={
+                    "username": "admin", "password": "password",
+                })
+                new_login = app_module.app.test_client().post("/api/auth/login", json={
+                    "username": "admin", "password": "local-pass-2026",
+                })
+                self.assertEqual(old_login.status_code, 401)
+                self.assertEqual(new_login.status_code, 200)
+                raw = (Path(tmp) / "admin_account.json").read_text(encoding="utf-8")
+                self.assertNotIn("local-pass-2026", raw)
+                self.assertIn("password_hash", raw)
+                with security._SESSIONS_LOCK:
+                    security._SESSIONS.clear()
 
     def test_settings_save_keeps_redacted_existing_api_key(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-security-settings-") as tmp:

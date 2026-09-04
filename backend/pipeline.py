@@ -118,7 +118,7 @@ def _chapter_section(topic, chapter, materials, facts_summary, ai, provider,
 
 
 def _placeholder_section(reason: str) -> list[dict]:
-    return [{"lead": "待分析。", "body": f"本环节暂未生成（原因：{reason}）。请配置 AI 接口后重跑。"}]
+    return [{"lead": "待分析。", "body": f"本环节暂未生成（原因：{reason}）。请配置分析模型后重跑。"}]
 
 
 # ---------- docx 生成 ----------
@@ -414,7 +414,7 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
             emit("prepare", f"AI 通道正常：{used}")
         except AIClientError as e:
             raise AIClientError(
-                f"AI 通道预检失败，任务终止：{e}。请到「设置 → AI 接口」核对服务商 "
+                f"AI 通道预检失败，任务终止：{e}。请到「设置 → 分析模型」核对服务商 "
                 f"Base URL / API Key / 模型名后重试。") from e
 
     # 2) 关键词扩展
@@ -449,7 +449,7 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     if collect_only or ai is None:
         return {"title": f"“{topic}”舆情存在问题风险分析及对策建议", "intro": "",
                 "sections": [], "stats": stats, "ai_ready": ai is not None,
-                "ai_warning": "" if ai is not None else "未配置可用 AI 接口：请在 .env 填写 DEEPSEEK_API_KEY / QWEN_API_KEY，或配置 AI_ROUTER_BASE_URL（本地 9router）后重试。"}
+                "ai_warning": "" if ai is not None else "未配置可用分析模型：请在 .env 填写 DEEPSEEK_API_KEY / QWEN_API_KEY，或配置 AI_ROUTER_BASE_URL（本地 9router）后重试。"}
 
     # 4) AI 四角色生成（阶段A 三路并行：事实整理‖原因‖风险 → 阶段B 对策串行）
     ai_stage = _run_ai_stage(topic, materials["items"], provider, emit)
