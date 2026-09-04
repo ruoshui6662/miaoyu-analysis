@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>妙舆 Logo 方向 Demo</title>
+  <style>
+    :root { color-scheme: light; --ink:#111827; --muted:#7b8491; --red:#ef3b3b; --line:#e8eaed; --paper:#f7f7f5; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:var(--paper); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif; }
+    main { width:min(1120px, calc(100% - 48px)); margin:0 auto; padding:72px 0 88px; }
+    .eyebrow { color:var(--red); font-size:13px; font-weight:700; letter-spacing:.08em; }
+    h1 { margin:12px 0 10px; font-size:38px; letter-spacing:-.04em; }
+    .intro { margin:0; max-width:620px; color:var(--muted); font-size:14px; line-height:1.7; }
+    .rule { height:1px; margin:42px 0 22px; background:var(--line); }
+    .meta { display:flex; align-items:center; justify-content:space-between; gap:16px; color:var(--muted); font-size:12px; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:16px; }
+    .card { min-height:390px; padding:24px; display:flex; flex-direction:column; justify-content:space-between; background:#fff; border:1px solid var(--line); border-radius:20px; box-shadow:0 12px 32px rgba(17,24,39,.04); }
+    .tag { color:var(--red); font-size:12px; font-weight:700; }
+    .name { margin-top:8px; font-size:18px; font-weight:700; letter-spacing:-.02em; }
+    .sample { min-height:178px; display:flex; align-items:center; justify-content:center; }
+    .lockup { display:flex; align-items:center; gap:16px; }
+    .wordmark { color:var(--ink); font-size:42px; font-weight:750; letter-spacing:-.11em; }
+    .wordmark small { margin-left:12px; color:var(--muted); font-size:12px; font-weight:500; letter-spacing:.05em; }
+    .option-a .wordmark::first-letter { color:var(--red); }
+    .option-a .signal { width:9px; height:9px; margin:-30px 0 0 -10px; border-radius:50%; background:var(--red); }
+    .superellipse { width:82px; height:82px; display:grid; place-items:center; border-radius:29%; background:var(--ink); }
+    .superellipse::before { content:"妙"; color:#fff; font-size:39px; font-weight:700; line-height:1; transform:translateY(-2px); }
+    .option-b .wordmark { font-size:36px; letter-spacing:-.1em; }
+    .option-b .wordmark::first-letter { color:var(--red); }
+    .orb { width:82px; height:82px; position:relative; border:10px solid var(--red); border-radius:34%; transform:rotate(-9deg); }
+    .orb::before { content:""; position:absolute; width:32px; height:32px; left:15px; top:15px; border-radius:50%; background:var(--paper); }
+    .orb::after { content:""; position:absolute; width:10px; height:35px; right:-10px; top:15px; border-radius:99px; background:var(--red); }
+    .option-c .wordmark { font-size:36px; letter-spacing:-.1em; }
+    .option-c .wordmark::first-letter { color:var(--red); }
+    .foot { padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.7; }
+    .foot b { display:block; margin-bottom:4px; color:var(--ink); font-size:13px; }
+    .preview { margin-top:18px; padding:18px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:#fff; border:1px solid var(--line); border-radius:16px; }
+    .preview-brand { display:flex; align-items:center; gap:10px; font-size:17px; font-weight:750; letter-spacing:-.04em; }
+    .preview-brand .mini { width:26px; height:26px; display:grid; place-items:center; border-radius:8px; background:var(--ink); color:#fff; font-size:14px; }
+    .nav { display:flex; align-items:center; gap:26px; color:var(--muted); font-size:13px; }
+    .nav .active { color:var(--ink); font-weight:700; }
+    .nav .active::after { content:""; display:block; width:22px; height:2px; margin:9px auto 0; border-radius:99px; background:var(--red); }
+    @media (max-width:760px) { main { width:min(100% - 28px, 520px); padding:40px 0 56px; } h1 { font-size:31px; } .grid { grid-template-columns:1fr; } .card { min-height:320px; } .sample { min-height:130px; } .preview { align-items:flex-start; flex-direction:column; } .nav { width:100%; justify-content:space-between; gap:10px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">品牌识别 · 第一轮字标探索</div>
+    <h1>妙舆，不需要解释。</h1>
+    <p class="intro">先建立稳定的字标与视觉重量，再延展图形。三组方向都坚持单色可用、连续曲率、克制留白和小尺寸识别，不把“舆情”画成直白图标。</p>
+    <div class="rule"></div>
+    <div class="meta"><span>三种字标母体 · 红 / 墨 / 白</span><span>导航栏预览</span></div>
+    <section class="grid" aria-label="Logo 方向">
+      <article class="card option-a">
+        <div><div class="tag">A / 纯字标</div><div class="name">安静、成熟、最耐看</div></div>
+        <div class="sample"><div class="lockup"><div class="wordmark">妙舆</div><div class="signal"></div></div></div>
+        <div class="foot"><b>品牌优先</b>不依赖图形也能成立；红色只做识别点，适合首页和报告标题。</div>
+      </article>
+      <article class="card option-b">
+        <div><div class="tag">B / 字标 + 母形</div><div class="name">保留“妙”的记忆点</div></div>
+        <div class="sample"><div class="lockup"><div class="superellipse"></div><div class="wordmark">妙舆</div></div></div>
+        <div class="foot"><b>识别优先</b>用一个经过收敛的圆方母形承载品牌，不增加行业符号，适合 App 图标。</div>
+      </article>
+      <article class="card option-c">
+        <div><div class="tag">C / 极简图形</div><div class="name">柔和、克制、有呼吸感</div></div>
+        <div class="sample"><div class="lockup"><div class="orb"></div><div class="wordmark">妙舆</div></div></div>
+        <div class="foot"><b>延展优先</b>用一个连续曲线作为品牌母形，适合动效、加载状态和深色界面。</div>
+      </article>
+    </section>
+    <div class="preview"><div class="preview-brand"><span class="mini">妙</span>妙舆 <span style="color:var(--muted);font-size:12px;font-weight:500;letter-spacing:.04em">全网舆情分析</span></div><nav class="nav"><span class="active">首页</span><span>分析</span><span>历史</span><span>设置</span></nav></div>
+  </main>
+</body>
+</html>

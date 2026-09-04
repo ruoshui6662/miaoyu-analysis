@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>妙舆</title>
+<link rel="icon" type="image/svg+xml" href="assets/miaoyu-logo.svg">
 <script src="vendor/echarts.min.js"></script>
 <script src="vendor/html2pdf.bundle.min.js"></script>
 <style>
@@ -73,6 +74,11 @@
     /* 圆角阶梯 */
     --r-sm: 8px;
     --r-md: 10px;
+    /* 图标规格：普通界面 16px；紧凑控件 14px；品牌/来源 Logo 单独管理 */
+    --icon-xs: 12px;
+    --icon-sm: 14px;
+    --icon-md: 16px;
+    --icon-lg: 18px;
     --r-lg: 14px;
     --r-xl: 16px;
     /* 兼容别名：dashboard 组件统一经 --primary 绑定墨色 accent（不引入独立蓝色系） */
@@ -150,12 +156,13 @@
   }
   .brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 700; letter-spacing: .04em; }
   .brand .logo {
-    width: 28px; height: 28px; border-radius: 8px; flex: none;
-    background: #30353f; color: #e9edf4; font-size: 15px; font-weight: 700;
+    width: 28px; height: 28px; flex: none;
+    background: transparent; color: var(--accent); font-size: 15px; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
   }
-  .brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: none; }
-  .brand .dot.off { background: #828a96; }
+  .brand .logo svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .brand-name { display: inline-flex; align-items: baseline; letter-spacing: -.04em; }
+  .brand-name-lead { color: var(--accent); }
   .nav {
     display: flex; gap: 2px; margin-left: 8px; padding: 3px;
     background: rgba(255, 255, 255, .06); border-radius: 99px;
@@ -779,7 +786,10 @@
   .account-status.ok { color: var(--green-text); }
   .account-status.error { color: var(--red); }
   @media (max-width: 760px) {
-    .auth-reminder-actions, .account-actions { flex-direction: column; align-items: stretch; }
+    /* 提醒弹窗是二选一决策，移动端也保持横向等宽；纵向布局会触发按钮 width:0 的逐字换行。 */
+    .auth-reminder-actions { flex-direction: row; align-items: stretch; gap: 10px; }
+    #passwordReminder .auth-reminder-actions button { width: auto; flex: 1 1 0; }
+    .account-actions { flex-direction: column; align-items: stretch; }
     .account-actions .primary { width: 100%; }
   }
 
@@ -870,8 +880,7 @@
     box-shadow: 0 1px 0 rgba(17, 17, 17, .04); backdrop-filter: blur(16px);
   }
   .brand { color: var(--text-strong); font-size: 16px; letter-spacing: -.02em; }
-  .brand .logo { width: 32px; height: 32px; border-radius: 10px; background: var(--text-strong); color: #fff; }
-  .brand .dot { width: 6px; height: 6px; background: var(--green); }
+  .brand .logo { width: 34px; height: 34px; border-radius: 0; background: transparent; color: var(--accent); }
   .nav { margin-left: 32px; padding: 0; gap: 6px; background: transparent; }
   .nav button {
     position: relative; height: 72px; padding: 0 14px; border-radius: 0;
@@ -974,6 +983,8 @@
   .src-group-head { background: transparent; }
   .provider-item.active { border-color: transparent; background: var(--card); box-shadow: 0 5px 18px rgba(26, 27, 25, .05); }
   .ai-panel { border-left: 0; padding-left: 0; }
+  .auth-brand-mark { width: 48px; height: 48px; margin-bottom: 14px; color: var(--accent); }
+  .auth-brand-mark svg { width: 100%; height: 100%; display: block; overflow: visible; }
   @media (max-width: 860px) {
     .header { padding: 0 20px; }
     .header-meta { display: none; }
@@ -1275,7 +1286,6 @@
   }
 
   /* ── 图一页面家族：分析 / 历史 / 设置共享同一工作台语言 ── */
-  .brand-subtitle { margin-left: 2px; color: var(--text-3); font-size: 12px; font-weight: 400; letter-spacing: 0; }
   .header .nav { margin-left: auto; }
   .header .header-meta { margin-left: 0; }
   #view-analyze, #view-history { max-width: 1180px; margin: 0 auto; }
@@ -1522,7 +1532,6 @@
   #view-settings .search-policy-field .sel { width: 100%; min-height: 42px; }
 
   @media (max-width: 960px) {
-    .brand-subtitle { display: none; }
     .analysis-evidence-note { display: none; }
   }
   @media (max-width: 760px) {
@@ -1576,15 +1585,54 @@
     #view-settings .search-section-head { gap: 10px; }
     #view-settings .search-section-note { display: none; }
   }
+
+  /* ── 图标与报告操作规范：统一光学尺寸、基线和按钮几何 ── */
+  .set-item svg,
+  .sec-ic svg,
+  .btn-with-icon svg,
+  .eye-btn svg,
+  .fic svg,
+  .file-dl svg,
+  .src-add-icon svg,
+  .src-group-head .gi svg,
+  .src-group-head .arrow svg,
+  .rail-add svg,
+  .signal-eyebrow svg {
+    width: var(--icon-md); height: var(--icon-md); flex: none;
+  }
+  .ht svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
+  .actions a.pri,
+  .actions button.pri,
+  .actions button.txt {
+    box-sizing: border-box; height: 40px; min-height: 40px;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 0 16px; line-height: 1;
+  }
+  .actions button.txt {
+    background: var(--card); color: var(--text); border: 1px solid var(--border-hover);
+    border-radius: var(--r-md); font-size: 13px; font-weight: 500;
+  }
+  .actions button.txt:hover { background: var(--surface-2); border-color: var(--border); }
+  .actions .btn-with-icon svg { width: var(--icon-md); height: var(--icon-md); }
+  @media (max-width: 760px) {
+    .actions a.pri,
+    .actions button.pri,
+    .actions button.txt { height: 44px; min-height: 44px; }
+  }
 </style>
 </head>
 <body>
 <div class="header">
   <div class="brand">
-    <span class="logo">舆</span>
-    <span>妙舆</span>
-    <span class="brand-subtitle">全网舆情分析</span>
-    <span class="dot" id="healthDot" title="后端服务状态"></span>
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <g transform="rotate(-9 32 32)" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="10" y="10" width="44" height="44" rx="15" stroke-width="8"/>
+          <circle cx="32" cy="32" r="10" fill="currentColor" fill-opacity=".10" stroke="none"/>
+        </g>
+      </svg>
+    </span>
+    <span class="brand-name"><span class="brand-name-lead">妙</span>舆</span>
   </div>
   <div class="nav">
     <button id="navHome" class="active" onclick="showView('home')">
@@ -1991,6 +2039,14 @@
 
 <div id="authGate" class="auth-gate hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
   <form id="authForm" class="auth-card">
+    <div class="auth-brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <g transform="rotate(-9 32 32)" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="10" y="10" width="44" height="44" rx="15" stroke-width="8"/>
+          <circle cx="32" cy="32" r="10" fill="currentColor" fill-opacity=".10" stroke="none"/>
+        </g>
+      </svg>
+    </div>
     <h2 id="authTitle">登录妙舆</h2>
     <p>请输入账号密码后访问任务、设置、报告等功能。</p>
     <label class="auth-label" for="authUsername">账号</label>
@@ -2744,7 +2800,7 @@ function renderReport(rep, jsonName) {
   }
   let acts = "";
   if (rep.docx) acts += `<button class="pri btn-with-icon" onclick="downloadDocx()">${IC.download}下载 Word 报告</button>`;
-  if (rep.md) acts += `<a class="pri" href="/api/reports/${encodeURIComponent(rep.md.split(/[\\/]/).pop())}" download>下载 Markdown</a>`;
+  if (rep.md) acts += `<a class="pri btn-with-icon" href="/api/reports/${encodeURIComponent(rep.md.split(/[\\/]/).pop())}" download>${IC.download}下载 Markdown</a>`;
   acts += `<button class="pri btn-with-icon" onclick="exportPDF()">${IC.download}导出 PDF 文件</button>`;
   if (window._curReportJson) acts += `<button class="txt btn-with-icon" onclick="enterEdit()">${IC.pencil}编辑内容</button>`;
   $("reportActions").innerHTML = acts;
@@ -4100,18 +4156,6 @@ async function bootstrapAuth() {
   if (location.protocol === "file:") {
     $("hint").innerHTML = '<div class="hint"><b>页面以本地文件方式打开，无法连接后端。</b><br>请改用浏览器访问 <code>http://localhost:5000</code></div>';
   }
-})();
-
-/* 后端健康探针：点亮顶栏状态点 */
-(async function checkHealth() {
-  try {
-    const r = await fetch("/healthz");
-    const body = await r.json();
-    if (body && body.ok) {
-      const dot = $("healthDot");
-      if (dot) { dot.classList.remove("off"); dot.title = "后端服务正常：" + body.time; }
-    }
-  } catch (e) { /* 后端未启动，保持灰点 */ }
 })();
 
 loadHotBoards();

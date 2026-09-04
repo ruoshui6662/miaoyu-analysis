@@ -577,6 +577,31 @@ class SecurityTests(unittest.TestCase):
         self.assertIn(".auth-gate.hidden { display: none; }", frontend)
         self.assertNotIn("sessionStorage.getItem(\"miaoyu_admin_token\")", frontend)
 
+    def test_product_logo_uses_canonical_c_mark(self):
+        root = Path(app_module.ROOT)
+        frontend = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+        logo = root / "frontend" / "assets" / "miaoyu-logo.svg"
+        self.assertTrue(logo.is_file())
+        self.assertIn("assets/miaoyu-logo.svg", frontend)
+        self.assertIn("brand-name-lead", frontend)
+        self.assertIn("auth-brand-mark", frontend)
+        self.assertIn('transform="rotate(-9 32 32)"', logo.read_text(encoding="utf-8"))
+        self.assertNotIn('<span class="logo">舆</span>', frontend)
+        self.assertNotIn("brand-subtitle", frontend)
+        self.assertNotIn("healthDot", frontend)
+
+    def test_report_actions_share_icon_and_button_geometry(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("--icon-md: 16px", frontend)
+        self.assertIn(".actions button.txt", frontend)
+        self.assertIn("${IC.download}下载 Markdown", frontend)
+        self.assertIn(".actions .btn-with-icon svg { width: var(--icon-md);", frontend)
+
+    def test_password_reminder_buttons_keep_mobile_horizontal_geometry(self):
+        frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn(".auth-reminder-actions { flex-direction: row;", frontend)
+        self.assertIn("#passwordReminder .auth-reminder-actions button { width: auto;", frontend)
+
     def test_radar_uses_board_scoped_diff_and_round_robin(self):
         frontend = (Path(app_module.ROOT) / "frontend" / "index.html").read_text(encoding="utf-8")
         self.assertIn("buildRadarNewByBoard", frontend)
