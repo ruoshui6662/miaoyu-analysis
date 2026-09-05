@@ -1663,89 +1663,174 @@
     .actions button.txt { height: 44px; min-height: 44px; }
   }
 
-  /* ── UI-2 容器减法：用空间和排版分组，边界只表达真正的层级 ── */
-  :root {
-    --r-sm: 6px;
-    --r-md: 8px;
-    --r-lg: 12px;
-    --r-xl: 14px;
-  }
-  .card { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+  /* ── UI-3：工作台视觉规范 ──
+     边界只表达真实层级；40px 桌面控件、44px 触控热区；屏幕样式与打印样式隔离。 */
+  @media screen {
+    :root {
+      --bg-page: #fff; --card: #fff; --surface: #f6f7f8; --surface-2: #eef0f2;
+      --header-bg: #fff; --text: #282d34; --text-strong: #181c22; --text-2: #565e68; --text-3: #68717c;
+      --border: #dde1e6; --border-hover: #a4abb5; --border-strong: #858e99; --separator: #e9ecf0;
+      --accent: #d93030; --accent-hover: #ba2525; --accent-tint: #fff2f1;
+      --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
+      --control-height: 40px; --field-bg: #fff; --field-border: #858e99;
+      --shadow-card: none; --shadow-overlay: 0 16px 48px rgba(24,28,34,.14);
+    }
+    body { background: var(--bg-page); color: var(--text); font-size: 14px; }
+    .header { height: 64px; background: var(--header-bg); border-bottom: 1px solid var(--separator); box-shadow: none; }
+    .nav button { height: 64px; }
+    .header .auth-logout { min-height: 36px; color: var(--text-2); border: 0; border-radius: var(--r-md); }
+    .header .auth-logout:hover { color: var(--text-strong); background: var(--surface); }
+    .wrap { max-width: 1236px; padding: 36px 28px 64px; }
+    #view-settings { max-width: 1180px; }
+    .page-head h2 { font-size: 28px; letter-spacing: -.025em; }
+    .page-head p { margin-top: 8px; font-size: 14px; }
+    .page-kicker { color: var(--text-2); letter-spacing: .02em; }
+    .card { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 
-  /* 首页：焦点是唯一主卡；新鲜动态和热榜回归页面流。 */
-  #view-home .home-focus-card {
-    border-radius: var(--r-xl); box-shadow: var(--shadow-card);
-  }
-  #view-home .home-fresh-card,
-  #view-home .home-hot-card {
-    background: transparent; border: 0; border-radius: 0; box-shadow: none;
-  }
-  #view-home .home-fresh-card { padding-top: 6px; }
-  #view-home .home-hot-card { padding-top: 4px; }
-  #view-home .home-fresh-list { padding-bottom: 6px; }
+    /* 所有操作组共享同一几何契约；全宽仅由专用组件声明。 */
+    button.primary, button.btn-secondary, button.txt, .actions a.pri, .actions button.pri, .actions button.txt,
+    #view-settings .set-footer .primary, #view-settings .account-actions .primary,
+    #view-settings #panel-ai .ai-actions > button, #view-settings #panel-groups .src-add-trigger,
+    #view-settings #panel-groups .src-add .primary, #view-settings .search-test,
+    #view-home .home-query-shell .primary, #view-analyze .analysis-query-row .primary {
+      box-sizing: border-box; width: auto; min-width: 0; height: var(--control-height); min-height: var(--control-height);
+      padding: 0 14px; border-radius: var(--r-md); font-size: 14px; font-weight: 550; line-height: 1.2;
+      white-space: nowrap; flex: none; vertical-align: middle;
+    }
+    .actions { gap: 8px; }
+    .actions a.pri, .actions button.pri { color: var(--text); background: var(--card); border: 1px solid var(--border-hover); }
+    .actions a.pri:hover, .actions button.pri:hover { color: var(--accent); background: var(--surface); }
+    .actions :is(a,button) svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
+    .auth-card .auth-submit { width: 100%; }
 
-  /* 顶部按钮负责“输入新主题”；焦点卡只提供轻量的上下文动作。 */
-  #view-home .home-focus-action {
-    display: inline-flex; align-items: center; gap: 5px; height: auto;
-    padding: 4px 0; border: 0; border-radius: 0;
-    background: transparent; color: var(--accent); font-size: 12px;
-    font-weight: 650; white-space: nowrap;
-  }
-  #view-home .home-focus-action:hover { background: transparent; color: var(--accent-hover); }
+    /* 可编辑输入与禁用态分离，统一标签、控件和帮助文案的宽度。 */
+    #view-settings :is(input.sel, select.sel, .model-select), #view-settings #panel-groups .src-bar input,
+    #view-settings #panel-groups .src-add :is(input,select), #view-home .home-query-shell input,
+    #view-analyze .analysis-query-row input, #view-analyze .analysis-provider select,
+    #view-history .history-search input, .auth-card .auth-input {
+      box-sizing: border-box; min-width: 0; height: var(--control-height); min-height: var(--control-height);
+      padding: 0 12px; border: 1px solid var(--field-border); border-radius: var(--r-md); background: var(--field-bg);
+      color: var(--text); font-size: 14px; transition: border-color .15s, box-shadow .15s;
+    }
+    #view-settings .key-wrap input { padding-right: 44px; }
+    #view-settings .eye-btn { right: 0; width: 40px; height: var(--control-height); border-radius: var(--r-md); }
+    #view-settings :is(input,select):disabled, #view-settings input:read-only { background: var(--surface); color: var(--text-2); border-color: var(--border); }
+    input::placeholder, textarea::placeholder { color: var(--text-3); opacity: 1; }
+    body :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: none; }
+    .model-row { align-items: center; flex-wrap: wrap; }
+    .model-row :is(input,select) { flex: 1 1 160px; }
 
-  /* 分析：输入和报告保留工作面；进度、最近记录只用节奏分隔。 */
-  #view-analyze .analysis-launch-card,
-  #view-analyze .analysis-report-card {
-    background: var(--card); border-radius: var(--r-xl); box-shadow: var(--shadow-card);
-  }
-  #view-analyze .analysis-progress-card,
-  #view-analyze .analysis-recent-card {
-    border: 0; border-top: 1px solid var(--separator); border-radius: 0;
-    background: transparent; box-shadow: none;
-  }
+    /* 首页与分析：主入口清晰，其余内容恢复连续信息流。 */
+    #view-home .home-hero h2 { font-size: 28px; letter-spacing: -.025em; }
+    #view-home .home-query { max-width: 880px; }
+    #view-home .home-query-shell { padding: 0; gap: 12px; border-radius: 0; box-shadow: none; background: transparent; }
+    #view-home .home-query-shell :is(input,.primary) { height: 44px; min-height: 44px; }
+    #view-home .home-query-shell .primary, #view-analyze .analysis-query-row .primary { min-width: 96px; }
+    #view-home :is(.home-focus-card,.home-fresh-card,.home-hot-card) { padding: 24px 0; margin-bottom: 0; border: 0; border-top: 1px solid var(--separator); border-radius: 0; box-shadow: none; background: transparent; }
+    #view-home .home-focus-action { min-height: 40px; height: auto; padding: 0 8px; border-radius: var(--r-md); background: transparent; color: var(--accent); }
+    #view-home .home-focus-action:hover { background: var(--accent-tint); }
+    #view-home .home-focus-chip { padding-right: 12px; background: transparent; border-radius: 0; }
+    #view-home .home-hot-tabs { gap: 16px; padding: 0; margin-bottom: 16px; border-bottom: 1px solid var(--separator); }
+    #view-home .home-hot-tab { height: 40px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; }
+    #view-home .home-hot-tab.active { border-bottom-color: var(--accent); color: var(--accent); background: transparent; }
 
-  /* 历史：外层不再套卡，主题记录以分隔列表承担结构。 */
-  #view-history > .card.history-workspace-card {
-    padding-left: 0; padding-right: 0; background: transparent;
-    border: 0; border-radius: 0; box-shadow: none;
-  }
-  #view-history .history-groups { gap: 0; }
-  #view-history .history-group {
-    border-top: 1px solid var(--separator); border-radius: 0;
-    background: transparent;
-  }
-  #view-history .history-group:hover { background: var(--surface); }
-  #view-history .history-detail-inner { border-radius: var(--r-md); }
-  #view-history .history-run { border-radius: 0; background: transparent; border-top: 1px solid var(--separator); }
+    /* 分析、历史、设置：只保留一层工作面，其余使用排版与分隔。 */
+    #view-analyze :is(.analysis-launch-card,#progressCard,#reportCard), #view-analyze > .card.thin { padding: 24px 0; border: 0; border-top: 1px solid var(--separator); border-radius: 0; box-shadow: none; background: transparent; }
+    #view-analyze .analysis-launch-card { padding-top: 0; border-top: 0; }
+    #view-analyze .analysis-query-row { grid-template-columns: minmax(0,1fr) auto; gap: 12px; }
+    #view-analyze .analysis-options-row { padding: 12px 0 0; flex-wrap: wrap; gap: 12px 20px; }
+    #view-analyze .analysis-verify { padding: 0; background: transparent; border-radius: 0; }
+    #view-history > .card.history-workspace-card { padding: 8px 0 24px; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+    #view-history .history-groups { gap: 0; }
+    #view-history .history-group { border-top: 1px solid var(--separator); border-radius: 0; background: transparent; }
+    #view-history .history-group:hover { background: var(--surface); }
+    #view-history .history-detail-inner { background: var(--surface); border: 0; border-radius: var(--r-sm); }
+    #view-history .history-run { border-radius: 0; background: transparent; border-top: 1px solid var(--separator); }
+    #view-history .history-action { min-height: var(--control-height); padding: 0 12px; border: 1px solid transparent; border-radius: var(--r-md); background: transparent; }
+    #view-history .history-action.primary { color: var(--accent); background: transparent; }
+    #view-history .history-action:hover { background: var(--surface-2); }
 
-  /* 设置：保留一个工作台外壳，来源分类和模型面板平铺。 */
-  #view-settings .settings-shell { background: var(--card); border-radius: var(--r-xl); }
-  #view-settings #panel-ai .ai-rail,
-  #view-settings #panel-ai .ai-panel {
-    padding-left: 0; padding-right: 0; border-radius: 0;
-    background: transparent; box-shadow: none;
-  }
-  #view-settings #panel-ai .provider-item.active {
-    border-radius: var(--r-md); background: var(--accent-tint); box-shadow: none;
-  }
-  #view-settings #panel-groups #srcList { gap: 28px 34px; }
-  #view-settings #panel-groups .src-group {
-    border: 0; border-radius: 0; background: transparent; box-shadow: none;
-  }
-  #view-settings #panel-groups .src-group-head {
-    background: transparent; border-bottom: 1px solid var(--separator);
-  }
-  #view-settings .search-provider-card {
-    border: 0; border-radius: var(--r-lg); background: var(--surface);
-  }
+    #view-settings .settings-shell { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    #view-settings .set-layout { grid-template-columns: 176px minmax(0,1fr); gap: 40px; min-height: 0; padding: 0; }
+    #view-settings .set-menu { position: sticky; top: 88px; margin: 0; padding: 0 16px 0 0; border: 0; border-right: 1px solid var(--separator); border-radius: 0; background: transparent; }
+    #view-settings .set-menu-head { padding: 0 12px 12px; }
+    #view-settings .set-item { height: var(--control-height); min-height: var(--control-height); border-radius: var(--r-sm); }
+    #view-settings .set-item.active { background: var(--accent-tint); color: var(--accent); box-shadow: none; }
+    #view-settings .set-item.active::before { width: 2px; border-radius: 0; }
+    #view-settings .set-content { padding: 0; }
+    #view-settings .panel-page-head { margin-bottom: 24px; }
+    #view-settings .panel-page-title { font-size: 22px; letter-spacing: -.02em; }
+    #view-settings .set-footer { margin-top: 24px; padding-top: 20px; max-width: none; }
+    #view-settings #panel-ai .service-layout { grid-template-columns: 192px minmax(0,1fr); gap: 28px; }
+    #view-settings #panel-ai .ai-rail, #view-settings #panel-ai .ai-panel { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+    #view-settings #panel-ai .ai-rail { border-right: 1px solid var(--separator); padding-right: 20px; }
+    #view-settings #panel-ai .provider-item.active { border-radius: var(--r-sm); background: var(--surface-2); box-shadow: none; }
+    #view-settings #panel-ai .ai-actions { gap: 8px; margin-top: 16px; padding-top: 16px; }
+    #view-settings .search-provider-cards { gap: 32px; }
+    #view-settings .search-provider-card { padding: 0; border: 0; border-radius: 0; background: transparent; }
+    #view-settings .search-provider-card-foot { flex-wrap: wrap; }
+    #view-settings .search-provider-card-foot .f-help { white-space: normal; overflow: visible; }
+    #view-settings .search-section-note { padding: 0; border-radius: 0; background: transparent; }
+    #view-settings .search-policy-value { min-height: var(--control-height); padding: 0; border: 0; border-radius: 0; background: transparent; }
+    #view-settings #panel-groups #srcList { gap: 24px 32px; }
+    #view-settings #panel-groups .src-group { border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+    #view-settings #panel-groups .src-group-head { min-height: 48px; padding: 8px 0; background: transparent; border-bottom: 1px solid var(--separator); }
+    #view-settings #panel-groups .src-items { padding: 0; }
+    #view-settings #panel-groups .src-more { margin: 0; min-height: 44px; }
+    #view-settings #panel-groups .src-add { grid-template-columns: repeat(2,minmax(0,1fr)); padding: 20px 0; border: 0; border-top: 1px solid var(--separator); border-radius: 0; }
+    #view-settings .account-notice { border-radius: var(--r-sm); }
+    #view-settings .account-user { padding: 0; background: transparent; border: 0; border-radius: 0; }
+    #view-settings .account-actions { flex-wrap: wrap; }
+    .auth-card, .auth-reminder-card { border-radius: var(--r-xl); box-shadow: var(--shadow-overlay); }
 
-  @media (max-width: 760px) {
-    #view-home .home-focus-card { border-radius: var(--r-lg); }
-    #view-home .home-focus-action { width: auto; margin-top: 12px; }
-    #view-analyze .analysis-launch-card,
-    #view-analyze .analysis-report-card { border-radius: var(--r-lg); }
-    #view-settings .settings-shell { border-radius: var(--r-lg); }
-    #view-settings #panel-groups #srcList { gap: 20px; }
+    @media (max-width: 960px) {
+      #view-settings .set-layout { grid-template-columns: 156px minmax(0,1fr); gap: 24px; }
+      #view-settings #panel-ai .service-layout { grid-template-columns: 1fr; gap: 24px; }
+      #view-settings #panel-ai .ai-rail { border-right: 0; padding: 0 0 20px; border-bottom: 1px solid var(--separator); }
+    }
+    @media (max-width: 760px) {
+      :root { --control-height: 44px; }
+      .header { height: 60px; padding: 0 16px; }
+      .header .nav { margin-left: auto; gap: 0; }
+      .header .nav button { height: 60px; min-width: 44px; padding: 0 8px; }
+      .header .auth-logout { min-width: 44px; min-height: 44px; margin-left: 0; padding: 0 4px; font-size: 12px; }
+      .header-meta { display: none; }
+      .wrap { padding: 24px 16px 48px; }
+      .page-head h2 { font-size: 26px; }
+      #view-settings .set-layout { display: flex; flex-direction: column; gap: 24px; }
+      #view-settings .set-menu { position: static; width: 100%; padding: 0; border: 0; border-bottom: 1px solid var(--separator); gap: 4px; }
+      #view-settings .set-item { flex: 1 0 auto; justify-content: center; padding: 0 8px; font-size: 13px; border-radius: 0; }
+      #view-settings .set-item svg { display: none; }
+      #view-settings .set-item.active { background: transparent; }
+      #view-settings .set-item.active::before { width: auto; left: 8px; right: 8px; height: 2px; }
+      #view-settings .set-content { width: 100%; }
+      #view-settings .set-footer .primary { width: auto; }
+      #view-settings .search-provider-cards { gap: 24px; }
+      #view-settings .search-provider-card + .search-provider-card { padding-top: 24px; border-top: 1px solid var(--separator); }
+      #view-settings .search-policy-grid { grid-template-columns: 1fr; gap: 16px; }
+      #view-settings #panel-groups #srcList { gap: 20px; }
+      #view-settings #panel-groups .src-item .del { width: 44px; height: 44px; }
+      #view-settings #panel-groups .src-add { grid-template-columns: 1fr; }
+      #view-settings :is(input.sel,select.sel,.model-select), #view-settings #panel-groups :is(.src-bar input,.src-add input,.src-add select),
+      #view-home .home-query-shell input, #view-analyze .analysis-query-row input, #view-analyze .analysis-provider select,
+      #view-history .history-search input, .auth-card .auth-input { font-size: 16px; }
+      #view-settings .eye-btn { width: 44px; }
+      #view-settings #panel-ai .ai-actions > .primary { margin-left: auto; }
+      #view-settings #panel-ai .ai-actions > button { padding: 0 10px; font-size: 13px; }
+      #view-home .home-hero h2 { font-size: 24px; }
+      #view-home :is(.home-focus-card,.home-fresh-card,.home-hot-card) { padding: 24px 0; }
+      #view-home .home-focus-action { min-height: 44px; padding: 0; }
+      #view-home .home-hot-tab, #view-home .home-hot-tools select, #view-home .home-link-button, #view-home .home-trend-refresh, #view-home .home-hot-more { min-height: 44px; }
+      #view-analyze .analysis-query-row { grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+      #view-analyze .analysis-provider { width: 100%; }
+      #view-analyze .analysis-provider select { flex: 1; width: 0; }
+      #view-history .history-group-main { padding: 16px 0; }
+      #view-history .history-group-actions, #view-history .history-run-actions { justify-content: flex-end; flex-wrap: wrap; }
+      .actions :is(a.pri,button.pri,button.txt) { flex: none; font-size: 13px; }
+      .auth-gate, .auth-reminder { padding: 16px; }
+      .auth-card, .auth-reminder-card { padding: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *,*::before,*::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
   }
 </style>
 </head>
