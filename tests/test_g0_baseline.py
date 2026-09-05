@@ -1106,6 +1106,13 @@ class EventAggregationTests(unittest.TestCase):
         self.assertIn("#view-history .history-group { border: 0;", frontend)
         self.assertIn("#view-settings #panel-groups .src-item + .src-item { border-top: 0;", frontend)
 
+    def test_ui3_boundary_tokens_keep_controls_soft_and_focus_visible(self):
+        frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("--border: #e7ebef; --border-hover: #d3dae2;", frontend)
+        self.assertIn("--field-bg: #fbfcfd; --field-border: #dde3e9; --field-border-hover: #c8d1da;", frontend)
+        self.assertIn("border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);", frontend)
+        self.assertIn("button.btn-secondary, button.txt { border-color: var(--border); }", frontend)
+
     def test_home_actions_have_distinct_visual_and_semantic_roles(self):
         frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
         self.assertIn('class="primary" onclick="startHome()">开始研判</button>', frontend)

@@ -1672,10 +1672,11 @@
       /* UI-3：冷白底 + 白色内容区 + 极弱分隔。 */
       --bg-page: #f7f8fa; --card: #fff; --surface: #fbfcfd; --surface-2: #f1f3f5;
       --header-bg: #fff; --text: #282d34; --text-strong: #181c22; --text-2: #565e68; --text-3: #68717c;
-      --border: #e1e6eb; --border-hover: #cbd3dc; --border-strong: #aeb9c4; --separator: #edf0f3;
+      /* 边界分三档：结构最弱，控件略清晰，交互态才提高对比度。避免白底出现黑框。 */
+      --border: #e7ebef; --border-hover: #d3dae2; --border-strong: #b9c3cd; --separator: #eff2f5;
       --accent: #d93030; --accent-hover: #ba2525; --accent-tint: #fff2f1;
       --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
-      --control-height: 40px; --field-bg: #fff; --field-border: #cbd3dc;
+      --control-height: 40px; --field-bg: #fbfcfd; --field-border: #dde3e9; --field-border-hover: #c8d1da;
       --shadow-card: none; --shadow-overlay: 0 16px 48px rgba(24,28,34,.14);
     }
     body { background: var(--bg-page); color: var(--text); font-size: 14px; }
@@ -1701,8 +1702,10 @@
       white-space: nowrap; flex: none; vertical-align: middle;
     }
     .actions { gap: 8px; }
-    .actions a.pri, .actions button.pri { color: var(--text); background: var(--card); border: 1px solid var(--border-hover); }
-    .actions a.pri:hover, .actions button.pri:hover { color: var(--accent); background: var(--surface); }
+    .actions a.pri, .actions button.pri { color: var(--text); background: var(--card); border: 1px solid var(--border); }
+    .actions a.pri:hover, .actions button.pri:hover { color: var(--accent); background: var(--surface); border-color: var(--border-hover); }
+    button.btn-secondary, button.txt { border-color: var(--border); }
+    button.btn-secondary:hover:not(:disabled), button.txt:hover { border-color: var(--border-hover); }
     .actions :is(a,button) svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
     .auth-card .auth-submit { width: 100%; }
 
@@ -1713,7 +1716,22 @@
     #view-history .history-search input, .auth-card .auth-input {
       box-sizing: border-box; min-width: 0; height: var(--control-height); min-height: var(--control-height);
       padding: 0 12px; border: 1px solid var(--field-border); border-radius: var(--r-md); background: var(--field-bg);
-      color: var(--text); font-size: 14px; transition: border-color .15s, box-shadow .15s;
+      color: var(--text); font-size: 14px; outline: none;
+      transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+    }
+    #view-settings :is(input.sel, select.sel, .model-select), #view-settings #panel-groups .src-bar input,
+    #view-settings #panel-groups .src-add :is(input,select), #view-home .home-query-shell input,
+    #view-analyze .analysis-query-row input, #view-analyze .analysis-provider select,
+    #view-history .history-search input, .auth-card .auth-input { border-color: var(--field-border); }
+    #view-settings :is(input.sel, select.sel, .model-select):hover, #view-settings #panel-groups .src-bar input:hover,
+    #view-settings #panel-groups .src-add :is(input,select):hover, #view-home .home-query-shell input:hover,
+    #view-analyze .analysis-query-row input:hover, #view-analyze .analysis-provider select:hover,
+    #view-history .history-search input:hover, .auth-card .auth-input:hover { border-color: var(--field-border-hover); }
+    #view-settings :is(input.sel, select.sel, .model-select):focus, #view-settings #panel-groups .src-bar input:focus,
+    #view-settings #panel-groups .src-add :is(input,select):focus, #view-home .home-query-shell input:focus,
+    #view-analyze .analysis-query-row input:focus, #view-analyze .analysis-provider select:focus,
+    #view-history .history-search input:focus, .auth-card .auth-input:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
     }
     #view-settings .key-wrap input { padding-right: 44px; }
     #view-settings .eye-btn { right: 0; width: 40px; height: var(--control-height); border-radius: var(--r-md); }
