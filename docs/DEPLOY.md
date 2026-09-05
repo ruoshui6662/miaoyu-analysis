@@ -119,12 +119,12 @@ docker compose -f docker-compose.yml -f docker-compose.searxng.yml ps
 
 ## 1. 方式 A：GHCR 镜像仓库（飞牛拉取迭代）
 
-> 镜像存 GitHub Container Registry（ghcr.io），飞牛 `docker pull` 即可运行，每次更新 = 推新镜像 → 飞牛重新拉取。
+> 当前仓库实际镜像为 `ghcr.io/ruoshui6662/miaoyu-analysis:latest`。推送 `main` 会由 `.github/workflows/docker-publish.yml` 自动构建并推送；飞牛只需重新拉取，不需要在 NAS 上安装构建环境。
 
 ### 1.1 创建 GitHub 仓库（一次性）
 
 1. 登录 [github.com](https://github.com)，点右上角 **+ → New repository**；
-2. Repository name 填如 `yuqing-analysis`；**Public**（公开，飞牛无需登录即可拉取）；勾选 *Add a README*；点 **Create repository**。
+2. Repository name 填如 `miaoyu-analysis`；**Public**（公开，飞牛无需登录即可拉取）；勾选 *Add a README*；点 **Create repository**。
 
 ### 1.2 生成访问令牌 PAT（一次性）
 
@@ -142,43 +142,43 @@ echo "<你的PAT令牌>" | docker login ghcr.io -u <你的GitHub用户名> --pas
 
 # 2) 构建（镜像名必须是 ghcr.io/用户名/仓库名 的格式）
 cd 项目目录
-docker build -t ghcr.io/<你的GitHub用户名>/yuqing-analysis:latest .
+docker build -t ghcr.io/<你的GitHub用户名>/miaoyu-analysis:latest .
 
 # 3) 推送
-docker push ghcr.io/<你的GitHub用户名>/yuqing-analysis:latest
+docker push ghcr.io/<你的GitHub用户名>/miaoyu-analysis:latest
 ```
 
 ### 1.4 飞牛拉取并运行
 
 **命令行方式**（飞牛终端/SSH）：
 ```bash
-docker pull ghcr.io/<你的GitHub用户名>/yuqing-analysis:latest
+docker pull ghcr.io/<你的GitHub用户名>/miaoyu-analysis:latest
 docker run -d --name yuqing -p 5000:5000 \
   -v /vol1/docker/yuqing/data:/app/data \
   -e TZ=Asia/Shanghai \
   --restart unless-stopped \
-  ghcr.io/<你的GitHub用户名>/yuqing-analysis:latest
+  ghcr.io/<你的GitHub用户名>/miaoyu-analysis:latest
 ```
 
 **飞牛 Docker 界面方式**：
-1. 飞牛 **Docker → 镜像 → 拉取**，输入 `ghcr.io/<你的GitHub用户名>/yuqing-analysis:latest`；
+1. 飞牛 **Docker → 镜像 → 拉取**，输入 `ghcr.io/<你的GitHub用户名>/miaoyu-analysis:latest`；
 2. 拉取成功后在镜像列表点**创建容器**：端口映射 `5000→5000`；存储挂载 `/app/data` 到飞牛本地目录；环境变量 `TZ=Asia/Shanghai`；
 3. 启动容器，浏览器访问 `http://<飞牛IP>:5000/`。
 
-### 1.5 日常迭代（改代码 → 飞牛更新）
+### 1.5 日常迭代（改代码 → GitHub → 飞牛更新）
 
 ```bash
-# 构建机：
-docker build -t ghcr.io/<用户>/yuqing-analysis:latest .
-docker push ghcr.io/<用户>/yuqing-analysis:latest
+# 开发机：提交并推送 main，GitHub Actions 自动构建 GHCR 镜像
+git add <明确的文件路径>
+git commit -m "<变更说明>"
+git push origin main
 
-# 飞牛：
-docker pull ghcr.io/<用户>/yuqing-analysis:latest
-docker stop yuqing && docker rm yuqing
-docker run -d --name yuqing -p 5000:5000 -v /vol1/docker/yuqing/data:/app/data -e TZ=Asia/Shanghai --restart unless-stopped ghcr.io/<用户>/yuqing-analysis:latest
+# GitHub Actions 完成后，飞牛：
+docker pull ghcr.io/ruoshui6662/miaoyu-analysis:latest
+docker compose up -d --force-recreate
 ```
 数据卷 `/vol1/docker/yuqing/data` 保留，历史报告不丢。
-建议再加个 tag 版本：`docker tag … :v0.2 && docker push … :v0.2`，飞牛可回滚。
+建议发版时额外保留版本 tag，便于回滚；不要使用 `docker compose down -v`，否则会删除数据卷。
 
 ### 1.6 注意
 

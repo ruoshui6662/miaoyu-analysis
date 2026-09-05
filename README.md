@@ -8,7 +8,7 @@
 - **对策与风险一一对应**（id 硬校验 + 顺序回填），严禁凭空编造
 - 导出：Word（docx）/ Markdown / PDF（Node Playwright + Chromium 原生打印）
 
-相关文档：[部署指南 docs/DEPLOY.md](docs/DEPLOY.md) ｜ [开发手册与任务清单 docs/开发手册.md](docs/开发手册.md) ｜ [开源项目调研与演进路线 docs/开源项目调研与路线图.md](docs/开源项目调研与路线图.md)
+相关文档：[部署指南 docs/DEPLOY.md](docs/DEPLOY.md) ｜ [项目交接说明 docs/项目交接说明.md](docs/项目交接说明.md) ｜ [开发手册与任务清单 docs/开发手册.md](docs/开发手册.md) ｜ [开源项目调研与演进路线 docs/开源项目调研与路线图.md](docs/开源项目调研与路线图.md)
 
 ---
 
