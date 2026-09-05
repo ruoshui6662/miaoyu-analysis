@@ -312,6 +312,28 @@ class ArtifactAndProgressTests(unittest.TestCase):
             self.assertTrue(docx.exists())
             self.assertGreater(docx.stat().st_size, 0)
 
+    def test_reference_materials_are_shared_and_rendered_at_export_tail(self):
+        items = [
+            {"title": "有正文的资料", "url": "https://example.test/article",
+             "source_name": "示例媒体", "published": "2026-09-03", "credibility": "high", "body": "正文"},
+            {"title": "只有摘要的资料", "url": "https://example.test/search",
+             "source_name": "搜索结果", "credibility": "mid", "body": ""},
+        ]
+        refs = pipeline._build_references(items, {"detail": {"https://example.test/article": "ok"}})
+        report = {
+            "title": "参考资料验收",
+            "sections": [{"heading": "正文", "paragraphs": [{"lead": "结论：", "body": "内容"}]}],
+            "stats": {"total_raw": 2, "total_after_dedupe": 2, "body_fetched": 1,
+                      "credibility_dist": {"high": 1, "mid": 1, "low": 0}},
+            "references": refs,
+        }
+        markdown = pipeline.render_markdown(report)
+        self.assertIn("## 参考资料", markdown)
+        self.assertIn("### 资料说明", markdown)
+        self.assertNotIn("数据附录", markdown)
+        self.assertLess(markdown.index("## 参考资料"), markdown.index("### 资料说明"))
+        self.assertEqual([ref["title"] for ref in refs], ["有正文的资料", "只有摘要的资料"])
+
 
 class PublicHotlistTests(unittest.TestCase):
     def setUp(self):
@@ -630,6 +652,9 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("page.pdf({", renderer)
         self.assertIn("printBackground: true", renderer)
         self.assertIn(".report .sec p,.report .q-card,.report .ov-card", frontend)
+        self.assertIn(".report .references", frontend)
+        self.assertIn("reference-list", frontend)
+        self.assertNotIn("数据附录", frontend)
         self.assertIn("break-inside:avoid;page-break-inside:avoid", frontend)
         self.assertIn("orphans:3;widows:3", frontend)
         self.assertNotIn("html2pdf()", frontend)

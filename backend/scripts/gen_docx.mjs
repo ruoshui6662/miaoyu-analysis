@@ -70,30 +70,50 @@ function addQuotes(report, children) {
   }
 }
 
-/* 数据附录（D1 + 采集统计）：与网页预览对齐 */
-function addAppendix(report, children) {
+/* 参考资料：正文、图表完成后再追加，保证在导出文档的最底部 */
+function addReferences(report, children) {
+  const refs = report.references || [];
+  children.push(sectionHeading("参考资料"));
+  if (refs.length) {
+    refs.forEach((ref, index) => {
+      const title = ref.title || "未命名资料";
+      const source = ref.source_name || ref.domain || "公开来源";
+      const published = ref.published || "日期未标注";
+      const url = ref.url || "";
+      children.push(bodyParagraph([
+        bodyRun(`[${index + 1}] `, { size: 24 }),
+        bodyRun(title, { bold: true, size: 24 }),
+        bodyRun(`。${source}，${published}。${url}`, { size: 22 }),
+      ], { indent: { left: 640, hanging: 640 }, spacing: { line: 360, lineRule: LineRuleType.AUTO, after: 80 } }));
+    });
+  } else {
+    children.push(bodyParagraph([bodyRun("暂无可展示的来源链接。", { size: 24 })], {
+      indent: { left: 0, firstLine: 0 },
+    }));
+  }
+
   const st = report.stats || {};
-  const rows = [
-    ["搜索原始结果", `${st.total_raw ?? "-"} 条`],
-    ["去重后保留", `${st.total_after_dedupe ?? "-"} 条`],
-    ["抓取到正文", `${st.body_fetched ?? "-"} 条`],
-    ["可信度分布", `高 ${st.credibility_dist?.high ?? 0} / 中 ${st.credibility_dist?.mid ?? 0} / 低 ${st.credibility_dist?.low ?? 0}`],
-    ["分析耗时", `${report.elapsed_sec ?? "-"} s`],
-  ];
+  children.push(sectionHeading("资料说明"));
+  children.push(bodyParagraph([bodyRun(
+    `采集样本：原始 ${st.total_raw ?? "-"} 条 / 去重 ${st.total_after_dedupe ?? "-"} 条 / 正文 ${st.body_fetched ?? "-"} 条。`,
+    { size: 22 },
+  )], { indent: { left: 0, firstLine: 0 } }));
+  children.push(bodyParagraph([bodyRun(
+    `可信度分布：高 ${st.credibility_dist?.high ?? 0} / 中 ${st.credibility_dist?.mid ?? 0} / 低 ${st.credibility_dist?.low ?? 0}。`,
+    { size: 22 },
+  )], { indent: { left: 0, firstLine: 0 } }));
+  if (report.elapsed_sec) {
+    children.push(bodyParagraph([bodyRun(`分析耗时：${report.elapsed_sec} s。`, { size: 22 })], {
+      indent: { left: 0, firstLine: 0 },
+    }));
+  }
   const sc = report.source_check;
   if (sc && sc.summary) {
     const s = sc.summary;
-    rows.push(["来源链接状态", `可达 ${s.ok ?? 0} · 失效 ${s.gone ?? 0} · 无法核实 ${s.unreachable ?? 0}（共 ${s.total ?? 0}）`]);
-  }
-  children.push(sectionHeading("数据附录"));
-  for (const [k, v] of rows) {
-    children.push(bodyParagraph([bodyRun(k + "：", { bold: true }), bodyRun(v)]));
-  }
-  if (sc && sc.summary && (sc.summary.gone || sc.summary.unreachable)) {
-    const bad = Object.entries(sc.detail || {}).filter(([, v]) => v !== "ok").slice(0, 5);
-    if (bad.length) {
-      children.push(bodyParagraph([bodyRun("失效/待核链接：", { bold: true }), bodyRun(bad.map(([u]) => u).join(" · "))]));
-    }
+    children.push(bodyParagraph([bodyRun(
+      `链接状态：可达 ${s.ok ?? 0} / 失效 ${s.gone ?? 0} / 无法核实 ${s.unreachable ?? 0}。`,
+      { size: 22 },
+    )], { indent: { left: 0, firstLine: 0 } }));
   }
 }
 
@@ -132,7 +152,6 @@ function buildDoc(report) {
   }
 
   addQuotes(report, children);
-  addAppendix(report, children);
 
   // 图表（P1-c）：报告 JSON 附 _chart_images=[{kind,path}] 时嵌入 PNG
   const chartImgs = report._chart_images || [];
@@ -157,6 +176,9 @@ function buildDoc(report) {
       }
     }
   }
+
+  // 参考资料必须是整个报告的最后一个内容区块。
+  addReferences(report, children);
 
   return new Document({
     styles: { default: { document: { run: { font: FANGSONG, size: 32 } } } },

@@ -129,7 +129,7 @@
   @media (prefers-color-scheme: dark) {
     /* 暗色小字号可读性：浅字细笔画在深底感知淡（对比度之外的第二杠杆），统一提一档字重 */
     .f-help, .task-meta, .bw-cnt, .q-src, .radar-board, .hot-meta,
-    .report .appendix, .src-item .hm, .src-group-head .gc, .configured-line, .ht {
+    .report .references, .report .source-note, .src-item .hm, .src-group-head .gc, .configured-line, .ht {
       font-weight: 500;
     }
   }
@@ -521,12 +521,36 @@
   .report .sec p { text-indent: 2em; margin-bottom: 8px; font-size: 14px; line-height: 1.75; }
   .report .sec p b { font-weight: 700; }
   .print-head { display: none; }   /* 仅打印时显示页眉 */
-  .report .appendix { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
-  .report .appendix table { width: 100%; border-collapse: collapse; margin-top: 8px; }
   /* 长 URL 等不可断行字符串：仅在将溢出时允许任意处断行，防 auto 布局表格被撑破容器 */
   .report { overflow-wrap: anywhere; }
-  .report .appendix td, .report .appendix th { border: 1px solid var(--border); padding: 6px 10px; text-align: left; font-size: 12px; }
-  .report .appendix th { background: var(--surface); }
+  .report .references {
+    margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-2);
+  }
+  .report .reference-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .report .reference-head h3 { font-size: 15px; color: var(--text-strong); }
+  .report .reference-count { color: var(--text-3); white-space: nowrap; }
+  .report .reference-list { list-style: none; counter-reset: reference; margin-top: 10px; padding: 0; }
+  .report .reference-item {
+    counter-increment: reference; display: grid; grid-template-columns: 32px minmax(0, 1fr);
+    gap: 5px; padding: 9px 0 10px; border-bottom: 1px solid var(--separator);
+  }
+  .report .reference-item::before {
+    content: "[" counter(reference) "]"; color: var(--text-3); font-variant-numeric: tabular-nums;
+  }
+  .report .reference-main { min-width: 0; }
+  .report .reference-title { color: var(--text-strong); font-weight: 650; line-height: 1.55; }
+  .report .reference-meta { margin-top: 3px; color: var(--text-3); font-size: 11px; line-height: 1.55; }
+  .report .reference-tag {
+    display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 999px;
+    background: var(--accent-tint); color: var(--text-2); font-size: 10px;
+  }
+  .report .reference-link { color: var(--text-3); overflow-wrap: anywhere; }
+  .report .source-note {
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--separator);
+    color: var(--text-3); font-size: 11px; line-height: 1.7;
+  }
+  .report .source-note b { color: var(--text-2); font-weight: 600; }
 
   .actions { display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap; }
   .actions a.pri, .actions button.pri {
@@ -805,9 +829,9 @@
     .report .sec p,
     .report .q-card,
     .report .ov-card,
-    .report .appendix,
-    .report .appendix table,
-    .report .appendix tr,
+    .report .references,
+    .report .reference-item,
+    .report .source-note,
     .report figure,
     .report img,
     .report svg,
@@ -2785,6 +2809,46 @@ function renderProgress(t) {
   $("progressText").innerHTML = `<b>${esc(t.topic)}</b> · ${esc(t.detail || "")}${t.error ? "（" + esc(t.error) + "）" : ""}`;
 }
 
+function renderReferenceSection(rep) {
+  const legacyRefs = [];
+  const vp = (rep.overview || {}).viewpoints || {};
+  const addLegacyRef = (item, kind, title, source) => {
+    if (!item || !item.url || legacyRefs.some((ref) => ref.url.toLowerCase() === String(item.url).toLowerCase())) return;
+    legacyRefs.push({ url: item.url, title: title || item.title || item.text || "公开资料",
+      source_name: source || item.media || item.platform || item.source || "公开来源", kind });
+  };
+  (vp.media || []).forEach((item) => addLegacyRef(item, "正文资料", item.title, item.media));
+  [...(vp.netizen || []), ...((rep.overview || {}).quotes || [])]
+    .forEach((item) => addLegacyRef(item, "观点资料", item.text || item.title, item.platform || item.source));
+  const refs = Array.isArray(rep.references) && rep.references.length ? rep.references : legacyRefs;
+  const st = rep.stats || {};
+  const dist = st.credibility_dist || {};
+  const sc = rep.source_check && rep.source_check.summary ? rep.source_check.summary : null;
+  const attrEsc = (value) => esc(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  let html = `<section class="references">
+    <div class="reference-head"><h3>参考资料</h3><span class="reference-count">公开资料 · ${refs.length} 条</span></div>`;
+  if (refs.length) {
+    html += `<ol class="reference-list">`;
+    refs.forEach((ref) => {
+      const url = String(ref.url || "");
+      const domain = ref.domain || url || "公开来源";
+      const meta = [ref.source_name || domain, ref.published || "日期未标注"].filter(Boolean).join(" · ");
+      html += `<li class="reference-item"><div class="reference-main">
+        <div class="reference-title">${esc(ref.title || "未命名资料")}</div>
+        <div class="reference-meta"><span class="reference-tag">${esc(ref.kind || "来源")}</span>${esc(meta)}${url ? ` · <a class="reference-link" href="${attrEsc(url)}" target="_blank" rel="noopener noreferrer">${esc(domain)} ↗</a>` : ""}</div>
+      </div></li>`;
+    });
+    html += `</ol>`;
+  } else {
+    html += `<p class="source-note">暂无可展示的来源链接。</p>`;
+  }
+  html += `<div class="source-note"><b>资料说明：</b>采集样本 ${st.total_raw ?? "-"} 条，去重后 ${st.total_after_dedupe ?? "-"} 条，正文 ${st.body_fetched ?? "-"} 条；可信度高 ${dist.high ?? 0} / 中 ${dist.mid ?? 0} / 低 ${dist.low ?? 0}`;
+  if (rep.elapsed_sec) html += `；分析耗时 ${esc(rep.elapsed_sec)} s`;
+  if (sc) html += `；链接可达 ${sc.ok ?? 0} / 失效 ${sc.gone ?? 0} / 无法核实 ${sc.unreachable ?? 0}`;
+  html += `。</div></section>`;
+  return html;
+}
+
 function renderReport(rep, jsonName) {
   if (!rep) return;
   // 记录当前报告与来源标识（编辑用）
@@ -2875,33 +2939,13 @@ function renderReport(rep, jsonName) {
     }
     html += `</div>`;
   }
-  const st = rep.stats || {};
-  let appendix = `<div class="appendix"><b>数据附录</b><table>
-    <tr><th>项目</th><th>数值</th></tr>
-    <tr><td>搜索原始结果</td><td>${st.total_raw ?? "-"} 条</td></tr>
-    <tr><td>去重后保留</td><td>${st.total_after_dedupe ?? "-"} 条</td></tr>
-    <tr><td>抓取到正文</td><td>${st.body_fetched ?? "-"} 条</td></tr>
-    <tr><td>可信度分布</td><td>高 ${(st.credibility_dist?.high) ?? 0} / 中 ${(st.credibility_dist?.mid) ?? 0} / 低 ${(st.credibility_dist?.low) ?? 0}</td></tr>
-    <tr><td>分析耗时</td><td>${rep.elapsed_sec ?? "-"} s</td></tr>`;
-  // D1：来源链接可达性
-  const sc = rep.source_check;
-  if (sc && sc.summary) {
-    const s = sc.summary;
-    appendix += `<tr><td>来源链接状态</td><td><span style="color:var(--green-text)">● 可达 ${s.ok ?? 0}</span> · <span style="color:var(--red)">● 失效 ${s.gone ?? 0}</span> · <span style="color:var(--text-3)">● 无法核实 ${s.unreachable ?? 0}</span>（共 ${s.total ?? 0}）</td></tr>`;
-    if (s.gone || s.unreachable) {
-      const bad = Object.entries(sc.detail || {}).filter(([, v]) => v !== "ok").slice(0, 5);
-      if (bad.length) {
-        appendix += `<tr><td colspan="2">失效/待核链接：${bad.map(([u]) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`).join(" · ")}</td></tr>`;
-      }
-    }
-  }
-  appendix += `</table></div>`;
-  html += appendix;
   $("reportBody").innerHTML = html;
   initReportCharts(rep);
   if (rep.ai_ready === false) {
     $("reportBody").innerHTML += `<div class="hint"><b>AI 分析未执行。</b><br>${esc(rep.ai_warning || "请在设置页配置分析模型后重新分析。")}</div>`;
   }
+  // 参考资料最后插入，确保网页预览与 PDF 导出的阅读顺序一致。
+  $("reportBody").insertAdjacentHTML("beforeend", renderReferenceSection(rep));
   let acts = "";
   if (rep.docx) acts += `<button class="pri btn-with-icon" onclick="downloadDocx()">${IC.download}下载 Word 报告</button>`;
   if (rep.md) acts += `<a class="pri btn-with-icon" href="/api/reports/${encodeURIComponent(rep.md.split(/[\\/]/).pop())}" download>${IC.download}下载 Markdown</a>`;
@@ -2956,8 +3000,8 @@ async function exportPDF() {
     /* 让 Chromium 的 print media 规则在独立 HTML 中也明确生效。 */
     .report .sec{break-inside:auto;page-break-inside:auto;}
     .report .sec h3{break-after:avoid;page-break-after:avoid;}
-    .report .sec p,.report .q-card,.report .ov-card,.report .appendix,
-    .report .appendix table,.report .appendix tr,.report figure,
+    .report .sec p,.report .q-card,.report .ov-card,.report .references,
+    .report .reference-item,.report .source-note,.report figure,
     .report img,.report svg,.report canvas{break-inside:avoid;page-break-inside:avoid;}
     .report .sec p{orphans:3;widows:3;}
     .report img,.report svg,.report canvas{display:block;}

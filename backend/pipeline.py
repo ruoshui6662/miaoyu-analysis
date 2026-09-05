@@ -22,6 +22,7 @@ import tempfile
 import unicodedata
 import uuid
 from datetime import datetime
+from urllib.parse import urlparse
 
 from ai_client import AIClient, AIClientError
 from ai_prompts import chapter_prompt, combined_prompt, expand_keywords_prompt, facts_prompt
@@ -121,6 +122,92 @@ def _placeholder_section(reason: str) -> list[dict]:
     return [{"lead": "待分析。", "body": f"本环节暂未生成（原因：{reason}）。请配置分析模型后重跑。"}]
 
 
+def _reference_domain(url: str) -> str:
+    """提取适合在参考资料中展示的域名，避免把长 URL 放大成主视觉。"""
+    try:
+        host = urlparse(str(url or "")).netloc.lower().split("@")[-1].split(":")[0]
+        return host.removeprefix("www.") or "公开来源"
+    except ValueError:
+        return "公开来源"
+
+
+def _build_references(items: list[dict], source_check: dict | None = None, limit: int = 12) -> list[dict]:
+    """从采集结果生成稳定、可跨格式复用的参考资料清单。
+
+    参考资料不是再次复制全部采集结果，而是按“有正文 > 可信度 > 有日期”
+    选出有限条目，确保网页、Markdown、Word、PDF 看到的是同一组依据。
+    """
+    detail = (source_check or {}).get("detail") or {}
+    rank = {"high": 3, "mid": 2, "low": 1}
+    candidates: list[dict] = []
+    seen: set[str] = set()
+    for item in items or []:
+        url = str(item.get("url") or "").strip()
+        title = str(item.get("title") or "").strip()
+        if not url or not title:
+            continue
+        key = url.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append(item)
+    candidates.sort(key=lambda item: (
+        bool(str(item.get("body") or "").strip()),
+        rank.get(str(item.get("credibility") or ""), 0),
+        bool(item.get("published")),
+    ), reverse=True)
+
+    references: list[dict] = []
+    for item in candidates[:limit]:
+        url = str(item.get("url") or "").strip()
+        references.append({
+            "title": str(item.get("title") or "").strip(),
+            "url": url,
+            "domain": _reference_domain(url),
+            "source_name": str(item.get("source_name") or item.get("engine") or "公开来源").strip(),
+            "published": str(item.get("published") or "").strip()[:10],
+            "kind": "正文资料" if str(item.get("body") or "").strip() else "检索资料",
+            "status": detail.get(url, ""),
+        })
+    return references
+
+
+def _legacy_references(report: dict, limit: int = 12) -> list[dict]:
+    """为旧版 report.json 从观点摘录/来源核查结果补建参考资料。"""
+    overview = report.get("overview") or {}
+    viewpoints = overview.get("viewpoints") or {}
+    items: list[dict] = []
+    for item in (viewpoints.get("media") or []):
+        if item.get("url"):
+            items.append({
+                "title": item.get("title") or item.get("media") or "媒体资料",
+                "url": item.get("url"), "source_name": item.get("media") or "公开来源",
+                "published": item.get("published") or "", "credibility": "high", "body": "derived",
+            })
+    for item in (viewpoints.get("netizen") or []) + (overview.get("quotes") or []):
+        if item.get("url"):
+            text = str(item.get("text") or item.get("title") or "观点资料").strip()
+            items.append({
+                "title": text[:80], "url": item.get("url"),
+                "source_name": item.get("platform") or item.get("source") or "公开来源",
+                "published": item.get("published") or "", "credibility": "mid", "body": "derived",
+            })
+    source_check = report.get("source_check") or {}
+    known = {str(item.get("url") or "").lower() for item in items}
+    for url in (source_check.get("detail") or {}):
+        if str(url).lower() in known:
+            continue
+        items.append({"title": _reference_domain(url), "url": url, "source_name": "公开来源", "credibility": "low"})
+    return _build_references(items, source_check, limit=limit)
+
+
+def ensure_references(report: dict) -> dict:
+    """给新旧报告补齐统一参考资料字段，不改变已有清单。"""
+    if not report.get("references"):
+        report["references"] = _legacy_references(report)
+    return report
+
+
 # ---------- docx 生成 ----------
 
 def render_markdown(report: dict) -> str:
@@ -136,19 +223,34 @@ def render_markdown(report: dict) -> str:
             elif isinstance(p, dict):
                 lines.append(f"**{p.get('lead', '')}**{p.get('body', '')}")
             lines.append("")
+    refs = ensure_references(report).get("references") or []
+    lines += ["---", "## 参考资料", ""]
+    if refs:
+        for idx, ref in enumerate(refs, 1):
+            title = ref.get("title") or "未命名资料"
+            source = ref.get("source_name") or ref.get("domain") or "公开来源"
+            published = ref.get("published") or "日期未标注"
+            url = ref.get("url") or ""
+            lines.append(f"{idx}. **{title}**。{source}，{published}。{url}".rstrip("。"))
+            lines.append("")
+    else:
+        lines += ["暂无可展示的来源链接。", ""]
     st = report.get("stats") or {}
-    lines += ["---", "## 数据附录", ""]
-    lines += [
-        f"- 搜索引擎原始结果：{st.get('total_raw', '-')} 条",
-        f"- 去重后保留：{st.get('total_after_dedupe', '-')} 条",
-        f"- 抓取到正文：{st.get('body_fetched', '-')} 条",
-    ]
+    lines += ["### 资料说明", ""]
+    lines.append(
+        f"采集样本：原始 {st.get('total_raw', '-')} 条 / 去重 {st.get('total_after_dedupe', '-')} 条 / "
+        f"正文 {st.get('body_fetched', '-')} 条。"
+    )
     dist = st.get("credibility_dist") or {}
-    lines.append(f"- 可信度分布：高 {dist.get('high', 0)} / 中 {dist.get('mid', 0)} / 低 {dist.get('low', 0)}")
+    lines.append(f"可信度分布：高 {dist.get('high', 0)} / 中 {dist.get('mid', 0)} / 低 {dist.get('low', 0)}。")
     if report.get("elapsed_sec"):
-        lines.append(f"- 分析耗时：{report['elapsed_sec']} s")
+        lines.append(f"分析耗时：{report['elapsed_sec']} s。")
     if st.get("keywords"):
-        lines.append(f"- 关键词：{'、'.join(st['keywords'])}")
+        lines.append(f"关键词：{'、'.join(st['keywords'])}。")
+    sc = report.get("source_check") or {}
+    if sc.get("summary"):
+        s = sc["summary"]
+        lines.append(f"链接状态：可达 {s.get('ok', 0)} / 失效 {s.get('gone', 0)} / 无法核实 {s.get('unreachable', 0)}。")
     return "\n".join(lines)
 
 
@@ -176,11 +278,12 @@ def safe_filename_component(value: str, max_length: int = 80) -> str:
 
 def gen_docx(report: dict, out_path: str) -> bool:
     gen = ROOT / "backend" / "scripts" / "gen_docx.mjs"
+    export_report = ensure_references(dict(report))
     # 秒级名称会让并发任务彼此覆盖；NamedTemporaryFile 提供唯一文件名。
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json",
                                      prefix="_docx_", dir=DATA_DIR_TASKS,
                                      delete=False) as f:
-        json.dump(report, f, ensure_ascii=False)
+        json.dump(export_report, f, ensure_ascii=False)
         tmp_json = f.name
     try:
         r = subprocess.run(
@@ -448,7 +551,8 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
 
     if collect_only or ai is None:
         return {"title": f"“{topic}”舆情存在问题风险分析及对策建议", "intro": "",
-                "sections": [], "stats": stats, "ai_ready": ai is not None,
+                "sections": [], "stats": stats, "references": _build_references(materials["items"]),
+                "ai_ready": ai is not None,
                 "ai_warning": "" if ai is not None else "未配置可用分析模型：请在 .env 填写 DEEPSEEK_API_KEY / QWEN_API_KEY，或配置 AI_ROUTER_BASE_URL（本地 9router）后重试。"}
 
     # 4) AI 四角色生成（阶段A 三路并行：事实整理‖原因‖风险 → 阶段B 对策串行）
@@ -484,6 +588,8 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
         report["source_check"] = {"detail": check, "summary": summarize(check)}
     except Exception:  # noqa: BLE001 核查失败不影响报告产出
         report["source_check"] = None
+    report["references"] = _build_references(materials["items"], report.get("source_check"))
+    report["stats"]["reference_total"] = len(report["references"])
     if ai_stage["facts_paras"]:
         report["sections"].append({"heading": f"一、“{topic}”事件概况梳理", "paragraphs": ai_stage["facts_paras"]})
 

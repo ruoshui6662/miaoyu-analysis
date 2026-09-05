@@ -742,7 +742,24 @@ def api_report_export_pdf():
 def api_report_file(filename: str):
     # 防目录穿越
     safe = Path(filename).name
-    if (DATA_DIR_REPORTS / safe).exists():
+    target = DATA_DIR_REPORTS / safe
+    # Markdown 不直接返回历史静态文件：旧报告可能仍是“数据附录”版本，
+    # 这里按当前渲染器即时重建，保证下载内容与网页/Word/PDF 使用同一参考资料尾部。
+    if target.suffix.lower() == ".md":
+        json_path = target.with_suffix(".json")
+        if json_path.exists():
+            try:
+                rep = json.loads(json_path.read_text(encoding="utf-8"))
+                content = render_markdown(rep)
+                response = Response(content, mimetype="text/markdown; charset=utf-8")
+                response.headers["Content-Disposition"] = (
+                    'attachment; filename="report.md"; '
+                    f"filename*=UTF-8''{quote(safe)}"
+                )
+                return response
+            except (ValueError, OSError):
+                pass
+    if target.exists():
         return send_from_directory(str(DATA_DIR_REPORTS), safe, as_attachment=False)
     return jsonify({"error": "文件不存在"}), 404
 
