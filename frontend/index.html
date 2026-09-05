@@ -883,23 +883,24 @@
 
   /* ── Signal Desk UI-1：内容优先、无框分组、单一主动作 ── */
   :root {
-    --bg-page: #f8f8f6;
+    /* 中性冷白底：避免暖灰层叠加后产生发黄观感。 */
+    --bg-page: #f7f8fa;
     --card: #ffffff;
-    --surface: #f3f3f0;
-    --surface-2: #ecece8;
-    --header-bg: rgba(248, 248, 246, .94);
-    --text: #252525;
-    --text-2: #6d6d6a;
-    --text-3: #92928e;
-    --text-strong: #111111;
-    --border: rgba(17, 17, 17, .08);
-    --border-hover: rgba(17, 17, 17, .18);
-    --border-strong: rgba(17, 17, 17, .32);
-    --separator: rgba(17, 17, 17, .065);
+    --surface: #fbfcfd;
+    --surface-2: #f1f3f5;
+    --header-bg: rgba(247, 248, 250, .94);
+    --text: #28313b;
+    --text-2: #65707c;
+    --text-3: #8a95a1;
+    --text-strong: #17202a;
+    --border: rgba(28, 40, 52, .08);
+    --border-hover: rgba(28, 40, 52, .18);
+    --border-strong: rgba(28, 40, 52, .30);
+    --separator: rgba(28, 40, 52, .055);
     --accent: #e53935;
     --accent-hover: #c92d2a;
     --accent-tint: #fff1ef;
-    --selected: #ecebe8;
+    --selected: #eef1f4;
     --green: #2f8a59;
     --green-text: #287449;
     --green-bg: #edf8f0;
@@ -912,7 +913,7 @@
     --primary: var(--accent);
     --primary-2: var(--accent-hover);
     --primary-tint: var(--accent-tint);
-    --shadow-card: 0 12px 36px rgba(26, 27, 25, .06);
+    --shadow-card: 0 8px 24px rgba(24, 36, 48, .045);
   }
   body { background: var(--bg-page); color: var(--text); font-size: 15px; }
   .header {
@@ -1667,12 +1668,13 @@
      边界只表达真实层级；40px 桌面控件、44px 触控热区；屏幕样式与打印样式隔离。 */
   @media screen {
     :root {
-      --bg-page: #fff; --card: #fff; --surface: #f6f7f8; --surface-2: #eef0f2;
+      /* UI-3：冷白底 + 白色内容区 + 极弱分隔。 */
+      --bg-page: #f7f8fa; --card: #fff; --surface: #fbfcfd; --surface-2: #f1f3f5;
       --header-bg: #fff; --text: #282d34; --text-strong: #181c22; --text-2: #565e68; --text-3: #68717c;
-      --border: #dde1e6; --border-hover: #a4abb5; --border-strong: #858e99; --separator: #e9ecf0;
+      --border: #e1e6eb; --border-hover: #cbd3dc; --border-strong: #aeb9c4; --separator: #edf0f3;
       --accent: #d93030; --accent-hover: #ba2525; --accent-tint: #fff2f1;
       --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-xl: 12px;
-      --control-height: 40px; --field-bg: #fff; --field-border: #858e99;
+      --control-height: 40px; --field-bg: #fff; --field-border: #cbd3dc;
       --shadow-card: none; --shadow-overlay: 0 16px 48px rgba(24,28,34,.14);
     }
     body { background: var(--bg-page); color: var(--text); font-size: 14px; }
