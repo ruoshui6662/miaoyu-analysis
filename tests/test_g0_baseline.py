@@ -1098,12 +1098,13 @@ class EventAggregationTests(unittest.TestCase):
 
     def test_ui2_container_hierarchy_flattens_secondary_sections(self):
         frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("/* ── UI-2 容器减法", frontend)
-        self.assertIn("--r-xl: 14px", frontend)
-        self.assertIn("#view-home .home-fresh-card", frontend)
-        self.assertIn("#view-analyze .analysis-progress-card", frontend)
-        self.assertIn("#view-history .history-group {", frontend)
-        self.assertIn("#view-settings #panel-groups .src-group {", frontend)
+        self.assertIn("/* UI-3：冷白底 + 白色内容区 + 极弱分隔。", frontend)
+        self.assertIn("--bg-page: #f7f8fa", frontend)
+        self.assertIn(".home-focus-metric { min-width: 0; padding: 0; }", frontend)
+        self.assertIn(".home-hot-table thead { border-bottom: 1px solid var(--separator); }", frontend)
+        self.assertIn(".home-hot-table td { padding: 14px 10px; border: 0;", frontend)
+        self.assertIn("#view-history .history-group { border: 0;", frontend)
+        self.assertIn("#view-settings #panel-groups .src-item + .src-item { border-top: 0;", frontend)
 
     def test_home_actions_have_distinct_visual_and_semantic_roles(self):
         frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
