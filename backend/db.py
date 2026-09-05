@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 
 from config import MANAGED_KEYS, SETTINGS_DB
 
@@ -115,6 +116,9 @@ CREATE TABLE IF NOT EXISTS topics (
   name TEXT NOT NULL,
   keywords_json TEXT NOT NULL DEFAULT '[]',
   exclude_keywords_json TEXT NOT NULL DEFAULT '[]',
+  kind TEXT NOT NULL DEFAULT 'monitor',
+  source_scope_json TEXT NOT NULL DEFAULT '["L1","L2","L3"]',
+  last_read_at TEXT NOT NULL DEFAULT '',
   enabled INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL DEFAULT ''
@@ -158,6 +162,8 @@ CREATE TABLE IF NOT EXISTS mention_topics (
   topic_id TEXT NOT NULL,
   first_seen_at TEXT NOT NULL DEFAULT '',
   last_seen_at TEXT NOT NULL DEFAULT '',
+  matched_keywords_json TEXT NOT NULL DEFAULT '[]',
+  match_location TEXT NOT NULL DEFAULT 'title',
   PRIMARY KEY(mention_id, topic_id),
   FOREIGN KEY(mention_id) REFERENCES mentions(id),
   FOREIGN KEY(topic_id) REFERENCES topics(id)
@@ -219,6 +225,82 @@ CREATE INDEX IF NOT EXISTS idx_signals_topic_observed
   ON signals(topic_id, observed_at DESC)
 """
 
+RADAR_SCHEMA = """
+CREATE TABLE IF NOT EXISTS source_fetch_states (
+  source_id TEXT PRIMARY KEY,
+  source_name TEXT NOT NULL DEFAULT '',
+  source_type TEXT NOT NULL DEFAULT '',
+  last_checked_at TEXT NOT NULL DEFAULT '',
+  etag TEXT NOT NULL DEFAULT '',
+  last_modified TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'unknown',
+  item_count INTEGER NOT NULL DEFAULT 0,
+  error_message TEXT NOT NULL DEFAULT ''
+)
+;
+CREATE INDEX IF NOT EXISTS idx_source_fetch_states_status
+  ON source_fetch_states(status, last_checked_at DESC)
+;
+
+CREATE TABLE IF NOT EXISTS source_endpoints (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id INTEGER NOT NULL,
+  endpoint_type TEXT NOT NULL,
+  url TEXT NOT NULL,
+  platform TEXT NOT NULL DEFAULT '',
+  account_identifier TEXT NOT NULL DEFAULT '',
+  adapter_key TEXT NOT NULL DEFAULT '',
+  auth_ref TEXT NOT NULL DEFAULT '',
+  poll_interval_seconds INTEGER NOT NULL DEFAULT 900,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  manual INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT '',
+  UNIQUE(endpoint_type, url, account_identifier),
+  FOREIGN KEY(source_id) REFERENCES sources(id)
+)
+;
+CREATE INDEX IF NOT EXISTS idx_source_endpoints_enabled
+  ON source_endpoints(enabled, endpoint_type, updated_at DESC)
+;
+CREATE TABLE IF NOT EXISTS radar_topic_endpoints (
+  topic_id TEXT NOT NULL,
+  endpoint_id INTEGER NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY(topic_id, endpoint_id),
+  FOREIGN KEY(topic_id) REFERENCES topics(id),
+  FOREIGN KEY(endpoint_id) REFERENCES source_endpoints(id)
+)
+;
+CREATE INDEX IF NOT EXISTS idx_radar_topic_endpoints_endpoint
+  ON radar_topic_endpoints(endpoint_id, enabled)
+;
+CREATE TABLE IF NOT EXISTS radar_sync_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint_id INTEGER NOT NULL,
+  started_at TEXT NOT NULL DEFAULT '',
+  finished_at TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'running',
+  item_count INTEGER NOT NULL DEFAULT 0,
+  new_count INTEGER NOT NULL DEFAULT 0,
+  http_status INTEGER DEFAULT 0,
+  error_code TEXT DEFAULT '',
+  error_message TEXT DEFAULT '',
+  FOREIGN KEY(endpoint_id) REFERENCES source_endpoints(id)
+)
+;
+CREATE INDEX IF NOT EXISTS idx_radar_sync_runs_endpoint_started
+  ON radar_sync_runs(endpoint_id, started_at DESC)
+"""
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    """为已经存在的本地 SQLite 库补齐增量字段，升级无需删库。"""
+    columns = {str(row[1]) for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
 
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(str(SETTINGS_DB), timeout=15)
@@ -228,6 +310,25 @@ def _conn() -> sqlite3.Connection:
     conn.execute(TASKS_SCHEMA)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(EVIDENCE_SCHEMA)
+    conn.executescript(RADAR_SCHEMA)
+    _ensure_column(conn, "topics", "kind", "TEXT NOT NULL DEFAULT 'monitor'")
+    _ensure_column(conn, "topics", "source_scope_json", "TEXT NOT NULL DEFAULT '[\"L1\",\"L2\",\"L3\"]'")
+    _ensure_column(conn, "topics", "last_read_at", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "mention_topics", "matched_keywords_json", "TEXT NOT NULL DEFAULT '[]'")
+    _ensure_column(conn, "mention_topics", "match_location", "TEXT NOT NULL DEFAULT 'title'")
+    _ensure_column(conn, "source_fetch_states", "etag", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "last_modified", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "cursor_value", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "last_success_at", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "next_fetch_at", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "consecutive_failures", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(conn, "source_fetch_states", "cooldown_until", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "average_update_seconds", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(conn, "source_fetch_states", "last_http_status", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(conn, "source_fetch_states", "lease_owner", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "lease_until", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "source_fetch_states", "updated_at", "TEXT NOT NULL DEFAULT ''")
+    conn.commit()
     return conn
 
 
@@ -709,15 +810,18 @@ def cursor_upsert(source_id: str, cursor_value: str, updated_at: str) -> None:
 
 def topic_create(topic_id: str, name: str, keywords: list[str],
                  exclude_keywords: list[str], now: str,
-                 enabled: bool = True) -> None:
+                 enabled: bool = True, kind: str = "monitor",
+                 source_scope: list[str] | None = None) -> None:
     conn = _conn()
     try:
         conn.execute(
-            "INSERT INTO topics(id, name, keywords_json, exclude_keywords_json, enabled, created_at, updated_at) "
-            "VALUES(?,?,?,?,?,?,?)",
+            "INSERT INTO topics(id, name, keywords_json, exclude_keywords_json, kind, source_scope_json, "
+            "last_read_at, enabled, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
             (topic_id, name, json.dumps(keywords, ensure_ascii=False),
              json.dumps(exclude_keywords, ensure_ascii=False),
-             1 if enabled else 0, now, now),
+             kind if kind in {"monitor", "radar"} else "monitor",
+             json.dumps(source_scope or ["L1", "L2", "L3"], ensure_ascii=False),
+             "", 1 if enabled else 0, now, now),
         )
         conn.commit()
     finally:
@@ -728,7 +832,8 @@ def topic_get(topic_id: str) -> dict | None:
     conn = _conn()
     try:
         row = conn.execute(
-            "SELECT id, name, keywords_json, exclude_keywords_json, enabled, created_at, updated_at "
+            "SELECT id, name, keywords_json, exclude_keywords_json, kind, source_scope_json, last_read_at, "
+            "enabled, created_at, updated_at "
             "FROM topics WHERE id=?", (topic_id,)
         ).fetchone()
     finally:
@@ -738,8 +843,9 @@ def topic_get(topic_id: str) -> dict | None:
     return {
         "id": row[0], "name": row[1],
         "keywords": json.loads(row[2] or "[]"),
-        "exclude_keywords": json.loads(row[3] or "[]"),
-        "enabled": bool(row[4]), "created_at": row[5], "updated_at": row[6],
+        "exclude_keywords": json.loads(row[3] or "[]"), "kind": row[4] or "monitor",
+        "source_scope": json.loads(row[5] or "[]"), "last_read_at": row[6] or "",
+        "enabled": bool(row[7]), "created_at": row[8], "updated_at": row[9],
     }
 
 
@@ -747,7 +853,8 @@ def topic_list() -> list[dict]:
     conn = _conn()
     try:
         rows = conn.execute(
-            "SELECT id, name, keywords_json, exclude_keywords_json, enabled, created_at, updated_at "
+            "SELECT id, name, keywords_json, exclude_keywords_json, kind, source_scope_json, last_read_at, "
+            "enabled, created_at, updated_at "
             "FROM topics ORDER BY created_at DESC, id DESC"
         ).fetchall()
     finally:
@@ -755,8 +862,9 @@ def topic_list() -> list[dict]:
     return [{
         "id": row[0], "name": row[1],
         "keywords": json.loads(row[2] or "[]"),
-        "exclude_keywords": json.loads(row[3] or "[]"),
-        "enabled": bool(row[4]), "created_at": row[5], "updated_at": row[6],
+        "exclude_keywords": json.loads(row[3] or "[]"), "kind": row[4] or "monitor",
+        "source_scope": json.loads(row[5] or "[]"), "last_read_at": row[6] or "",
+        "enabled": bool(row[7]), "created_at": row[8], "updated_at": row[9],
     } for row in rows]
 
 
@@ -903,13 +1011,423 @@ def monitor_run_finish(run_id: int, *, status: str, finished_at: str,
         conn.close()
 
 
-def mention_topic_touch(mention_id: int, topic_id: str, seen_at: str) -> None:
+def mention_topic_touch(mention_id: int, topic_id: str, seen_at: str,
+                        matched_keywords: list[str] | None = None,
+                        match_location: str = "title") -> None:
     conn = _conn()
     try:
         conn.execute(
-            "INSERT INTO mention_topics(mention_id, topic_id, first_seen_at, last_seen_at) "
-            "VALUES(?,?,?,?) ON CONFLICT(mention_id, topic_id) DO UPDATE SET last_seen_at=excluded.last_seen_at",
-            (mention_id, topic_id, seen_at, seen_at),
+            "INSERT INTO mention_topics(mention_id, topic_id, first_seen_at, last_seen_at, "
+            "matched_keywords_json, match_location) VALUES(?,?,?,?,?,?) "
+            "ON CONFLICT(mention_id, topic_id) DO UPDATE SET last_seen_at=excluded.last_seen_at, "
+            "matched_keywords_json=excluded.matched_keywords_json, match_location=excluded.match_location",
+            (mention_id, topic_id, seen_at, seen_at,
+             json.dumps(matched_keywords or [], ensure_ascii=False), match_location or "title"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def radar_topics() -> list[dict]:
+    """只返回雷达主题，避免与旧版分析监测主题混淆。"""
+    return [topic for topic in topic_list() if topic.get("kind") == "radar"]
+
+
+def radar_subscriptions_due(now: str) -> list[dict]:
+    """读取到期的雷达订阅；雷达调度与分析监测调度相互隔离。"""
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT s.id, s.topic_id, s.interval_seconds, s.enabled, s.last_run_at, s.next_run_at, "
+            "s.consecutive_failures, s.cooldown_until, s.created_at, s.updated_at "
+            "FROM subscriptions s JOIN topics t ON t.id=s.topic_id "
+            "WHERE t.kind='radar' AND t.enabled=1 AND s.enabled=1 AND "
+            "(s.next_run_at='' OR s.next_run_at<=?) AND (s.cooldown_until='' OR s.cooldown_until<=?) "
+            "ORDER BY s.id", (now, now),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [{"id": r[0], "topic_id": r[1], "interval_seconds": r[2], "enabled": bool(r[3]),
+             "last_run_at": r[4] or "", "next_run_at": r[5] or "",
+             "consecutive_failures": r[6], "cooldown_until": r[7] or "",
+             "created_at": r[8], "updated_at": r[9]} for r in rows]
+
+
+def radar_timeline(topic_id: str, *, limit: int = 100, before: str = "",
+                   source_id: str = "") -> list[dict]:
+    """按发布时间优先、采集时间兜底读取雷达时间线。before 使用 ISO 时间游标。"""
+    conn = _conn()
+    try:
+        query = (
+            "SELECT m.id, m.title, m.snippet, m.canonical_url, m.source_id, m.source_type, "
+            "m.published_at, m.captured_at, mt.first_seen_at, mt.last_seen_at, "
+            "mt.matched_keywords_json, mt.match_location "
+            "FROM mention_topics mt JOIN mentions m ON m.id=mt.mention_id "
+            "WHERE mt.topic_id=?"
+        )
+        params: list = [topic_id]
+        if source_id:
+            query += " AND m.source_id=?"
+            params.append(source_id)
+        if before:
+            query += " AND COALESCE(NULLIF(m.published_at,''), mt.first_seen_at) < ?"
+            params.append(before)
+        query += " ORDER BY COALESCE(NULLIF(m.published_at,''), mt.first_seen_at) DESC, m.id DESC LIMIT ?"
+        params.append(max(1, min(int(limit), 500)))
+        rows = conn.execute(query, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for row in rows:
+        try:
+            matched = json.loads(row[10] or "[]")
+        except json.JSONDecodeError:
+            matched = []
+        out.append({"id": row[0], "title": row[1], "snippet": row[2] or "",
+                    "url": row[3] or "", "source_id": row[4], "source_type": row[5],
+                    "published_at": row[6] or "", "captured_at": row[7] or "",
+                    "first_seen_at": row[8] or "", "last_seen_at": row[9] or "",
+                    "matched_keywords": matched, "match_location": row[11] or "title"})
+    return out
+
+
+def radar_stats(topic_id: str) -> dict:
+    conn = _conn()
+    try:
+        topic = conn.execute("SELECT last_read_at FROM topics WHERE id=?", (topic_id,)).fetchone()
+        total = conn.execute("SELECT COUNT(*) FROM mention_topics WHERE topic_id=?", (topic_id,)).fetchone()[0]
+        unread = conn.execute(
+            "SELECT COUNT(*) FROM mention_topics WHERE topic_id=? AND (?='' OR first_seen_at>?)",
+            (topic_id, topic[0] if topic else "", topic[0] if topic else ""),
+        ).fetchone()[0]
+        latest = conn.execute(
+            "SELECT MAX(COALESCE(NULLIF(m.published_at,''), mt.first_seen_at)) "
+            "FROM mention_topics mt JOIN mentions m ON m.id=mt.mention_id WHERE mt.topic_id=?",
+            (topic_id,),
+        ).fetchone()[0] or ""
+        sources = conn.execute(
+            "SELECT COUNT(DISTINCT m.source_id) FROM mention_topics mt JOIN mentions m ON m.id=mt.mention_id "
+            "WHERE mt.topic_id=?", (topic_id,),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    return {"total": int(total), "unread": int(unread), "source_count": int(sources),
+            "latest_at": latest, "last_read_at": topic[0] if topic else ""}
+
+
+def radar_mark_read(topic_id: str, read_at: str) -> bool:
+    conn = _conn()
+    try:
+        cur = conn.execute("UPDATE topics SET last_read_at=?, updated_at=? WHERE id=?",
+                           (read_at, read_at, topic_id))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def radar_delete_topic(topic_id: str) -> bool:
+    conn = _conn()
+    try:
+        exists = conn.execute("SELECT 1 FROM topics WHERE id=? AND kind='radar'", (topic_id,)).fetchone()
+        if not exists:
+            return False
+        # 旧版监测可能已经为同一主题写入事件/信号；先清理所有从属关系，
+        # 这样升级后的雷达主题仍可安全删除，不会被历史外键卡住。
+        conn.execute("DELETE FROM signals WHERE topic_id=?", (topic_id,))
+        conn.execute("DELETE FROM event_mentions WHERE topic_id=?", (topic_id,))
+        conn.execute("DELETE FROM events WHERE topic_id=?", (topic_id,))
+        conn.execute("DELETE FROM monitor_runs WHERE topic_id=?", (topic_id,))
+        conn.execute("DELETE FROM mention_topics WHERE topic_id=?", (topic_id,))
+        conn.execute("DELETE FROM subscriptions WHERE topic_id=?", (topic_id,))
+        cur = conn.execute("DELETE FROM topics WHERE id=? AND kind='radar'", (topic_id,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def radar_source_state(source_id: str, *, name: str, source_type: str,
+                       checked_at: str, status: str, item_count: int = 0,
+                       error_message: str = "") -> None:
+    conn = _conn()
+    try:
+        conn.execute(
+            "INSERT INTO source_fetch_states(source_id, source_name, source_type, last_checked_at, status, "
+            "item_count, error_message) VALUES(?,?,?,?,?,?,?) "
+            "ON CONFLICT(source_id) DO UPDATE SET source_name=excluded.source_name, "
+            "source_type=excluded.source_type, last_checked_at=excluded.last_checked_at, "
+            "status=excluded.status, item_count=excluded.item_count, error_message=excluded.error_message",
+            (source_id, name, source_type, checked_at, status, int(item_count), error_message[:500]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def radar_source_states() -> list[dict]:
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT source_id, source_name, source_type, last_checked_at, status, item_count, error_message "
+            "FROM source_fetch_states ORDER BY source_name, source_id"
+        ).fetchall()
+    finally:
+        conn.close()
+    return [{"source_id": r[0], "source_name": r[1], "source_type": r[2],
+             "last_checked_at": r[3], "status": r[4], "item_count": r[5],
+             "error_message": r[6]} for r in rows]
+
+
+# ---------- 雷达信源端点（RADAR-SRC-1） ----------
+
+_RADAR_ENDPOINT_TYPES = {"rss", "atom", "website", "rsshub", "rssbridge", "account", "api", "hotlist"}
+
+
+def radar_source_identity_get_or_create(name: str, host: str = "",
+                                        category: str = "media", level: str = "C") -> int:
+    """创建或复用来源身份；同步入口不直接把身份信息写入 endpoint。"""
+    clean_name = str(name or "").strip()
+    clean_host = str(host or "").strip().lower()
+    if not clean_name:
+        raise ValueError("来源名称不能为空")
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT id FROM sources WHERE name=? AND host=? ORDER BY id LIMIT 1",
+            (clean_name, clean_host),
+        ).fetchone()
+        if row:
+            return int(row[0])
+        max_sort = conn.execute("SELECT COALESCE(MAX(sort),0) FROM sources").fetchone()[0]
+        cur = conn.execute(
+            "INSERT INTO sources(name, host, category, level, stype, extra, enabled, manual, sort) "
+            "VALUES(?,?,?,?,?,?,1,1,?)",
+            (clean_name, clean_host, category or "media", level or "C", "site", "", max_sort + 1),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def radar_endpoint_create(source_id: int, endpoint_type: str, url: str, *,
+                          platform: str = "", account_identifier: str = "",
+                          adapter_key: str = "", auth_ref: str = "",
+                          poll_interval_seconds: int = 900, enabled: bool = True,
+                          manual: bool = True, now: str = "") -> int:
+    etype = str(endpoint_type or "").strip().lower()
+    clean_url = str(url or "").strip()
+    if etype not in _RADAR_ENDPOINT_TYPES:
+        raise ValueError("不支持的雷达端点类型")
+    if not clean_url:
+        raise ValueError("端点地址不能为空")
+    now = now or datetime.now(timezone.utc).isoformat()
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "INSERT INTO source_endpoints(source_id, endpoint_type, url, platform, account_identifier, "
+            "adapter_key, auth_ref, poll_interval_seconds, enabled, manual, created_at, updated_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (int(source_id), etype, clean_url, str(platform or "").strip(),
+             str(account_identifier or "").strip(), str(adapter_key or "").strip(),
+             str(auth_ref or "").strip(), max(300, min(86400, int(poll_interval_seconds))),
+             1 if enabled else 0, 1 if manual else 0, now, now),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def radar_endpoint_get(endpoint_id: int) -> dict | None:
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT e.id, e.source_id, s.name, s.host, s.category, s.level, e.endpoint_type, e.url, "
+            "e.platform, e.account_identifier, e.adapter_key, e.auth_ref, e.poll_interval_seconds, "
+            "e.enabled, e.manual, e.created_at, e.updated_at "
+            "FROM source_endpoints e JOIN sources s ON s.id=e.source_id WHERE e.id=?", (int(endpoint_id),)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    return _radar_endpoint_dict(row)
+
+
+def _radar_endpoint_dict(row) -> dict:
+    return {
+        "id": row[0], "source_id": row[1], "source_name": row[2], "host": row[3],
+        "category": row[4], "level": row[5], "endpoint_type": row[6], "url": row[7],
+        "platform": row[8], "account_identifier": row[9], "adapter_key": row[10],
+        "auth_ref": row[11], "poll_interval_seconds": row[12], "enabled": bool(row[13]),
+        "manual": bool(row[14]), "created_at": row[15], "updated_at": row[16],
+    }
+
+
+def radar_endpoints(*, enabled_only: bool = False) -> list[dict]:
+    conn = _conn()
+    try:
+        query = (
+            "SELECT e.id, e.source_id, s.name, s.host, s.category, s.level, e.endpoint_type, e.url, "
+            "e.platform, e.account_identifier, e.adapter_key, e.auth_ref, e.poll_interval_seconds, "
+            "e.enabled, e.manual, e.created_at, e.updated_at "
+            "FROM source_endpoints e JOIN sources s ON s.id=e.source_id "
+        )
+        if enabled_only:
+            query += "WHERE e.enabled=1 AND s.enabled=1 "
+        query += "ORDER BY e.id"
+        rows = conn.execute(query).fetchall()
+    finally:
+        conn.close()
+    return [_radar_endpoint_dict(row) for row in rows]
+
+
+def radar_topic_endpoint_bind(topic_id: str, endpoint_id: int, *, enabled: bool = True,
+                              now: str = "") -> bool:
+    now = now or datetime.now(timezone.utc).isoformat()
+    conn = _conn()
+    try:
+        valid = conn.execute(
+            "SELECT 1 FROM topics WHERE id=? AND kind='radar'", (topic_id,)
+        ).fetchone() and conn.execute(
+            "SELECT 1 FROM source_endpoints WHERE id=?", (int(endpoint_id),)
+        ).fetchone()
+        if not valid:
+            return False
+        conn.execute(
+            "INSERT INTO radar_topic_endpoints(topic_id, endpoint_id, enabled, created_at) VALUES(?,?,?,?) "
+            "ON CONFLICT(topic_id, endpoint_id) DO UPDATE SET enabled=excluded.enabled",
+            (topic_id, int(endpoint_id), 1 if enabled else 0, now),
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def radar_topic_endpoint_ids(topic_ids: list[str] | tuple[str, ...]) -> set[int]:
+    ids = [str(x).strip() for x in topic_ids if str(x).strip()]
+    if not ids:
+        return set()
+    conn = _conn()
+    try:
+        marks = ",".join("?" for _ in ids)
+        rows = conn.execute(
+            f"SELECT endpoint_id FROM radar_topic_endpoints WHERE enabled=1 AND topic_id IN ({marks})",
+            ids,
+        ).fetchall()
+    finally:
+        conn.close()
+    return {int(row[0]) for row in rows}
+
+
+def radar_topic_endpoints(topic_id: str) -> list[dict]:
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT e.id, e.source_id, s.name, s.host, s.category, s.level, e.endpoint_type, e.url, "
+            "e.platform, e.account_identifier, e.adapter_key, e.auth_ref, e.poll_interval_seconds, "
+            "e.enabled, e.manual, e.created_at, e.updated_at "
+            "FROM radar_topic_endpoints te JOIN source_endpoints e ON e.id=te.endpoint_id "
+            "JOIN sources s ON s.id=e.source_id WHERE te.topic_id=? AND te.enabled=1 ORDER BY e.id",
+            (topic_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [_radar_endpoint_dict(row) for row in rows]
+
+
+def radar_endpoint_state(endpoint_id: int) -> dict:
+    key = f"endpoint:{int(endpoint_id)}"
+    conn = _conn()
+    try:
+        row = conn.execute(
+            "SELECT source_id, etag, last_modified, cursor_value, last_checked_at, last_success_at, "
+            "next_fetch_at, consecutive_failures, cooldown_until, average_update_seconds, "
+            "last_http_status, status, item_count, error_message, lease_owner, lease_until, updated_at "
+            "FROM source_fetch_states WHERE source_id=?", (key,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return {"endpoint_id": int(endpoint_id), "etag": "", "last_modified": "",
+                "cursor_value": "", "last_checked_at": "", "last_success_at": "",
+                "next_fetch_at": "", "consecutive_failures": 0, "cooldown_until": "",
+                "average_update_seconds": 0, "last_http_status": 0, "status": "unknown",
+                "item_count": 0, "error_message": "", "lease_owner": "", "lease_until": "",
+                "updated_at": ""}
+    return {"endpoint_id": int(endpoint_id), "etag": row[1] or "", "last_modified": row[2] or "",
+            "cursor_value": row[3] or "", "last_checked_at": row[4] or "", "last_success_at": row[5] or "",
+            "next_fetch_at": row[6] or "", "consecutive_failures": int(row[7] or 0),
+            "cooldown_until": row[8] or "", "average_update_seconds": int(row[9] or 0),
+            "last_http_status": int(row[10] or 0), "status": row[11] or "unknown",
+            "item_count": int(row[12] or 0), "error_message": row[13] or "",
+            "lease_owner": row[14] or "", "lease_until": row[15] or "", "updated_at": row[16] or ""}
+
+
+def radar_endpoint_state_upsert(endpoint_id: int, *, status: str, checked_at: str,
+                                etag: str = "", last_modified: str = "", cursor_value: str = "",
+                                last_success_at: str = "", next_fetch_at: str = "",
+                                consecutive_failures: int = 0, cooldown_until: str = "",
+                                average_update_seconds: int = 0, last_http_status: int = 0,
+                                item_count: int = 0, error_message: str = "") -> None:
+    key = f"endpoint:{int(endpoint_id)}"
+    conn = _conn()
+    try:
+        endpoint_meta = conn.execute(
+            "SELECT s.name, e.endpoint_type FROM source_endpoints e "
+            "JOIN sources s ON s.id=e.source_id WHERE e.id=?", (int(endpoint_id),)
+        ).fetchone()
+        display_name = f"{endpoint_meta[0]} · {endpoint_meta[1]}" if endpoint_meta else key
+        display_type = endpoint_meta[1] if endpoint_meta else "rss"
+        conn.execute(
+            "INSERT INTO source_fetch_states(source_id, source_name, source_type, last_checked_at, "
+            "status, item_count, error_message, etag, last_modified, cursor_value, last_success_at, "
+            "next_fetch_at, consecutive_failures, cooldown_until, average_update_seconds, last_http_status, "
+            "updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(source_id) DO UPDATE SET last_checked_at=excluded.last_checked_at, "
+            "status=excluded.status, item_count=excluded.item_count, error_message=excluded.error_message, "
+            "etag=excluded.etag, last_modified=excluded.last_modified, cursor_value=excluded.cursor_value, "
+            "last_success_at=excluded.last_success_at, next_fetch_at=excluded.next_fetch_at, "
+            "consecutive_failures=excluded.consecutive_failures, cooldown_until=excluded.cooldown_until, "
+            "average_update_seconds=excluded.average_update_seconds, last_http_status=excluded.last_http_status, "
+            "updated_at=excluded.updated_at",
+            (key, display_name, display_type, checked_at, status, int(item_count),
+             error_message[:500], etag[:500], last_modified[:500], cursor_value[:500], last_success_at,
+             next_fetch_at, int(consecutive_failures), cooldown_until, int(average_update_seconds),
+             int(last_http_status), checked_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def radar_sync_run_create(endpoint_id: int, started_at: str) -> int:
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "INSERT INTO radar_sync_runs(endpoint_id, started_at, status) VALUES(?,?, 'running')",
+            (int(endpoint_id), started_at),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def radar_sync_run_finish(run_id: int, *, status: str, finished_at: str,
+                          item_count: int = 0, new_count: int = 0, http_status: int = 0,
+                          error_code: str = "", error_message: str = "") -> None:
+    conn = _conn()
+    try:
+        conn.execute(
+            "UPDATE radar_sync_runs SET finished_at=?, status=?, item_count=?, new_count=?, "
+            "http_status=?, error_code=?, error_message=? WHERE id=?",
+            (finished_at, status, int(item_count), int(new_count), int(http_status),
+             error_code[:80], error_message[:500], int(run_id)),
         )
         conn.commit()
     finally:

@@ -102,7 +102,9 @@ def _security_and_scheduler():
             response.status_code = 401
             return response
     from monitor import monitor_service
+    from radar import radar_service
     monitor_service.start()
+    radar_service.start()
 
 
 @app.after_request
@@ -455,6 +457,114 @@ def api_monitor_topic_create():
     return jsonify({"topic_id": topic_id, "subscription_id": subscription_id,
                     "name": name, "keywords": keywords,
                     "exclude_keywords": exclude, "interval_seconds": interval}), 201
+
+
+# ---------- 雷达（关键词 → 公开信源 → 时间线，不做分析） ----------
+
+@app.get("/api/radar/topics")
+def api_radar_topics():
+    from db import radar_stats, radar_topics, subscription_get_by_topic
+    items = []
+    for topic in radar_topics():
+        item = dict(topic)
+        item["subscription"] = subscription_get_by_topic(topic["id"])
+        item["stats"] = radar_stats(topic["id"])
+        items.append(item)
+    return jsonify({"items": items})
+
+
+@app.post("/api/radar/topics")
+def api_radar_topic_create():
+    from db import subscription_upsert, topic_create
+    body = request.get_json(silent=True) or {}
+    name = str(body.get("name") or "").strip()
+    keywords = _list_input(body.get("keywords"), default=[name])[:20]
+    exclude = _list_input(body.get("exclude_keywords") or body.get("excludeKeywords"))[:20]
+    if not name or not keywords:
+        return jsonify({"error": "名称和至少一个关键词不能为空"}), 400
+    try:
+        interval = max(60, min(86400, int(body.get("interval_seconds", 900))))
+    except (TypeError, ValueError):
+        return jsonify({"error": "interval_seconds 必须是整数"}), 400
+    scope = [str(x).strip().upper() for x in (body.get("source_scope") or ["L1", "L2", "L3"])
+             if str(x).strip().upper() in {"L1", "L2", "L3", "L4", "L5", "L6"}]
+    now = datetime.now(timezone.utc).isoformat()
+    topic_id = uuid.uuid4().hex[:12]
+    topic_create(topic_id, name, keywords, exclude, now, enabled=True,
+                 kind="radar", source_scope=scope or ["L1", "L2", "L3"])
+    subscription_id = subscription_upsert(topic_id, interval, True, now)
+    return jsonify({"topic_id": topic_id, "subscription_id": subscription_id,
+                    "name": name, "keywords": keywords, "exclude_keywords": exclude,
+                    "interval_seconds": interval}), 201
+
+
+@app.get("/api/radar/timeline")
+def api_radar_timeline():
+    from db import radar_stats, radar_timeline, topic_get
+    topic_id = (request.args.get("topic_id") or "").strip()
+    topic = topic_get(topic_id)
+    if not topic or topic.get("kind") != "radar":
+        return jsonify({"error": "雷达主题不存在"}), 404
+    try:
+        limit = max(1, min(500, int(request.args.get("limit", 100))))
+    except ValueError:
+        return jsonify({"error": "limit 必须是整数"}), 400
+    return jsonify({"topic": topic, "items": radar_timeline(
+        topic_id, limit=limit, before=(request.args.get("before") or "").strip(),
+        source_id=(request.args.get("source_id") or "").strip()),
+        "stats": radar_stats(topic_id)})
+
+
+@app.post("/api/radar/topics/<topic_id>/refresh")
+def api_radar_topic_refresh(topic_id: str):
+    from db import topic_get
+    from radar import radar_service
+    topic = topic_get(topic_id)
+    if not topic or topic.get("kind") != "radar":
+        return jsonify({"error": "雷达主题不存在"}), 404
+    threading.Thread(target=radar_service.run_topic, args=(topic_id,), daemon=True).start()
+    return jsonify({"accepted": True, "topic_id": topic_id}), 202
+
+
+@app.post("/api/radar/topics/<topic_id>/read")
+def api_radar_topic_read(topic_id: str):
+    from db import radar_mark_read, topic_get
+    topic = topic_get(topic_id)
+    if not topic or topic.get("kind") != "radar":
+        return jsonify({"error": "雷达主题不存在"}), 404
+    now = datetime.now(timezone.utc).isoformat()
+    radar_mark_read(topic_id, now)
+    return jsonify({"ok": True, "topic_id": topic_id, "last_read_at": now})
+
+
+@app.post("/api/radar/topics/<topic_id>/toggle")
+def api_radar_topic_toggle(topic_id: str):
+    from db import subscription_get_by_topic, subscription_set_enabled, topic_get, topic_set_enabled
+    body = request.get_json(silent=True) or {}
+    topic = topic_get(topic_id)
+    if not topic or topic.get("kind") != "radar":
+        return jsonify({"error": "雷达主题不存在"}), 404
+    enabled = bool(body.get("enabled"))
+    now = datetime.now(timezone.utc).isoformat()
+    topic_set_enabled(topic_id, enabled, now)
+    sub = subscription_get_by_topic(topic_id)
+    if sub:
+        subscription_set_enabled(sub["id"], enabled, now)
+    return jsonify({"ok": True, "topic_id": topic_id, "enabled": enabled})
+
+
+@app.delete("/api/radar/topics/<topic_id>")
+def api_radar_topic_delete(topic_id: str):
+    from db import radar_delete_topic
+    if not radar_delete_topic(topic_id):
+        return jsonify({"error": "雷达主题不存在"}), 404
+    return jsonify({"ok": True, "topic_id": topic_id})
+
+
+@app.get("/api/radar/source-health")
+def api_radar_source_health():
+    from db import radar_source_states
+    return jsonify({"items": radar_source_states()})
 
 
 @app.post("/api/monitor/topics/<topic_id>/run")

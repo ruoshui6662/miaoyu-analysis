@@ -1862,6 +1862,88 @@
       .auth-gate, .auth-reminder { padding: 16px; }
       .auth-card, .auth-reminder-card { padding: 24px; }
     }
+  /* 雷达：左侧关键词索引 + 右侧纵向时间线，使用留白和弱底色建立边界。 */
+  #view-radar { max-width: 1180px; margin: 0 auto; }
+  #view-radar .page-head { margin-bottom: 30px; }
+  #view-radar .page-head p { max-width: 680px; }
+  .radar-layout { display: grid; grid-template-columns: 224px minmax(0, 1fr); gap: 36px; align-items: start; }
+  .radar-rail { position: sticky; top: 88px; min-width: 0; }
+  .radar-rail-head { display: flex; align-items: center; justify-content: space-between; color: var(--text-strong); font-size: 14px; font-weight: 650; }
+  .radar-icon-button { width: 28px; height: 28px; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 21px; line-height: 1; cursor: pointer; }
+  .radar-search { display: block; margin-top: 12px; }
+  .radar-search input { width: 100%; height: 38px; padding: 0 11px; border: 0; border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; font-size: 12px; outline: 0; }
+  .radar-search input:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+  .radar-topic-list { display: grid; gap: 3px; margin-top: 12px; }
+  .radar-topic-item { display: grid; grid-template-columns: 7px minmax(0,1fr) auto; align-items: center; gap: 9px; min-height: 48px; padding: 7px 9px; border-radius: var(--r-sm); background: transparent; color: var(--text-2); text-align: left; cursor: pointer; transition: background .16s ease, color .16s ease; }
+  .radar-topic-item:hover { background: var(--surface); color: var(--text-strong); }
+  .radar-topic-item.active { background: var(--surface-2); color: var(--text-strong); }
+  .radar-topic-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-disabled); }
+  .radar-topic-item.active .radar-topic-dot, .radar-topic-item.enabled .radar-topic-dot { background: var(--green); }
+  .radar-topic-copy { min-width: 0; }
+  .radar-topic-name { overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+  .radar-topic-meta { overflow: hidden; margin-top: 2px; color: var(--text-3); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  .radar-topic-unread { min-width: 18px; padding: 2px 5px; border-radius: 999px; background: var(--red-bg); color: var(--red); font-size: 10px; line-height: 1.3; text-align: center; }
+  .radar-add { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 38px; margin-top: 14px; padding: 0 9px; border: 1px dashed var(--border-strong); border-radius: var(--r-sm); background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+  .radar-add:hover { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+  .radar-rail-note { margin-top: 14px; color: var(--text-3); font-size: 11px; line-height: 1.6; }
+  .radar-main { min-width: 0; }
+  .radar-main-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 18px; }
+  .radar-main-head h3 { margin-top: 3px; color: var(--text-strong); font-size: 21px; line-height: 1.35; letter-spacing: -.025em; }
+  .radar-main-head p { margin-top: 5px; color: var(--text-3); font-size: 12px; }
+  .radar-actions { display: flex; flex: none; gap: 8px; }
+  .radar-actions button { min-height: 38px; padding: 0 13px; border-radius: var(--r-sm); font-size: 12px; }
+  .radar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; border-top: 1px solid var(--separator); border-bottom: 1px solid var(--separator); color: var(--text-3); font-size: 11px; }
+  .radar-timeline { padding: 4px 0 20px; }
+  .radar-day { margin-top: 24px; }
+  .radar-day:first-child { margin-top: 16px; }
+  .radar-day-title { display: flex; align-items: center; gap: 9px; color: var(--text-2); font-size: 12px; font-weight: 650; }
+  .radar-day-title::after { content: ""; height: 1px; flex: 1; background: var(--separator); }
+  .radar-item { display: grid; grid-template-columns: 58px 28px minmax(0, 1fr); gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--separator); }
+  .radar-item-time { padding-top: 2px; color: var(--text-3); font-family: var(--mono); font-size: 11px; }
+  .radar-source-mark { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; overflow: hidden; border-radius: 50%; background: var(--surface-2); color: var(--text-2); }
+  .radar-source-mark svg, .radar-source-mark img { display: block; width: 17px; height: 17px; object-fit: contain; }
+  .radar-item-copy { min-width: 0; }
+  .radar-item-title { color: var(--text-strong); font-size: 14px; font-weight: 620; line-height: 1.5; }
+  .radar-item-title a { color: inherit; text-decoration: none; }
+  .radar-item-title a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .radar-item-snippet { display: -webkit-box; overflow: hidden; margin-top: 4px; color: var(--text-2); font-size: 12px; line-height: 1.65; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .radar-item-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 7px; color: var(--text-3); font-size: 11px; }
+  .radar-keyword { color: var(--green-text); }
+  .radar-empty { padding: 28px 10px; color: var(--text-3); font-size: 12px; text-align: center; }
+  .radar-empty-main { padding: 100px 20px; }
+  .radar-empty strong { display: block; margin-bottom: 5px; color: var(--text-strong); font-size: 14px; }
+  .radar-empty span { display: block; }
+  .radar-editor { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(22, 26, 33, .28); }
+  .radar-editor.hidden { display: none; }
+  .radar-editor-form { width: min(460px, 100%); padding: 28px; border-radius: 14px; background: var(--card); box-shadow: 0 18px 60px rgba(16,24,40,.18); }
+  .radar-editor-kicker { color: var(--red); font-size: 12px; font-weight: 650; }
+  .radar-editor-form h2 { margin-top: 6px; color: var(--text-strong); font-size: 22px; }
+  .radar-editor-form > p { margin: 7px 0 20px; color: var(--text-3); font-size: 12px; line-height: 1.6; }
+  .radar-editor-form .f-label { display: block; margin-top: 14px; }
+  .radar-editor-form .sel { width: 100%; min-height: 42px; margin-top: 7px; }
+  .radar-editor-textarea { min-height: 80px !important; padding: 10px 12px; resize: vertical; }
+  .radar-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+  .radar-editor-actions button { min-height: 40px; padding: 0 14px; border-radius: var(--r-sm); font-size: 13px; }
+  @media (max-width: 760px) {
+    #view-radar .page-head { margin-bottom: 22px; }
+    .radar-layout { grid-template-columns: 1fr; gap: 24px; }
+    .radar-rail { position: static; }
+    .radar-topic-list { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 2px; }
+    .radar-topic-item { flex: 0 0 170px; }
+    .radar-add { width: auto; padding: 0 12px; }
+    .radar-rail-note { display: none; }
+    .radar-main-head { display: block; }
+    .radar-actions { margin-top: 14px; }
+    .radar-actions button { flex: 1; }
+  }
+  @media (max-width: 480px) {
+    .radar-item { grid-template-columns: 44px 26px minmax(0,1fr); gap: 8px; }
+    .radar-item-title { font-size: 13px; }
+    .radar-item-snippet { font-size: 11px; }
+    .radar-toolbar { font-size: 10px; }
+    .radar-editor-form { padding: 22px 18px; }
+  }
+
     @media (prefers-reduced-motion: reduce) { *,*::before,*::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
   }
 </style>
@@ -1887,6 +1969,10 @@
     <button id="navAnalyze" onclick="showView('analyze')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></svg>
       分析
+    </button>
+    <button id="navRadar" onclick="showView('radar')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 3.5V12l6 6"/></svg>
+      雷达
     </button>
     <button id="navHistory" onclick="showView('history')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
@@ -1992,6 +2078,32 @@
     <div class="card thin analysis-recent-card">
       <div class="section-title">最近分析 <a href="javascript:void(0)" onclick="showView('history')" style="font-size:12px;font-weight:600" id="recentAllLink">全部历史 ›</a></div>
       <ul class="tasks" id="taskList"><li style="color:var(--muted)">暂无任务</li></ul>
+    </div>
+  </div>
+
+  <!-- ========== 雷达：关键词追踪时间线，不做分析 ========== -->
+  <div id="view-radar" class="hidden">
+    <div class="page-head radar-head">
+      <div class="page-kicker">持续观察</div>
+      <h2>雷达</h2>
+      <p>设置关键词，自动收集公开新闻，按时间线呈现。雷达只记录发生了什么，不替你做分析。</p>
+    </div>
+    <div class="radar-layout">
+      <aside class="radar-rail" aria-label="雷达关键词">
+        <div class="radar-rail-head"><span>关键词</span><button type="button" class="radar-icon-button" onclick="openRadarEditor()" aria-label="添加关键词">+</button></div>
+        <label class="radar-search"><span class="sr-only">筛选关键词</span><input id="radarTopicSearch" type="search" placeholder="筛选关键词" oninput="renderRadarTopics()"></label>
+        <div id="radarTopicList" class="radar-topic-list" aria-live="polite"><div class="radar-empty">正在加载…</div></div>
+        <button type="button" class="radar-add" onclick="openRadarEditor()"><span aria-hidden="true">＋</span> 添加关键词</button>
+        <p class="radar-rail-note">默认读取已启用的公开聚合信源，按六层架构逐步扩展。</p>
+      </aside>
+      <section class="radar-main" aria-live="polite">
+        <div class="radar-main-head">
+          <div><div class="page-kicker">关键词时间线</div><h3 id="radarTitle">选择一个关键词</h3><p id="radarSubtitle">左侧选择或添加关键词后开始观察。</p></div>
+          <div class="radar-actions"><button type="button" class="btn-secondary" id="radarReadButton" onclick="markRadarRead()" disabled>标为已读</button><button type="button" class="primary" id="radarRefreshButton" onclick="refreshRadar()" disabled>立即刷新</button></div>
+        </div>
+        <div class="radar-toolbar"><span id="radarStats">—</span><span id="radarUpdated">尚未刷新</span></div>
+        <div id="radarTimeline" class="radar-timeline"><div class="radar-empty radar-empty-main"><strong>还没有选择关键词</strong><span>从左侧选择一个主题，查看公开信息的时间变化。</span></div></div>
+      </section>
     </div>
   </div>
 
@@ -2280,6 +2392,21 @@
   </div>
 </div>
 
+<div id="radarEditor" class="radar-editor hidden" role="dialog" aria-modal="true" aria-labelledby="radarEditorTitle">
+  <form class="radar-editor-form" onsubmit="saveRadarTopic(event)">
+    <div class="radar-editor-kicker">新建观察</div>
+    <h2 id="radarEditorTitle">添加关键词</h2>
+    <p>一个主题可以包含多个关键词，系统会在同一批来源中统一匹配。</p>
+    <label class="f-label" for="radarName">主题名称</label>
+    <input class="sel" id="radarName" maxlength="40" placeholder="例如：某品牌新品发布" required>
+    <label class="f-label" for="radarKeywords">关键词</label>
+    <textarea class="sel radar-editor-textarea" id="radarKeywords" rows="3" placeholder="用逗号或换行分隔，例如：品牌名，新品，发布会" required></textarea>
+    <label class="f-label" for="radarExcludes">排除词（可选）</label>
+    <input class="sel" id="radarExcludes" placeholder="用逗号分隔，例如：招聘，二手">
+    <div class="radar-editor-actions"><button type="button" class="btn-secondary" onclick="closeRadarEditor()">取消</button><button type="submit" class="primary" id="radarSaveButton">保存关键词</button></div>
+  </form>
+</div>
+
 <div class="toast-host" id="toastHost"></div>
 
 <div id="authGate" class="auth-gate hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
@@ -2373,14 +2500,17 @@ function toast(msg, tone) {
 function showView(v) {
   $("view-home").classList.toggle("hidden", v !== "home");
   $("view-analyze").classList.toggle("hidden", v !== "analyze");
+  $("view-radar").classList.toggle("hidden", v !== "radar");
   $("view-history").classList.toggle("hidden", v !== "history");
   $("view-settings").classList.toggle("hidden", v !== "settings");
   $("navHome").classList.toggle("active", v === "home");
   $("navAnalyze").classList.toggle("active", v === "analyze");
+  $("navRadar").classList.toggle("active", v === "radar");
   $("navHistory").classList.toggle("active", v === "history");
   $("navSettings").classList.toggle("active", v === "settings");
   if (v === "analyze") refreshTasks();
   if (v === "history") loadHistory(histPage);
+  if (v === "radar") loadRadarTopics();
   if (v === "settings") { openDefaultPanel(); loadSettings(); }
 }
 
@@ -2498,6 +2628,7 @@ async function submitAuth(event) {
     if (body.must_change_password) showPasswordReminder();
     refreshTasks();
     if (!$('view-history').classList.contains('hidden')) loadHistory(histPage);
+    if (!$('view-radar').classList.contains('hidden')) loadRadarTopics(radarSelectedId);
     loadAiProviders();
   } catch (e) {
     if (error) error.textContent = "无法连接后端服务，请检查容器状态";
@@ -3873,6 +4004,162 @@ function renderTrendPlaceholder() {
 /* 首页：最近任务（默认 5 条）+ 历史二级视图（按主题组织） */
 let histPage = 1, histPages = 1, histSearchTimer = null, histRequestSeq = 0;
 
+/* ---------- 雷达：关键词管理 + 时间线 ---------- */
+let radarTopics = [];
+let radarSelectedId = "";
+let radarTimelineRequest = 0;
+
+function radarRelativeTime(value) {
+  if (!value) return "时间未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 16).replace("T", " ");
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes} 分钟前`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} 小时前`;
+  return `${Math.floor(minutes / 1440)} 天前`;
+}
+
+function radarDayLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || "时间未知").slice(0, 10);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  if (day === today) return "今天";
+  if (day === today - 86400000) return "昨天";
+  return `${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+}
+
+function radarTimeLabel(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value || "").slice(11, 16) : date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderRadarTopics() {
+  const box = $("radarTopicList");
+  if (!box) return;
+  const query = ($("radarTopicSearch")?.value || "").trim().toLowerCase();
+  const list = radarTopics.filter(topic => !query || topic.name.toLowerCase().includes(query)
+    || (topic.keywords || []).some(keyword => keyword.toLowerCase().includes(query)));
+  if (!list.length) {
+    box.innerHTML = '<div class="radar-empty">还没有观察关键词</div>';
+    return;
+  }
+  box.innerHTML = list.map(topic => {
+    const stats = topic.stats || {};
+    const unread = Number(stats.unread || 0);
+    return `<button type="button" class="radar-topic-item ${topic.id === radarSelectedId ? "active" : ""} ${topic.enabled ? "enabled" : ""}" onclick="selectRadarTopic('${escAttr(topic.id)}')">
+      <span class="radar-topic-dot" aria-hidden="true"></span><span class="radar-topic-copy"><span class="radar-topic-name">${esc(topic.name)}</span><span class="radar-topic-meta">${esc((topic.keywords || []).join(" · "))}</span></span>${unread ? `<span class="radar-topic-unread">${unread > 99 ? "99+" : unread}</span>` : ""}
+    </button>`;
+  }).join("");
+}
+
+async function loadRadarTopics(preferredId = "") {
+  if (!authAuthenticated) return;
+  const data = await api("/api/radar/topics");
+  if (!data || data.error) return;
+  radarTopics = Array.isArray(data.items) ? data.items : [];
+  const nextId = preferredId || radarSelectedId || radarTopics[0]?.id || "";
+  radarSelectedId = radarTopics.some(topic => topic.id === nextId) ? nextId : (radarTopics[0]?.id || "");
+  renderRadarTopics();
+  if (radarSelectedId) await loadRadarTimeline(radarSelectedId);
+  else {
+    $("radarTitle").textContent = "选择一个关键词";
+    $("radarSubtitle").textContent = "左侧选择或添加关键词后开始观察。";
+    $("radarTimeline").innerHTML = '<div class="radar-empty radar-empty-main"><strong>还没有选择关键词</strong><span>先添加一个观察主题，时间线会在刷新后出现。</span></div>';
+    $("radarRefreshButton").disabled = true;
+    $("radarReadButton").disabled = true;
+  }
+}
+
+async function selectRadarTopic(topicId) {
+  radarSelectedId = topicId;
+  renderRadarTopics();
+  await loadRadarTimeline(topicId);
+}
+
+function renderRadarTimeline(items) {
+  const box = $("radarTimeline");
+  if (!box) return;
+  if (!items.length) {
+    box.innerHTML = '<div class="radar-empty radar-empty-main"><strong>暂时没有匹配信息</strong><span>点击“立即刷新”从已启用的公开聚合信源获取最新条目。</span></div>';
+    return;
+  }
+  const groups = [];
+  items.forEach(item => {
+    const stamp = item.published_at || item.captured_at || item.first_seen_at;
+    const key = radarDayLabel(stamp);
+    let group = groups.find(entry => entry.key === key);
+    if (!group) { group = { key, items: [] }; groups.push(group); }
+    group.items.push(item);
+  });
+  box.innerHTML = groups.map(group => `<section class="radar-day"><div class="radar-day-title">${esc(group.key)}</div>${group.items.map(item => {
+    const stamp = item.published_at || item.captured_at || item.first_seen_at;
+    const source = sourceMark({ name: item.source_id }, "media");
+    const title = item.url ? `<a href="${escAttr(item.url)}" target="_blank" rel="noreferrer">${esc(item.title)}</a>` : esc(item.title);
+    const keys = (item.matched_keywords || []).map(keyword => `<span class="radar-keyword">#${esc(keyword)}</span>`).join("");
+    return `<article class="radar-item"><time class="radar-item-time" datetime="${escAttr(stamp)}" title="${escAttr(stamp)}">${esc(radarTimeLabel(stamp))}</time><span class="radar-source-mark" title="${escAttr(item.source_id)}" aria-label="${escAttr(item.source_id)}">${source}</span><div class="radar-item-copy"><h4 class="radar-item-title">${title}</h4>${item.snippet ? `<p class="radar-item-snippet">${esc(item.snippet)}</p>` : ""}<div class="radar-item-meta"><span>${esc(item.source_id || "未知来源")}</span><span>${radarRelativeTime(stamp)}</span>${keys}</div></div></article>`;
+  }).join("")}</section>`).join("");
+}
+
+async function loadRadarTimeline(topicId = radarSelectedId) {
+  if (!topicId) return;
+  const seq = ++radarTimelineRequest;
+  const data = await api(`/api/radar/timeline?topic_id=${encodeURIComponent(topicId)}&limit=120`);
+  if (seq !== radarTimelineRequest || !data || data.error) return;
+  const topic = data.topic || radarTopics.find(item => item.id === topicId) || {};
+  const stats = data.stats || {};
+  $("radarTitle").textContent = topic.name || "雷达";
+  $("radarSubtitle").textContent = `${(topic.keywords || []).join(" · ")} · 只记录公开信息，不做分析`;
+  $("radarStats").textContent = `${Number(stats.total || 0)} 条信息 · ${Number(stats.source_count || 0)} 个来源`;
+  $("radarUpdated").textContent = stats.latest_at ? `最近更新 ${radarRelativeTime(stats.latest_at)}` : "尚未刷新";
+  $("radarRefreshButton").disabled = false;
+  $("radarReadButton").disabled = !Number(stats.unread || 0);
+  renderRadarTimeline(Array.isArray(data.items) ? data.items : []);
+}
+
+function openRadarEditor() {
+  const editor = $("radarEditor");
+  if (!editor) return;
+  editor.classList.remove("hidden");
+  $("radarName").value = ""; $("radarKeywords").value = ""; $("radarExcludes").value = "";
+  setTimeout(() => $("radarName")?.focus(), 0);
+}
+
+function closeRadarEditor() { $("radarEditor")?.classList.add("hidden"); }
+
+async function saveRadarTopic(event) {
+  event.preventDefault();
+  const button = $("radarSaveButton");
+  if (button) { button.disabled = true; button.textContent = "保存中…"; }
+  const split = value => String(value || "").replaceAll("，", ",").split(/[\n,]/).map(item => item.trim()).filter(Boolean);
+  const data = await api("/api/radar/topics", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: $("radarName").value.trim(), keywords: split($("radarKeywords").value), exclude_keywords: split($("radarExcludes").value) }) });
+  if (button) { button.disabled = false; button.textContent = "保存关键词"; }
+  if (!data || data.error) { toast(data?.error || "保存失败", "error"); return; }
+  closeRadarEditor();
+  radarSelectedId = data.topic_id;
+  toast("关键词已添加");
+  await loadRadarTopics(data.topic_id);
+}
+
+async function refreshRadar() {
+  if (!radarSelectedId) return;
+  const button = $("radarRefreshButton");
+  if (button) { button.disabled = true; button.textContent = "刷新中…"; }
+  const data = await api(`/api/radar/topics/${encodeURIComponent(radarSelectedId)}/refresh`, { method: "POST" });
+  if (!data || data.error) { toast(data?.error || "刷新失败", "error"); if (button) { button.disabled = false; button.textContent = "立即刷新"; } return; }
+  toast("已开始刷新公开信源");
+  setTimeout(async () => { await loadRadarTopics(radarSelectedId); if (button) button.textContent = "立即刷新"; }, 1800);
+}
+
+async function markRadarRead() {
+  if (!radarSelectedId) return;
+  const data = await api(`/api/radar/topics/${encodeURIComponent(radarSelectedId)}/read`, { method: "POST" });
+  if (data && data.ok) { toast("已标记为已读"); await loadRadarTopics(radarSelectedId); }
+}
+
 async function refreshTasks() {
   if (!authAuthenticated) return;
   const d = await api("/api/tasks?page=1&per=5");
@@ -4507,6 +4794,7 @@ setInterval(() => {
   const historyIsBeingUsed = document.activeElement?.closest?.('.history-workspace-card')
     || document.querySelector('.history-group.is-open');
   if (historyIsOpen && !historyIsBeingUsed) loadHistory(histPage);
+  if (!$('view-radar').classList.contains('hidden') && authAuthenticated) loadRadarTopics(radarSelectedId);
 }, 15000);
 setInterval(loadHotBoards, 300000);
 setInterval(() => {

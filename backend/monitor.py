@@ -75,6 +75,10 @@ class MonitorService:
         now = _iso(_now())
         results = []
         for sub in db.subscriptions_due(now):
+            topic = db.topic_get(sub["topic_id"])
+            if topic and topic.get("kind") == "radar":
+                # 雷达由独立调度器处理，不能误进入分析监测链路。
+                continue
             lock = self._lock_for(sub["id"])
             if not lock.acquire(blocking=False):
                 continue
