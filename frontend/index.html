@@ -1747,7 +1747,9 @@
     #view-history .history-detail-inner { background: var(--surface); border: 0; border-radius: var(--r-sm); }
     #view-history .history-run { border-radius: 0; background: transparent; border-top: 1px solid var(--separator); }
     #view-history .history-action { min-height: var(--control-height); padding: 0 12px; border: 1px solid transparent; border-radius: var(--r-md); background: transparent; }
-    #view-history .history-action.primary { color: var(--accent); background: transparent; }
+    /* is-primary 继承了旧版白字主按钮；减弱红色后必须同时改字色，避免白字落在透明底上。 */
+    #view-history .history-action.is-primary { color: var(--accent); background: var(--accent-tint); border-color: color-mix(in srgb, var(--accent) 20%, transparent); }
+    #view-history .history-action.is-primary:hover { color: var(--accent-hover); background: #ffe8e6; border-color: color-mix(in srgb, var(--accent) 42%, transparent); }
     #view-history .history-action:hover { background: var(--surface-2); }
 
     #view-settings .settings-shell { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
