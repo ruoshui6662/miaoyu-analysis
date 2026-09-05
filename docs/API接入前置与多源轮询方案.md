@@ -1,6 +1,6 @@
 # API 接入前置与多源轮询方案
 
-> 版本 v0.2 ｜ 调研日期：2026-09-02 ｜ 更新：2026-09-03 ｜ 状态：Brave/Tavily 适配器已接入，等待用户填写 Key 后人工验收
+> 版本 v0.3 ｜ 调研日期：2026-09-02 ｜ 更新：2026-09-05 ｜ 状态：Keenable/Brave/Tavily 适配器已接入，等待用户填写 Key 后人工验收
 
 ## 1. 第一性原理
 
@@ -41,7 +41,7 @@
 - 没有 `Mention` 唯一键、跨源去重和来源健康表；
 - 没有趋势时间序列，无法直接填充效果图中的变化率/折线图；
 - 没有证据记录模型，无法直接填充“关键证据”和“可信度”；
-- 搜索 Provider 已完成第一版统一路由：SearXNG 主链路，Brave/Tavily 可选故障切换或多源合并；健康度持久化与额度记账仍待后续阶段；
+- 搜索 Provider 已完成统一路由：SearXNG 主链路，Keenable/Brave/Tavily 可选故障切换或多源合并；健康度持久化与额度记账仍待后续阶段；
 - NewsNow 中国热榜公开主链路已接入首页；API Key 仍只用于 AI 与未来的 TopHubData/增强源，不能混同为热榜授权。
 
 ## 3. 免费优先的 API 清单
@@ -86,14 +86,38 @@ NewsNow 上游仓库公开说明了 `/api/s` 类数据接口、自建方式、�
 - B 站公开接口：可以作为热榜的可选交叉校验，但部分接口未形成稳定的公开开发者契约，不能承担主链路。
 - 各类“万能热榜 API”聚合站：需要逐一核对授权、数据来源、商业使用范围和 SLA，不能仅凭“免费”接入报告事实链。
 
-### 3.4 Brave Search API / Tavily 接入状态（2026-09-03）
+### 3.4 搜索 API 接入状态（2026-09-05）
 
 | Provider | 官方请求 | 默认参数 | 当前实现 | 用户操作 |
 |---|---|---|---|---|
+| Keenable Search | `POST https://api.keenable.ai/v1/search`，`X-API-Key` | 最多 50 条、正文片段上限 1,200 字符、按时间窗映射 `published_after` | `backend/search_providers.py`，设置页 Key 脱敏回显、连接测试、时间字段归一化 | 注册 Keenable 并在设置页填写 Key |
 | Brave Search | `GET https://api.search.brave.com/res/v1/web/search` | `country=CN`、`search_lang=zh-hans`、按时间窗映射 `freshness` | `backend/search_providers.py`，设置页 Key 脱敏保存、连接测试 | 注册 Brave Search API 并在设置页填写 Key |
 | Tavily | `POST https://api.tavily.com/search` | `topic=general`、`country=china`、`search_depth=basic`、不返回 answer/raw content | `backend/search_providers.py`，设置页 Key 脱敏保存、连接测试 | 注册 Tavily 并在设置页填写 Key |
 
-调用优先级固定为 `SearXNG → Brave → Tavily`。未配置或不可用的服务自动跳过：SearXNG 地址为空时直接尝试已配置的 Brave/Tavily；外部服务没有 API Key 时不发起请求。默认策略为 `failover`，只有前一个服务无结果或失败时才调用下一个；需要交叉检索时切换为 `fanout`，该策略会增加调用量。接口规范以 [Brave 官方文档](https://api-dashboard.search.brave.com/app/documentation/web-search) 和 [Tavily 官方文档](https://docs.tavily.com/documentation/api-reference/endpoint/search) 为准。
+调用优先级固定为 `SearXNG → Keenable → Brave → Tavily`。第一性原理是先消耗自建基础设施和高免费额度，再使用商业补充与 AI 搜索：SearXNG 边际请求成本最低且可控；Keenable 有较高免费月额度和双时间字段，作为第一外部补漏；Brave 提供独立网页索引；Tavily 的 AI 搜索能力和 credit 成本留到最后。未配置或不可用的服务自动跳过，外部服务没有 API Key 时不发起请求。默认策略为 `failover`，只有前一个服务无结果或失败时才调用下一个；需要交叉检索时切换为 `fanout`，该策略会增加调用量。接口规范以 [Keenable 官方文档](https://docs.keenable.ai/api-reference/search)、[Brave 官方文档](https://api-dashboard.search.brave.com/app/documentation/web-search) 和 [Tavily 官方文档](https://docs.tavily.com/documentation/api-reference/endpoint/search) 为准。
+
+### 3.5 Keenable Search 接入规范（2026-09-05，已实现）
+
+官方接口为 `POST https://api.keenable.ai/v1/search`，已认证请求使用 `X-API-Key`；无 Key 评估可调用 `/v1/search/public`，但必须提供 `X-Keenable-Title`，且共享每 IP 每小时 1,000 次、最高 10 req/s 的公共限额。生产环境不得把共享公共池当作稳定主链路。接口以 [Keenable Search API](https://docs.keenable.ai/api-reference/search)、[Authentication](https://docs.keenable.ai/authentication)、[Rate limits](https://docs.keenable.ai/rate-limits) 和 [Credits](https://docs.keenable.ai/credits) 为准。
+
+Keenable 的接入价值不只是增加一个搜索结果源：
+
+- 结果同时返回 `published_at` 与 `acquired_at`，可以分别表达内容发布时间和索引发现时间；
+- 支持 `published_after/before`、`acquired_after/before` 和 `query_time`，适合雷达按时间窗补漏与历史时间点检索；
+- 单次最多返回 50 条，并可限制 `snippet_max_length`，适合控制送入 AI 的上下文成本；
+- 官方当前公开 100,000 次/月免费组织额度；超额后的公开价格与具体 SKU 以控制台实时信息为准；
+- 中文新闻覆盖、发布时间完整率、长期稳定性和结果存储条款尚未完成真实 Key 的项目级实测，因此已提升到第一外部补漏位，但仍保留自动回退和人工验收门槛。
+
+当前实施状态与后续验收：
+
+1. `KEENABLE-1` 已完成：官方 `/v1/search` 适配器、`X-API-Key` 鉴权、时间窗映射、结果归一化、额度/鉴权错误提示、设置页和连接测试；
+2. 普通分析搜索顺序已固定为 `SearXNG → Keenable → Brave → Tavily`，未填写 Key 时自动跳过；不默认调用共享 `/v1/search/public`；
+3. `KEENABLE-2` 待人工完成：用真实 Key 验证非空率、去重后来源数、时间字段完整率、P95 延迟、429/5xx 和单位成本；
+4. 雷达仍把 Keenable 放在第 6 层条件补漏，只在手动扩大搜索、前五层连续异常或完整性检查时使用，不替代 RSS/Atom 增量采集。
+
+多 Key 只用于环境隔离、撤销和容灾。Keenable 的已认证限流与免费额度按组织计算；同一组织内轮换多个 Key 不能叠加额度或绕过组织级限流。`401/403` 禁用单 Key，`402` 停止整个组织的 Keenable 调用，`429` 按组织冷却，禁止继续轮换同组织 Key 强行请求。
+
+密钥归属按 [管理控制台与商业化演进规划](管理控制台与商业化演进规划.md) 执行：自部署版由管理员在后端管理并只显示掩码；SaaS 平台 Key 只允许平台运营端管理；用户 BYOK 必须按用户/工作区加密隔离。当前阶段不得把 Keenable Key 写入前端、Git、镜像、日志或报告。
 
 ## 4. 用户需要准备的前置条件
 

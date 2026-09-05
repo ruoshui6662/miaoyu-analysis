@@ -1127,6 +1127,23 @@ def radar_mark_read(topic_id: str, read_at: str) -> bool:
         conn.close()
 
 
+def radar_update_topic(topic_id: str, name: str, keywords: list[str],
+                       exclude_keywords: list[str], now: str) -> bool:
+    """更新雷达主题的展示名和关键词，不改变订阅、游标及历史信息。"""
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE topics SET name=?, keywords_json=?, exclude_keywords_json=?, updated_at=? "
+            "WHERE id=? AND kind='radar'",
+            (name.strip(), json.dumps(keywords, ensure_ascii=False),
+             json.dumps(exclude_keywords, ensure_ascii=False), now, topic_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def radar_delete_topic(topic_id: str) -> bool:
     conn = _conn()
     try:
@@ -1141,6 +1158,7 @@ def radar_delete_topic(topic_id: str) -> bool:
         conn.execute("DELETE FROM monitor_runs WHERE topic_id=?", (topic_id,))
         conn.execute("DELETE FROM mention_topics WHERE topic_id=?", (topic_id,))
         conn.execute("DELETE FROM subscriptions WHERE topic_id=?", (topic_id,))
+        conn.execute("DELETE FROM radar_topic_endpoints WHERE topic_id=?", (topic_id,))
         cur = conn.execute("DELETE FROM topics WHERE id=? AND kind='radar'", (topic_id,))
         conn.commit()
         return cur.rowcount > 0
@@ -1304,6 +1322,53 @@ def radar_topic_endpoint_bind(topic_id: str, endpoint_id: int, *, enabled: bool 
         )
         conn.commit()
         return True
+    finally:
+        conn.close()
+
+
+def radar_topic_endpoint_unbind(topic_id: str, endpoint_id: int) -> bool:
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "DELETE FROM radar_topic_endpoints WHERE topic_id=? AND endpoint_id=?",
+            (str(topic_id), int(endpoint_id)),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def radar_endpoint_set_enabled(endpoint_id: int, enabled: bool, now: str = "") -> bool:
+    now = now or datetime.now(timezone.utc).isoformat()
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE source_endpoints SET enabled=?, updated_at=? WHERE id=?",
+            (1 if enabled else 0, now, int(endpoint_id)),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def radar_endpoint_delete(endpoint_id: int) -> bool:
+    """删除采集端点及其同步关系，但不删除已采集的 Mention 历史。"""
+    conn = _conn()
+    try:
+        exists = conn.execute(
+            "SELECT 1 FROM source_endpoints WHERE id=?", (int(endpoint_id),)
+        ).fetchone()
+        if not exists:
+            return False
+        key = f"endpoint:{int(endpoint_id)}"
+        conn.execute("DELETE FROM radar_topic_endpoints WHERE endpoint_id=?", (int(endpoint_id),))
+        conn.execute("DELETE FROM radar_sync_runs WHERE endpoint_id=?", (int(endpoint_id),))
+        conn.execute("DELETE FROM source_fetch_states WHERE source_id=?", (key,))
+        cur = conn.execute("DELETE FROM source_endpoints WHERE id=?", (int(endpoint_id),))
+        conn.commit()
+        return cur.rowcount > 0
     finally:
         conn.close()
 

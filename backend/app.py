@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import subprocess
 import tempfile
 import threading
@@ -553,6 +554,26 @@ def api_radar_topic_toggle(topic_id: str):
     return jsonify({"ok": True, "topic_id": topic_id, "enabled": enabled})
 
 
+@app.put("/api/radar/topics/<topic_id>")
+def api_radar_topic_update(topic_id: str):
+    from db import radar_update_topic, topic_get
+    topic = topic_get(topic_id)
+    if not topic or topic.get("kind") != "radar":
+        return jsonify({"error": "雷达主题不存在"}), 404
+    body = request.get_json(silent=True) or {}
+    name = str(body.get("name") or "").strip()
+    keywords = _list_input(body.get("keywords"), default=[name])[:20]
+    exclude = _list_input(body.get("exclude_keywords") or body.get("excludeKeywords"))[:20]
+    if not name or not keywords:
+        return jsonify({"error": "名称和至少一个关键词不能为空"}), 400
+    now = datetime.now(timezone.utc).isoformat()
+    if not radar_update_topic(topic_id, name, keywords, exclude, now):
+        return jsonify({"error": "雷达主题不存在"}), 404
+    return jsonify({"ok": True, "topic_id": topic_id, "name": name,
+                    "keywords": keywords, "exclude_keywords": exclude,
+                    "updated_at": now})
+
+
 @app.delete("/api/radar/topics/<topic_id>")
 def api_radar_topic_delete(topic_id: str):
     from db import radar_delete_topic
@@ -565,6 +586,123 @@ def api_radar_topic_delete(topic_id: str):
 def api_radar_source_health():
     from db import radar_source_states
     return jsonify({"items": radar_source_states()})
+
+
+@app.get("/api/radar/endpoints")
+def api_radar_endpoints():
+    """返回设置页可管理的雷达端点及其绑定主题；不返回任何密钥。"""
+    from db import radar_endpoint_state, radar_endpoints, radar_topic_endpoints, radar_topics
+    topics = [
+        {"id": topic["id"], "name": topic["name"], "enabled": bool(topic.get("enabled", True))}
+        for topic in radar_topics()
+    ]
+    items = []
+    for endpoint in radar_endpoints():
+        item = dict(endpoint)
+        bound = []
+        for topic in topics:
+            if any(int(candidate["id"]) == int(endpoint["id"]) for candidate in radar_topic_endpoints(topic["id"])):
+                bound.append(topic)
+        item["topic_ids"] = [topic["id"] for topic in bound]
+        item["topic_names"] = [topic["name"] for topic in bound]
+        item["state"] = radar_endpoint_state(endpoint["id"])
+        items.append(item)
+    return jsonify({"items": items, "topics": topics})
+
+
+@app.post("/api/radar/endpoints/preview")
+def api_radar_endpoint_preview():
+    """检测并预览 RSS/Atom，不写入数据库。"""
+    from radar_sources import RadarFeedError, fetch_feed, validate_endpoint_url
+    body = request.get_json(silent=True) or {}
+    raw_url = str(body.get("url") or "").strip()
+    try:
+        url = validate_endpoint_url(raw_url)
+        result = fetch_feed({"url": url}, preview_limit=10)
+    except RadarFeedError as exc:
+        status = 400 if exc.code in {"invalid_url", "unsafe_url", "credentials_in_url", "private_address_blocked", "invalid_feed"} else 502
+        return jsonify({"ok": False, "error": str(exc), "code": exc.code}), status
+    return jsonify({"ok": True, "url": url, "feed_title": result.get("feed_title", ""),
+                    "items": result.get("items", []), "status": result.get("status"),
+                    "http_status": result.get("http_status", 0)})
+
+
+@app.post("/api/radar/endpoints")
+def api_radar_endpoint_create():
+    from urllib.parse import urlparse
+    from db import (radar_endpoint_create, radar_endpoint_get, radar_source_identity_get_or_create,
+                    radar_topic_endpoint_bind, radar_topics)
+    from radar_sources import RadarFeedError, validate_endpoint_url
+    body = request.get_json(silent=True) or {}
+    name = str(body.get("name") or "").strip()[:80]
+    raw_url = str(body.get("url") or "").strip()
+    endpoint_type = str(body.get("endpoint_type") or "rss").strip().lower()
+    if endpoint_type not in {"rss", "atom"}:
+        return jsonify({"error": "当前仅支持 RSS 或 Atom 信源"}), 400
+    if not name:
+        return jsonify({"error": "信源名称不能为空"}), 400
+    try:
+        url = validate_endpoint_url(raw_url)
+    except RadarFeedError as exc:
+        return jsonify({"error": str(exc), "code": exc.code}), 400
+    try:
+        interval = max(300, min(86400, int(body.get("poll_interval_seconds", 900))))
+    except (TypeError, ValueError):
+        return jsonify({"error": "同步间隔必须是整数"}), 400
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    topic_ids = [str(value).strip() for value in (body.get("topic_ids") or []) if str(value).strip()]
+    allowed_topics = {topic["id"] for topic in radar_topics()}
+    topic_ids = list(dict.fromkeys(topic_id for topic_id in topic_ids if topic_id in allowed_topics))
+    try:
+        source_id = radar_source_identity_get_or_create(
+            name, host, category=str(body.get("category") or "media"),
+            level=str(body.get("level") or "C"),
+        )
+        endpoint_id = radar_endpoint_create(
+            source_id, endpoint_type, url, platform=str(body.get("platform") or ""),
+            poll_interval_seconds=interval, enabled=bool(body.get("enabled", True)),
+        )
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "这个 Feed 已经登记过了"}), 409
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "保存信源失败"}), 400
+    for topic_id in topic_ids:
+        radar_topic_endpoint_bind(topic_id, endpoint_id)
+    return jsonify({"ok": True, "endpoint": radar_endpoint_get(endpoint_id),
+                    "topic_ids": topic_ids}), 201
+
+
+@app.patch("/api/radar/endpoints/<int:endpoint_id>")
+def api_radar_endpoint_update(endpoint_id: int):
+    from db import (radar_endpoint_get, radar_endpoint_set_enabled, radar_topic_endpoint_bind,
+                    radar_topic_endpoint_unbind, radar_topic_endpoints, radar_topics)
+    endpoint = radar_endpoint_get(endpoint_id)
+    if not endpoint:
+        return jsonify({"error": "雷达信源不存在"}), 404
+    body = request.get_json(silent=True) or {}
+    if "enabled" in body and not radar_endpoint_set_enabled(endpoint_id, bool(body.get("enabled"))):
+        return jsonify({"error": "更新信源状态失败"}), 400
+    if "topic_ids" in body:
+        requested = {str(value).strip() for value in (body.get("topic_ids") or []) if str(value).strip()}
+        allowed = {topic["id"] for topic in radar_topics()}
+        requested &= allowed
+        current = {topic_id for topic_id in allowed if any(
+            int(item["id"]) == endpoint_id for item in radar_topic_endpoints(topic_id)
+        )}
+        for topic_id in current - requested:
+            radar_topic_endpoint_unbind(topic_id, endpoint_id)
+        for topic_id in requested - current:
+            radar_topic_endpoint_bind(topic_id, endpoint_id)
+    return jsonify({"ok": True, "endpoint": radar_endpoint_get(endpoint_id)})
+
+
+@app.delete("/api/radar/endpoints/<int:endpoint_id>")
+def api_radar_endpoint_delete(endpoint_id: int):
+    from db import radar_endpoint_delete
+    if not radar_endpoint_delete(endpoint_id):
+        return jsonify({"error": "雷达信源不存在"}), 404
+    return jsonify({"ok": True, "endpoint_id": endpoint_id})
 
 
 @app.post("/api/monitor/topics/<topic_id>/run")
@@ -890,9 +1028,13 @@ def api_settings_get():
     merged = {
         "SEARXNG_URL": _cfg.SEARXNG_URL,
         "SEARXNG_CONFIGURED": bool(_cfg.SEARXNG_URL.strip()),
-        "SEARCH_PROVIDER_ORDER": "searxng,brave,tavily",
+        "SEARCH_PROVIDER_ORDER": ",".join(_cfg.SEARCH_PROVIDER_ORDER),
         "SEARCH_PROVIDER_MODE": _cfg.SEARCH_PROVIDER_MODE,
         "SEARCH_TIMEOUT": str(_cfg.SEARCH_TIMEOUT),
+        "KEENABLE_SEARCH_ENDPOINT": _cfg.KEENABLE_SEARCH_ENDPOINT,
+        "KEENABLE_SNIPPET_MAX_LENGTH": str(_cfg.KEENABLE_SNIPPET_MAX_LENGTH),
+        "KEENABLE_API_KEY": "****已配置****" if _cfg.KEENABLE_API_KEY else "",
+        "KEENABLE_API_KEY_CONFIGURED": bool(_cfg.KEENABLE_API_KEY),
         "BRAVE_SEARCH_ENDPOINT": _cfg.BRAVE_SEARCH_ENDPOINT,
         "BRAVE_SEARCH_LANG": _cfg.BRAVE_SEARCH_LANG,
         "BRAVE_COUNTRY": _cfg.BRAVE_COUNTRY,
@@ -907,7 +1049,7 @@ def api_settings_get():
         "AI_PROVIDERS": json.dumps(public_providers, ensure_ascii=False),
     }
     for k in SECRET_KEYS:
-        if k in {"BRAVE_API_KEY", "TAVILY_API_KEY"}:
+        if k in {"KEENABLE_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY"}:
             continue
         merged[k] = "****已配置****" if any(
             str(provider.get("apiKey") or "") for provider in _cfg.AI_PROVIDERS.values()
@@ -1028,7 +1170,7 @@ def api_settings_save():
             return jsonify({"error": "AI_PROVIDERS 必须是合法 JSON"}), 400
     # API Key 通过设置页脱敏回传；空值或掩码值均表示保持已有密钥。
     current_db = _cfg.db_settings()
-    for secret_key in ("BRAVE_API_KEY", "TAVILY_API_KEY"):
+    for secret_key in ("KEENABLE_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY"):
         if secret_key not in items:
             continue
         incoming = str(items.get(secret_key) or "").strip()

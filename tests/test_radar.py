@@ -42,9 +42,29 @@ class RadarTests(unittest.TestCase):
                 now = datetime.now(timezone.utc).isoformat()
                 db.topic_create("radar-2", "可删除", ["删除"], [], now, kind="radar")
                 db.subscription_upsert("radar-2", 900, True, now)
+                source_id = db.radar_source_identity_get_or_create("示例媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", "https://example.test/feed.xml")
+                db.radar_topic_endpoint_bind("radar-2", endpoint_id)
                 self.assertTrue(db.radar_delete_topic("radar-2"))
                 self.assertIsNone(db.topic_get("radar-2"))
+                self.assertEqual(db.radar_topic_endpoints("radar-2"), [])
                 self.assertFalse(db.radar_delete_topic("radar-2"))
+
+    def test_update_radar_topic_changes_keywords_without_resetting_subscription(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-update-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                created = "2026-09-05T08:00:00+00:00"
+                updated = "2026-09-05T09:00:00+00:00"
+                db.topic_create("radar-3", "旧主题", ["旧词"], ["排除"], created, kind="radar")
+                subscription_id = db.subscription_upsert("radar-3", 1800, True, created)
+                self.assertTrue(db.radar_update_topic("radar-3", "新主题", ["新词", "新品"], [], updated))
+                topic = db.topic_get("radar-3")
+                self.assertEqual(topic["name"], "新主题")
+                self.assertEqual(topic["keywords"], ["新词", "新品"])
+                self.assertEqual(topic["exclude_keywords"], [])
+                self.assertEqual(topic["updated_at"], updated)
+                self.assertEqual(db.subscription_get(subscription_id)["interval_seconds"], 1800)
+                self.assertFalse(db.radar_update_topic("missing", "不存在", ["不存在"], [], updated))
 
 
 if __name__ == "__main__":

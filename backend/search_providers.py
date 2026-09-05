@@ -1,4 +1,4 @@
-"""统一搜索 Provider：保留 SearXNG 主链路，按配置接入 Brave/Tavily。
+"""统一搜索 Provider：保留 SearXNG 主链路，按配置接入 Keenable/Brave/Tavily。
 
 搜索服务与首页热榜是两条链路。这里仅负责分析任务的网页证据发现，
 不改变热榜适配器，也不把不同 Provider 的原生热度值混成一个分数。
@@ -35,6 +35,82 @@ def _empty(query: str, provider: str, error: str = "") -> dict:
     if error:
         data["error"] = error
     return data
+
+
+class KeenableSearchClient:
+    """Keenable 官方 Search API 客户端。
+
+    生产链路只使用已配置 API Key 的 ``/v1/search``。官方无 Key 公共端点
+    是共享 IP 配额，只用于人工评估，不作为可自由部署系统的默认依赖。
+    """
+
+    provider_id = "keenable"
+
+    def __init__(self, api_key: str | None = None, timeout: int | None = None):
+        self.api_key = (api_key if api_key is not None else _cfg.KEENABLE_API_KEY).strip()
+        self.endpoint = _cfg.KEENABLE_SEARCH_ENDPOINT
+        self.timeout = timeout if timeout is not None else _cfg.SEARCH_TIMEOUT
+        self.session = requests.Session()
+        self.session.headers.update({
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": _cfg.USER_AGENT,
+            "X-API-Key": self.api_key,
+        })
+
+    def search(self, query: str, pageno: int = 1, language: str = "zh-CN",
+               time_range: str = "", categories: str = "general",
+               engines: list[str] | None = None) -> dict:
+        if not self.api_key:
+            return _empty(query, self.provider_id, "Keenable API Key 未配置")
+        payload: dict[str, Any] = {
+            "query": query,
+            "max_results": min(50, max(1, _cfg.MAX_ITEMS_PER_QUERY)),
+            "snippet_max_length": _cfg.KEENABLE_SNIPPET_MAX_LENGTH,
+        }
+        published_after = {
+            "day": "1d", "week": "7d", "month": "1mo", "year": "1y",
+        }.get(time_range)
+        if published_after:
+            payload["published_after"] = published_after
+        try:
+            response = self.session.post(self.endpoint, json=payload, timeout=self.timeout)
+            status = int(getattr(response, "status_code", 0) or 0)
+            if status >= 400:
+                message = {
+                    400: "Keenable 请求参数或 API Key 格式无效",
+                    401: "Keenable API Key 无效",
+                    402: "Keenable 月度额度已用尽",
+                    403: "Keenable API Key 已禁用或无权限",
+                    429: "Keenable 请求达到限流",
+                }.get(status, f"Keenable 请求失败（HTTP {status}）")
+                return _empty(query, self.provider_id, message)
+            response.raise_for_status()
+            data = response.json()
+            results = []
+            for item in data.get("results", []) if isinstance(data, dict) else []:
+                if not isinstance(item, dict):
+                    continue
+                snippet = str(item.get("snippet") or "").strip()
+                description = str(item.get("description") or "").strip()
+                results.append({
+                    "title": str(item.get("title") or "").strip(),
+                    "url": item.get("url") or "",
+                    "content": snippet or description,
+                    "description": description,
+                    "published": _published(item.get("published_at")),
+                    "acquired_at": _published(item.get("acquired_at")),
+                    "engine": "keenable",
+                    "engines": ["keenable"],
+                    "score": 0,
+                    "category": categories or "general",
+                    "provider": self.provider_id,
+                })
+            return {**_empty(query, self.provider_id), "results": results}
+        except requests.RequestException as exc:
+            return _empty(query, self.provider_id, f"Keenable 请求失败：{exc}")
+        except (TypeError, ValueError) as exc:
+            return _empty(query, self.provider_id, f"Keenable 响应解析失败：{exc}")
 
 
 class BraveSearchClient:
@@ -153,19 +229,21 @@ class TavilySearchClient:
 class SearchRouter:
     """按配置路由搜索请求。
 
-    调用优先级固定为 SearXNG → Brave → Tavily；“固定优先级”与“必须可用”
-    是两件事。未配置的 Provider 会在路由阶段被跳过，不会阻塞后续服务。
+    调用优先级固定为 SearXNG → Keenable → Brave → Tavily；“固定优先级”
+    与“必须可用”是两件事。未配置的 Provider 会在路由阶段被跳过，
+    不会阻塞后续服务。
 
     failover：省额度，遇到空结果/异常才继续下一个 Provider；
     fanout：多源合并，适合重点事件，不做跨 Provider 的绝对排序。
     """
 
-    PROVIDER_ORDER = ("searxng", "brave", "tavily")
+    PROVIDER_ORDER = ("searxng", "keenable", "brave", "tavily")
 
     def __init__(self, timeout: int | None = None):
         self.timeout = timeout if timeout is not None else _cfg.SEARCH_TIMEOUT
         self.providers = {
             "searxng": SearxClient(timeout=self.timeout),
+            "keenable": KeenableSearchClient(timeout=self.timeout),
             "brave": BraveSearchClient(timeout=self.timeout),
             "tavily": TavilySearchClient(timeout=self.timeout),
         }
@@ -219,7 +297,7 @@ class SearchRouter:
         elif errors:
             result["provider_errors"] = errors[:3]
         elif not used:
-            result["error"] = "没有可用的搜索服务，请至少配置 SearXNG、Brave Search 或 Tavily"
+            result["error"] = "没有可用的搜索服务，请至少配置 SearXNG、Keenable、Brave Search 或 Tavily"
         return result
 
     def test(self, provider_id: str, query: str = "中国 舆情 新闻") -> dict:

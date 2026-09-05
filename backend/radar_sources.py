@@ -21,6 +21,13 @@ from config import USER_AGENT
 MAX_FEED_BYTES = 2 * 1024 * 1024
 HTTP_TIMEOUT = (5, 20)
 
+# Some transparent/fake-IP proxies map every public hostname to RFC 2544's
+# 198.18.0.0/15 range. It is not a real public destination, but requests made
+# with the original hostname can still be routed by that proxy. Keep this
+# exception narrow: IP literals remain blocked and all ordinary private,
+# loopback, link-local, reserved and multicast destinations remain blocked.
+_PROXY_SYNTHETIC_NETWORK = ipaddress.ip_network("198.18.0.0/15")
+
 
 class RadarFeedError(RuntimeError):
     def __init__(self, code: str, message: str, *, http_status: int = 0):
@@ -40,6 +47,34 @@ def _private_address(host: str) -> bool:
         return ipaddress.ip_address(host).is_private or ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def _is_proxy_synthetic_address(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return isinstance(ip, ipaddress.IPv4Address) and ip in _PROXY_SYNTHETIC_NETWORK
+
+
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return False
+
+
+def _blocked_resolved_address(ip: ipaddress.IPv4Address | ipaddress.IPv6Address, host: str) -> bool:
+    """Return whether a DNS result is unsafe for a hostname request."""
+    # A fake-IP proxy needs the original hostname to select the upstream. Do
+    # not extend this exception to an address the user entered literally.
+    if _is_proxy_synthetic_address(ip) and not _is_ip_literal(host):
+        return False
+    return any((
+        ip.is_private,
+        ip.is_loopback,
+        ip.is_link_local,
+        ip.is_unspecified,
+        ip.is_reserved,
+        ip.is_multicast,
+    ))
 
 
 def validate_endpoint_url(url: str, *, allow_private: bool | None = None) -> str:
@@ -76,8 +111,11 @@ def _check_resolved_target(url: str, *, allow_private: bool | None = None) -> No
                 ip = ipaddress.ip_address(address)
             except ValueError:
                 continue
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_reserved:
-                raise RadarFeedError("private_address_blocked", "信源解析到了未授权内网地址")
+            if _blocked_resolved_address(ip, host):
+                raise RadarFeedError(
+                    "private_address_blocked",
+                    "信源解析到了受限制地址，请检查 DNS/代理设置或管理员白名单",
+                )
 
 
 def _local_name(tag: str) -> str:

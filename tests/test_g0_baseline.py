@@ -36,7 +36,8 @@ import preflight  # noqa: E402
 import security  # noqa: E402
 from ai_client import AIClient, AIClientError  # noqa: E402
 from searx_client import SearxClient  # noqa: E402
-from search_providers import BraveSearchClient, SearchRouter, TavilySearchClient  # noqa: E402
+from search_providers import (BraveSearchClient, KeenableSearchClient,
+                              SearchRouter, TavilySearchClient)  # noqa: E402
 
 
 def make_client():
@@ -158,6 +159,32 @@ class SearchProviderTests(unittest.TestCase):
         self.assertEqual(get.call_args.kwargs["timeout"], config.SEARCH_TIMEOUT)
         self.assertEqual(get.call_args.kwargs["params"]["freshness"], "pd")
 
+    def test_keenable_normalizes_results_and_uses_time_window(self):
+        client = KeenableSearchClient(api_key="keen-test")
+        response = self.Response({"query": "测试", "results": [{
+            "title": "Keenable 结果", "url": "https://example.test/keen",
+            "description": "短摘要", "snippet": "页面正文片段",
+            "published_at": "2026-09-05T10:20:00Z",
+            "acquired_at": "2026-09-05T10:25:00Z",
+        }]})
+        with patch.object(client.session, "post", return_value=response) as post:
+            data = client.search("测试", time_range="week")
+        result = data["results"][0]
+        self.assertEqual(result["provider"], "keenable")
+        self.assertEqual(result["content"], "页面正文片段")
+        self.assertEqual(result["published"], "2026-09-05 10:20:00")
+        self.assertEqual(result["acquired_at"], "2026-09-05 10:25:00")
+        self.assertEqual(client.session.headers["X-API-Key"], "keen-test")
+        self.assertEqual(post.call_args.kwargs["json"]["published_after"], "7d")
+        self.assertEqual(post.call_args.kwargs["json"]["snippet_max_length"],
+                         config.KEENABLE_SNIPPET_MAX_LENGTH)
+
+    def test_keenable_returns_actionable_quota_error(self):
+        client = KeenableSearchClient(api_key="keen-test")
+        with patch.object(client.session, "post", return_value=self.Response({}, 402)):
+            data = client.search("测试")
+        self.assertIn("月度额度已用尽", data["error"])
+
     def test_tavily_normalizes_results_and_uses_bearer_session_header(self):
         client = TavilySearchClient(api_key="tvly-test")
         response = self.Response({"results": [{
@@ -175,17 +202,20 @@ class SearchProviderTests(unittest.TestCase):
         old_order, old_mode = config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE
         old_url = config.SEARXNG_URL
         try:
-            config.SEARCH_PROVIDER_ORDER = ["searxng", "brave", "tavily"]
+            config.SEARCH_PROVIDER_ORDER = ["searxng", "keenable", "brave", "tavily"]
             config.SEARCH_PROVIDER_MODE = "failover"
             router = SearchRouter()
             with patch.object(router.providers["searxng"], "search", return_value={
                 "query": "q", "results": [{"url": "https://example.test", "title": "命中"}],
                 "suggestions": [], "unresponsive": [],
-            }) as primary, patch.object(router.providers["brave"], "search") as brave, patch.object(
+            }) as primary, patch.object(router.providers["keenable"], "search") as keenable, patch.object(
+                router.providers["brave"], "search"
+            ) as brave, patch.object(
                 router.providers["tavily"], "search"
             ) as tavily:
                 data = router.search("q")
             primary.assert_called_once()
+            keenable.assert_not_called()
             brave.assert_not_called()
             tavily.assert_not_called()
             self.assertEqual(data["providers_used"], ["searxng"])
@@ -194,14 +224,15 @@ class SearchProviderTests(unittest.TestCase):
             config.SEARXNG_URL = old_url
 
     def test_router_skips_unconfigured_searxng_and_uses_configured_brave(self):
-        old_order, old_mode, old_url, old_brave = (
+        old_order, old_mode, old_url, old_keenable, old_brave = (
             config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE,
-            config.SEARXNG_URL, config.BRAVE_API_KEY,
+            config.SEARXNG_URL, config.KEENABLE_API_KEY, config.BRAVE_API_KEY,
         )
         try:
-            config.SEARCH_PROVIDER_ORDER = ["searxng", "brave", "tavily"]
+            config.SEARCH_PROVIDER_ORDER = ["searxng", "keenable", "brave", "tavily"]
             config.SEARCH_PROVIDER_MODE = "failover"
             config.SEARXNG_URL = ""
+            config.KEENABLE_API_KEY = ""
             config.BRAVE_API_KEY = "brave-test"
             router = SearchRouter()
             with patch.object(router.providers["searxng"], "search") as searxng, patch.object(
@@ -216,17 +247,68 @@ class SearchProviderTests(unittest.TestCase):
             self.assertEqual(data["results"][0]["title"], "备用命中")
         finally:
             config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE = old_order, old_mode
-            config.SEARXNG_URL, config.BRAVE_API_KEY = old_url, old_brave
+            config.SEARXNG_URL, config.KEENABLE_API_KEY, config.BRAVE_API_KEY = (
+                old_url, old_keenable, old_brave
+            )
 
-    def test_router_returns_actionable_error_when_no_provider_is_configured(self):
-        old_order, old_mode, old_url, old_brave, old_tavily = (
-            config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE,
-            config.SEARXNG_URL, config.BRAVE_API_KEY, config.TAVILY_API_KEY,
+    def test_router_prefers_configured_keenable_before_brave(self):
+        old_url, old_keenable, old_brave, old_mode = (
+            config.SEARXNG_URL, config.KEENABLE_API_KEY,
+            config.BRAVE_API_KEY, config.SEARCH_PROVIDER_MODE,
         )
         try:
-            config.SEARCH_PROVIDER_ORDER = ["searxng", "brave", "tavily"]
+            config.SEARXNG_URL = ""
+            config.KEENABLE_API_KEY = "keen-test"
+            config.BRAVE_API_KEY = "brave-test"
+            config.SEARCH_PROVIDER_MODE = "failover"
+            router = SearchRouter()
+            with patch.object(router.providers["keenable"], "search", return_value={
+                "query": "q", "results": [{"url": "https://keen.test", "title": "优先命中"}],
+            }) as keenable, patch.object(router.providers["brave"], "search") as brave:
+                data = router.search("q")
+            keenable.assert_called_once()
+            brave.assert_not_called()
+            self.assertEqual(data["providers_used"], ["keenable"])
+        finally:
+            config.SEARXNG_URL, config.KEENABLE_API_KEY = old_url, old_keenable
+            config.BRAVE_API_KEY, config.SEARCH_PROVIDER_MODE = old_brave, old_mode
+
+    def test_router_falls_back_from_empty_keenable_to_brave(self):
+        old_url, old_keenable, old_brave, old_mode = (
+            config.SEARXNG_URL, config.KEENABLE_API_KEY,
+            config.BRAVE_API_KEY, config.SEARCH_PROVIDER_MODE,
+        )
+        try:
+            config.SEARXNG_URL = ""
+            config.KEENABLE_API_KEY = "keen-test"
+            config.BRAVE_API_KEY = "brave-test"
+            config.SEARCH_PROVIDER_MODE = "failover"
+            router = SearchRouter()
+            with patch.object(router.providers["keenable"], "search", return_value={
+                "query": "q", "results": [],
+            }) as keenable, patch.object(router.providers["brave"], "search", return_value={
+                "query": "q", "results": [{"url": "https://brave.test", "title": "回退命中"}],
+            }) as brave:
+                data = router.search("q")
+            keenable.assert_called_once()
+            brave.assert_called_once()
+            self.assertEqual(data["providers_used"], ["keenable", "brave"])
+            self.assertEqual(data["results"][0]["provider"], "brave")
+        finally:
+            config.SEARXNG_URL, config.KEENABLE_API_KEY = old_url, old_keenable
+            config.BRAVE_API_KEY, config.SEARCH_PROVIDER_MODE = old_brave, old_mode
+
+    def test_router_returns_actionable_error_when_no_provider_is_configured(self):
+        old_order, old_mode, old_url, old_keenable, old_brave, old_tavily = (
+            config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE,
+            config.SEARXNG_URL, config.KEENABLE_API_KEY,
+            config.BRAVE_API_KEY, config.TAVILY_API_KEY,
+        )
+        try:
+            config.SEARCH_PROVIDER_ORDER = ["searxng", "keenable", "brave", "tavily"]
             config.SEARCH_PROVIDER_MODE = "failover"
             config.SEARXNG_URL = ""
+            config.KEENABLE_API_KEY = ""
             config.BRAVE_API_KEY = ""
             config.TAVILY_API_KEY = ""
             data = SearchRouter().search("q")
@@ -235,6 +317,7 @@ class SearchProviderTests(unittest.TestCase):
         finally:
             config.SEARCH_PROVIDER_ORDER, config.SEARCH_PROVIDER_MODE = old_order, old_mode
             config.SEARXNG_URL = old_url
+            config.KEENABLE_API_KEY = old_keenable
             config.BRAVE_API_KEY, config.TAVILY_API_KEY = old_brave, old_tavily
 
 class UrlCacheTests(unittest.TestCase):
@@ -598,13 +681,17 @@ class SecurityTests(unittest.TestCase):
         self.assertNotIn("super-secret-key", payload)
         self.assertIn("apiKeyConfigured", payload)
 
-        with patch.object(config, "BRAVE_API_KEY", "brave-secret"), patch.object(
+        with patch.object(config, "KEENABLE_API_KEY", "keen-secret"), patch.object(
+            config, "BRAVE_API_KEY", "brave-secret"
+        ), patch.object(
             config, "TAVILY_API_KEY", "tavily-secret"
         ):
             search_settings = make_client().get("/api/settings")
         search_payload = search_settings.get_data(as_text=True)
+        self.assertNotIn("keen-secret", search_payload)
         self.assertNotIn("brave-secret", search_payload)
         self.assertNotIn("tavily-secret", search_payload)
+        self.assertTrue(search_settings.get_json()["settings"]["KEENABLE_API_KEY_CONFIGURED"])
         self.assertTrue(search_settings.get_json()["settings"]["BRAVE_API_KEY_CONFIGURED"])
         self.assertTrue(search_settings.get_json()["settings"]["TAVILY_API_KEY_CONFIGURED"])
 
@@ -620,6 +707,9 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("authPassword", frontend)
         self.assertIn("panel-account", frontend)
         self.assertIn("/api/auth/password", frontend)
+        self.assertIn('id="s_keenable_key"', frontend)
+        self.assertIn('id="testKeenable"', frontend)
+        self.assertIn("SearXNG <span>→</span> Keenable <span>→</span> Brave", frontend)
         self.assertIn(".auth-gate.hidden { display: none; }", frontend)
         self.assertNotIn("sessionStorage.getItem(\"miaoyu_admin_token\")", frontend)
 

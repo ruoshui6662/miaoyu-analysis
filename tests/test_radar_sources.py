@@ -1,3 +1,4 @@
+import socket
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -5,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import db
-from radar_sources import RadarFeedError, fetch_feed, parse_feed, validate_endpoint_url
+from radar_sources import RadarFeedError, _check_resolved_target, fetch_feed, parse_feed, validate_endpoint_url
 from radar import RadarService
 
 
@@ -81,6 +82,21 @@ class RadarSourceTests(unittest.TestCase):
             validate_endpoint_url("https://user:password@example.test/feed.xml")
         with self.assertRaises(RadarFeedError):
             validate_endpoint_url("http://127.0.0.1/feed.xml")
+        with self.assertRaises(RadarFeedError):
+            validate_endpoint_url("http://198.18.0.204/feed.xml")
+
+    @patch("radar_sources.socket.getaddrinfo", return_value=[
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.18.0.204", 0)),
+    ])
+    def test_fake_ip_proxy_result_is_allowed_for_hostname(self, _getaddrinfo):
+        _check_resolved_target("https://example.test/feed.xml")
+
+    @patch("radar_sources.socket.getaddrinfo", return_value=[
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.20", 0)),
+    ])
+    def test_private_dns_result_is_still_rejected(self, _getaddrinfo):
+        with self.assertRaises(RadarFeedError):
+            _check_resolved_target("https://example.test/feed.xml")
 
     def test_radar_service_ingests_bound_feed_once(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-feed-run-") as tmp:
