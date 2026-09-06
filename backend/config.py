@@ -28,7 +28,7 @@ _ENV_BASELINE = {k: v for k, v in os.environ.items() if k.startswith(("SEARXNG_"
 
 # 设置页可管理、入库的键
 MANAGED_KEYS = (
-    "SEARXNG_URL", "SEARCH_PROVIDER_ORDER", "SEARCH_PROVIDER_MODE", "SEARCH_TIMEOUT",
+    "SEARXNG_URL", "SEARCH_INSTANCES", "SEARCH_PROVIDER_ORDER", "SEARCH_PROVIDER_MODE", "SEARCH_TIMEOUT",
     "KEENABLE_API_KEY", "KEENABLE_SEARCH_ENDPOINT", "KEENABLE_SNIPPET_MAX_LENGTH",
     "BRAVE_API_KEY", "BRAVE_SEARCH_ENDPOINT", "BRAVE_SEARCH_LANG", "BRAVE_COUNTRY",
     "TAVILY_API_KEY", "TAVILY_SEARCH_ENDPOINT", "TAVILY_SEARCH_DEPTH",
@@ -131,6 +131,53 @@ def _parse_providers(raw: str) -> dict:
     return out
 
 
+SEARCH_PROVIDER_IDS = ("searxng", "keenable", "brave", "tavily")
+
+
+def _parse_search_instances(raw: str) -> list[dict]:
+    """解析可重复使用的搜索实例配置；这里只接受系统内置 Provider。"""
+    try:
+        data = json.loads(raw) if raw else []
+    except Exception:
+        data = []
+    if not isinstance(data, list):
+        return []
+    out = []
+    for index, entry in enumerate(data[:32]):
+        if not isinstance(entry, dict):
+            continue
+        provider = str(entry.get("provider") or "").strip().lower()
+        if provider not in SEARCH_PROVIDER_IDS:
+            continue
+        instance_id = str(entry.get("id") or f"{provider}-{index + 1}").strip()[:80]
+        name = str(entry.get("name") or "").strip()[:60]
+        alias = str(entry.get("alias") or "").strip()[:80]
+        endpoint = str(entry.get("endpoint") or "").strip().rstrip("/")[:500]
+        api_key = str(entry.get("apiKey") or entry.get("api_key") or "").strip()[:500]
+        try:
+            order = int(entry.get("order", (index + 1) * 10))
+        except (TypeError, ValueError):
+            order = (index + 1) * 10
+        item = {
+            "id": instance_id or f"{provider}-{index + 1}",
+            "provider": provider,
+            "name": name or f"{provider} · {index + 1}",
+            "alias": alias,
+            "enabled": bool(entry.get("enabled", True)),
+            "order": max(0, min(9999, order)),
+            "endpoint": endpoint,
+            "apiKey": api_key,
+        }
+        if provider == "brave":
+            item["search_lang"] = str(entry.get("search_lang") or "zh-hans").strip()[:32] or "zh-hans"
+            item["country"] = str(entry.get("country") or "CN").strip().upper()[:8] or "CN"
+        if provider == "tavily":
+            depth = str(entry.get("search_depth") or "basic").strip().lower()
+            item["search_depth"] = depth if depth in {"basic", "advanced", "fast", "ultra-fast"} else "basic"
+        out.append(item)
+    return out
+
+
 def pick_provider():
     """按优先级选可用 provider：显式指定 > 自定义服务商 > 已配 key 的内置品牌 > 任意已注册。"""
     if AI_PRIMARY_PROVIDER and AI_PRIMARY_PROVIDER in AI_PROVIDERS:
@@ -153,7 +200,7 @@ def _read_all():
     global SEARXNG_URL, SEARXNG_TIMEOUT, SEARCH_PROVIDER_ORDER, SEARCH_PROVIDER_MODE, SEARCH_TIMEOUT, \
         KEENABLE_API_KEY, KEENABLE_SEARCH_ENDPOINT, KEENABLE_SNIPPET_MAX_LENGTH, \
         BRAVE_API_KEY, BRAVE_SEARCH_ENDPOINT, BRAVE_SEARCH_LANG, BRAVE_COUNTRY, \
-        TAVILY_API_KEY, TAVILY_SEARCH_ENDPOINT, TAVILY_SEARCH_DEPTH, AI_ROUTER, DEEPSEEK, QWEN, \
+        TAVILY_API_KEY, TAVILY_SEARCH_ENDPOINT, TAVILY_SEARCH_DEPTH, SEARCH_INSTANCES, SEARCH_INSTANCES_CONFIGURED, AI_ROUTER, DEEPSEEK, QWEN, \
         AI_PRIMARY_PROVIDER, HTTP_TIMEOUT, MAX_ITEMS_PER_QUERY, ENABLED_GROUPS, AI_PROVIDERS
 
     SEARXNG_URL = os.getenv("SEARXNG_URL", "https://searxng.6556888.xyz").rstrip("/")
@@ -185,6 +232,9 @@ def _read_all():
     TAVILY_SEARCH_DEPTH = os.getenv("TAVILY_SEARCH_DEPTH", "basic").strip().lower()
     if TAVILY_SEARCH_DEPTH not in {"basic", "advanced", "fast", "ultra-fast"}:
         TAVILY_SEARCH_DEPTH = "basic"
+    _search_instances_raw = os.getenv("SEARCH_INSTANCES", "").strip()
+    SEARCH_INSTANCES_CONFIGURED = bool(_search_instances_raw)
+    SEARCH_INSTANCES = _parse_search_instances(_search_instances_raw)
     AI_ROUTER = {
         "base_url": os.getenv("AI_ROUTER_BASE_URL", "").rstrip("/"),
         "api_key": os.getenv("AI_ROUTER_API_KEY", ""),
@@ -230,12 +280,20 @@ def _read_all():
 def reload():
     """热重载：.env 默认值 + 系统环境变量基线 → 数据库设置覆盖。
     每次任务开始前调用，页面保存设置后无需重启服务。"""
+    # python-dotenv 的 override=True 会覆盖 .env 中的所有键。热重载只应影响
+    # 设置页明确管理的键，否则一次搜索设置保存可能意外改变管理员令牌等安全配置。
+    untouched_environment = {k: v for k, v in os.environ.items() if k not in MANAGED_KEYS}
     # 先清掉受管键的旧值，回到 .env 基线
     for k in MANAGED_KEYS:
         os.environ.pop(k, None)
     for k, v in _ENV_BASELINE.items():
         os.environ[k] = v
     _load_env(force=True)          # 先载入 .env 默认值
+    for k in list(os.environ):
+        if k not in MANAGED_KEYS and k not in untouched_environment:
+            os.environ.pop(k, None)
+    for k, v in untouched_environment.items():
+        os.environ[k] = v
     # 系统环境（Compose/Kubernetes/飞牛注入）优先于挂载的 .env。
     # 这对 A1b 尤其重要：应用必须稳定使用 Compose 内网的 SearXNG 地址，
     # 不能在每次任务热重载时被镜像内/挂载的旧地址覆盖。

@@ -46,9 +46,10 @@ class KeenableSearchClient:
 
     provider_id = "keenable"
 
-    def __init__(self, api_key: str | None = None, timeout: int | None = None):
+    def __init__(self, api_key: str | None = None, timeout: int | None = None,
+                 endpoint: str | None = None):
         self.api_key = (api_key if api_key is not None else _cfg.KEENABLE_API_KEY).strip()
-        self.endpoint = _cfg.KEENABLE_SEARCH_ENDPOINT
+        self.endpoint = (endpoint if endpoint is not None else _cfg.KEENABLE_SEARCH_ENDPOINT).strip().rstrip("/")
         self.timeout = timeout if timeout is not None else _cfg.SEARCH_TIMEOUT
         self.session = requests.Session()
         self.session.headers.update({
@@ -116,9 +117,13 @@ class KeenableSearchClient:
 class BraveSearchClient:
     provider_id = "brave"
 
-    def __init__(self, api_key: str | None = None, timeout: int | None = None):
+    def __init__(self, api_key: str | None = None, timeout: int | None = None,
+                 endpoint: str | None = None, search_lang: str | None = None,
+                 country: str | None = None):
         self.api_key = (api_key if api_key is not None else _cfg.BRAVE_API_KEY).strip()
-        self.endpoint = _cfg.BRAVE_SEARCH_ENDPOINT
+        self.endpoint = (endpoint if endpoint is not None else _cfg.BRAVE_SEARCH_ENDPOINT).strip().rstrip("/")
+        self.search_lang = (search_lang if search_lang is not None else _cfg.BRAVE_SEARCH_LANG).strip() or "zh-hans"
+        self.country = (country if country is not None else _cfg.BRAVE_COUNTRY).strip().upper() or "CN"
         self.timeout = timeout if timeout is not None else _cfg.SEARCH_TIMEOUT
         self.session = requests.Session()
         self.session.headers.update({
@@ -133,12 +138,12 @@ class BraveSearchClient:
                engines: list[str] | None = None) -> dict:
         if not self.api_key:
             return _empty(query, self.provider_id, "Brave API Key 未配置")
-        lang = _cfg.BRAVE_SEARCH_LANG or language.split("-")[0]
+        lang = self.search_lang or language.split("-")[0]
         params = {
             "q": query,
             "count": min(20, max(1, _cfg.MAX_ITEMS_PER_QUERY)),
             "offset": max(0, pageno - 1),
-            "country": _cfg.BRAVE_COUNTRY,
+            "country": self.country,
             "search_lang": lang,
             "safesearch": "off",
         }
@@ -173,9 +178,12 @@ class BraveSearchClient:
 class TavilySearchClient:
     provider_id = "tavily"
 
-    def __init__(self, api_key: str | None = None, timeout: int | None = None):
+    def __init__(self, api_key: str | None = None, timeout: int | None = None,
+                 endpoint: str | None = None, search_depth: str | None = None):
         self.api_key = (api_key if api_key is not None else _cfg.TAVILY_API_KEY).strip()
-        self.endpoint = _cfg.TAVILY_SEARCH_ENDPOINT
+        self.endpoint = (endpoint if endpoint is not None else _cfg.TAVILY_SEARCH_ENDPOINT).strip().rstrip("/")
+        depth = (search_depth if search_depth is not None else _cfg.TAVILY_SEARCH_DEPTH).strip().lower()
+        self.search_depth = depth if depth in {"basic", "advanced", "fast", "ultra-fast"} else "basic"
         self.timeout = timeout if timeout is not None else _cfg.SEARCH_TIMEOUT
         self.session = requests.Session()
         self.session.headers.update({
@@ -192,7 +200,7 @@ class TavilySearchClient:
             return _empty(query, self.provider_id, "Tavily API Key 未配置")
         payload = {
             "query": query,
-            "search_depth": _cfg.TAVILY_SEARCH_DEPTH,
+            "search_depth": self.search_depth,
             "topic": "general",
             "max_results": min(20, max(1, _cfg.MAX_ITEMS_PER_QUERY)),
             "include_answer": False,
@@ -247,9 +255,44 @@ class SearchRouter:
             "brave": BraveSearchClient(timeout=self.timeout),
             "tavily": TavilySearchClient(timeout=self.timeout),
         }
+        self.instance_clients = {}
+        if getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False):
+            for instance in getattr(_cfg, "SEARCH_INSTANCES", []):
+                self.instance_clients[instance["id"]] = self._make_instance_client(instance)
+
+    def _make_instance_client(self, instance: dict):
+        """为单个配置实例创建隔离客户端；旧版 provider 客户端仍保留供兼容调用。"""
+        provider = instance["provider"]
+        if provider == "searxng":
+            return SearxClient(base_url=instance.get("endpoint") or "", timeout=self.timeout)
+        if provider == "keenable":
+            return KeenableSearchClient(api_key=instance.get("apiKey"), endpoint=instance.get("endpoint"), timeout=self.timeout)
+        if provider == "brave":
+            return BraveSearchClient(api_key=instance.get("apiKey"), endpoint=instance.get("endpoint"),
+                                     search_lang=instance.get("search_lang"), country=instance.get("country"), timeout=self.timeout)
+        return TavilySearchClient(api_key=instance.get("apiKey"), endpoint=instance.get("endpoint"),
+                                  search_depth=instance.get("search_depth"), timeout=self.timeout)
+
+    def _targets(self):
+        if getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False):
+            targets = []
+            for instance in sorted(getattr(_cfg, "SEARCH_INSTANCES", []), key=lambda x: (x.get("order", 0), x.get("id", ""))):
+                if not instance.get("enabled", True):
+                    continue
+                client = self.instance_clients.get(instance["id"])
+                if client is None:
+                    continue
+                configured = bool(getattr(client, "base_url", "").strip()) if instance["provider"] == "searxng" else bool(getattr(client, "api_key", "").strip())
+                if configured:
+                    targets.append((instance["id"], instance["provider"], client, instance))
+            return targets
+        return [(pid, pid, self.providers[pid], {"id": pid, "provider": pid})
+                for pid in self._enabled_ids()]
 
     def _enabled_ids(self) -> list[str]:
         """只返回已配置的服务，并始终保持固定优先级。"""
+        if getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False):
+            return [target[1] for target in self._targets()]
         configured = []
         for pid in self.PROVIDER_ORDER:
             provider = self.providers[pid]
@@ -264,20 +307,24 @@ class SearchRouter:
     def search(self, query: str, pageno: int = 1, language: str = "zh-CN",
                time_range: str = "", categories: str = "general",
                engines: list[str] | None = None) -> dict:
-        ids = self._enabled_ids()
+        targets = self._targets()
         collected: list[dict] = []
         errors: list[str] = []
         used: list[str] = []
-        for pid in ids:
-            data = self.providers[pid].search(
+        used_instances: list[str] = []
+        for instance_id, pid, client, instance in targets:
+            data = client.search(
                 query, pageno=pageno, language=language, time_range=time_range,
                 categories=categories, engines=engines,
             )
-            used.append(pid)
+            if pid not in used:
+                used.append(pid)
+            used_instances.append(instance_id)
             if data.get("error"):
                 errors.append(data["error"])
             for item in data.get("results") or []:
                 item.setdefault("provider", pid)
+                item.setdefault("provider_instance", instance_id)
                 collected.append(item)
             if _cfg.SEARCH_PROVIDER_MODE != "fanout" and collected:
                 break
@@ -291,7 +338,8 @@ class SearchRouter:
             seen.add(key)
             deduped.append(item)
         result = {**_empty(query, used[0] if used else ""),
-                  "results": deduped, "providers_used": used}
+                  "results": deduped, "providers_used": used,
+                  "provider_instances_used": used_instances}
         if errors and not deduped:
             result["error"] = "；".join(errors[:3])
         elif errors:
@@ -300,7 +348,12 @@ class SearchRouter:
             result["error"] = "没有可用的搜索服务，请至少配置 SearXNG、Keenable、Brave Search 或 Tavily"
         return result
 
-    def test(self, provider_id: str, query: str = "中国 舆情 新闻") -> dict:
+    def test(self, provider_id: str = "", query: str = "中国 舆情 新闻", instance_id: str = "") -> dict:
+        if instance_id and getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False):
+            instance = next((i for i in getattr(_cfg, "SEARCH_INSTANCES", []) if i.get("id") == instance_id), None)
+            if not instance:
+                return {"ok": False, "error": "搜索实例不存在或已被删除"}
+            return self.test_instance(instance, query)
         if provider_id not in self.providers:
             return {"ok": False, "error": "不支持的搜索服务商"}
         if provider_id == "searxng" and not self.providers[provider_id].base_url.strip():
@@ -315,3 +368,24 @@ class SearchRouter:
             "results": (data.get("results") or [])[:3],
             "error": data.get("error", ""),
         }
+
+    def test_instance(self, instance: dict, query: str = "中国 舆情 新闻") -> dict:
+        """测试一个已保存或尚未保存的实例配置，不修改全局设置。"""
+        provider = str(instance.get("provider") or "").strip().lower()
+        instance_id = str(instance.get("id") or "").strip()
+        if provider not in self.PROVIDER_ORDER:
+            return {"ok": False, "error": "不支持的搜索服务商"}
+        client = self._make_instance_client({**instance, "provider": provider})
+        endpoint = (getattr(client, "base_url", "") if provider == "searxng"
+                    else getattr(client, "endpoint", ""))
+        if not str(endpoint or "").strip():
+            return {"ok": False, "provider": provider, "instance_id": instance_id,
+                    "query": query, "count": 0, "results": [], "error": "搜索接口地址未配置"}
+        if provider != "searxng" and not getattr(client, "api_key", "").strip():
+            return {"ok": False, "provider": provider, "instance_id": instance_id,
+                    "query": query, "count": 0, "results": [], "error": f"{provider} API Key 未配置"}
+        data = client.search(query, language="zh-CN", categories="general")
+        return {"ok": not bool(data.get("error")), "provider": provider,
+                "instance_id": instance_id, "query": query,
+                "count": len(data.get("results") or []), "results": (data.get("results") or [])[:3],
+                "error": data.get("error", "")}

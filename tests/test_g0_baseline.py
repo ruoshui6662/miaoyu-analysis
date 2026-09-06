@@ -666,6 +666,73 @@ class RiskNormalizationTests(unittest.TestCase):
 
 
 class SecurityTests(unittest.TestCase):
+    def test_config_reload_does_not_overwrite_unmanaged_security_environment(self):
+        token = "runtime-admin-token-0123456789abcdef"
+        try:
+            with patch.dict(os.environ, {"MIAOYU_ADMIN_TOKEN": token}, clear=False), \
+                 patch.object(config, "_load_db", return_value={}), \
+                 patch.object(config, "_load_env", side_effect=lambda force=False: os.environ.__setitem__(
+                     "MIAOYU_ADMIN_TOKEN", "dotenv-must-not-win"
+                 )):
+                config.reload()
+                self.assertEqual(os.environ["MIAOYU_ADMIN_TOKEN"], token)
+        finally:
+            config.reload()
+
+    def test_search_instances_persist_reload_and_keep_redacted_key(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-search-settings-") as tmp:
+            settings_db = Path(tmp) / "settings.db"
+            try:
+                with patch.object(db, "SETTINGS_DB", settings_db), \
+                     patch.object(config, "SETTINGS_DB", settings_db):
+                    client = make_client()
+                    instances = [{
+                        "id": "keenable-test-1", "provider": "keenable",
+                        "name": "Keenable 测试", "enabled": True, "order": 10,
+                        "endpoint": "https://api.keenable.ai/v1/search",
+                        "apiKey": "search-secret-key",
+                    }]
+                    saved = client.post("/api/settings", json={
+                        "settings": {"SEARCH_INSTANCES": json.dumps(instances, ensure_ascii=False)},
+                    })
+                    self.assertEqual(saved.status_code, 200)
+                    self.assertTrue(saved.get_json()["ok"])
+                    self.assertNotIn("search-secret-key", saved.get_data(as_text=True))
+                    self.assertTrue(saved.get_json()["search_instances"][0]["apiKeyConfigured"])
+
+                    loaded = make_client().get("/api/settings")
+                    public = json.loads(loaded.get_json()["settings"]["SEARCH_INSTANCES"])
+                    self.assertEqual(public[0]["id"], "keenable-test-1")
+                    self.assertNotIn("apiKey", public[0])
+                    self.assertNotIn("search-secret-key", loaded.get_data(as_text=True))
+
+                    instances[0].pop("apiKey")
+                    instances[0]["name"] = "Keenable 已更新"
+                    updated = make_client().post("/api/settings", json={
+                        "settings": {"SEARCH_INSTANCES": json.dumps(instances, ensure_ascii=False)},
+                    })
+                    self.assertEqual(updated.status_code, 200)
+                    stored = json.loads(db.get_all()["SEARCH_INSTANCES"])
+                    self.assertEqual(stored[0]["name"], "Keenable 已更新")
+                    self.assertEqual(stored[0]["apiKey"], "search-secret-key")
+            finally:
+                config.reload()
+
+    def test_search_instances_reject_invalid_endpoint_without_writing(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-search-settings-invalid-") as tmp:
+            settings_db = Path(tmp) / "settings.db"
+            with patch.object(db, "SETTINGS_DB", settings_db), \
+                 patch.object(config, "SETTINGS_DB", settings_db):
+                response = make_client().post("/api/settings", json={
+                    "settings": {"SEARCH_INSTANCES": json.dumps([{
+                        "id": "bad-1", "provider": "searxng", "name": "错误地址",
+                        "endpoint": "searxng.local", "enabled": True, "order": 10,
+                    }], ensure_ascii=False)},
+                })
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("HTTP/HTTPS", response.get_json()["error"])
+                self.assertNotIn("SEARCH_INSTANCES", db.get_all())
+
     def test_private_api_requires_token_and_settings_never_return_api_key(self):
         unauthenticated = app_module.app.test_client().get("/api/settings")
         self.assertEqual(unauthenticated.status_code, 401)

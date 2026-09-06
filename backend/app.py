@@ -21,7 +21,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
@@ -128,7 +128,7 @@ def _security_headers(response):
     return finish_request(response)
 
 
-def _new_task(topic: str, provider: str | None, verify: bool) -> str:
+def _new_task(topic: str, provider: str | None, verify: bool, search_scope: str = "auto") -> str:
     tid = uuid.uuid4().hex[:12]
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db_task_create(tid, topic, provider or "auto", bool(verify), created_at)
@@ -139,12 +139,14 @@ def _new_task(topic: str, provider: str | None, verify: bool) -> str:
     def _bg():
         db_task_update(tid, status="running", step="prepare", detail="任务已开始")
         try:
-            rep = run_analysis(
-                topic,
-                provider=provider,
-                verify=verify,
-                progress=_progress,
-            )
+            run_kwargs = {
+                "provider": provider,
+                "verify": verify,
+                "progress": _progress,
+            }
+            if search_scope != "auto":
+                run_kwargs["search_scope"] = search_scope
+            rep = run_analysis(topic, **run_kwargs)
             # 报告 JSON 由 pipeline 已落盘 data/reports/*.json（优先用报告内的 json 字段，避免时间戳推导错位）
             rep_json = rep.get("json") or ""
             report_file = rep_json if rep_json and Path(rep_json).exists() else ""
@@ -178,7 +180,10 @@ def api_analyze():
     topic = (body.get("topic") or "").strip()
     if not topic:
         return jsonify({"error": "请填写舆情主题"}), 400
-    tid = _new_task(topic, body.get("provider"), body.get("verify", False))
+    search_scope = str(body.get("search_scope") or "auto").strip().casefold()
+    if search_scope not in {"auto", "domestic", "panorama"}:
+        return jsonify({"error": "search_scope 必须是 auto、domestic 或 panorama"}), 400
+    tid = _new_task(topic, body.get("provider"), body.get("verify", False), search_scope)
     return jsonify({"task_id": tid})
 
 
@@ -1012,6 +1017,35 @@ def api_report_file(filename: str):
     return jsonify({"error": "文件不存在"}), 404
 
 
+def _legacy_search_instances(_cfg) -> list[dict]:
+    """把旧版顶层搜索配置映射为实例列表，供首次迁移与回显使用。"""
+    return [
+        {"id": "searxng-1", "provider": "searxng", "name": "SearXNG · 1", "alias": "首选搜索",
+         "enabled": True, "order": 10, "endpoint": _cfg.SEARXNG_URL, "apiKey": ""},
+        {"id": "keenable-1", "provider": "keenable", "name": "Keenable · 1", "alias": "免费额度优先",
+         "enabled": True, "order": 20, "endpoint": _cfg.KEENABLE_SEARCH_ENDPOINT, "apiKey": _cfg.KEENABLE_API_KEY},
+        {"id": "brave-1", "provider": "brave", "name": "Brave Search · 1", "alias": "海外补充",
+         "enabled": True, "order": 30, "endpoint": _cfg.BRAVE_SEARCH_ENDPOINT, "apiKey": _cfg.BRAVE_API_KEY,
+         "search_lang": _cfg.BRAVE_SEARCH_LANG, "country": _cfg.BRAVE_COUNTRY},
+        {"id": "tavily-1", "provider": "tavily", "name": "Tavily · 1", "alias": "重点事件补强",
+         "enabled": True, "order": 40, "endpoint": _cfg.TAVILY_SEARCH_ENDPOINT, "apiKey": _cfg.TAVILY_API_KEY,
+         "search_depth": _cfg.TAVILY_SEARCH_DEPTH},
+    ]
+
+
+def _public_search_instances(instances: list[dict]) -> list[dict]:
+    """返回可给浏览器使用的实例元数据；密钥明文永不离开后端。"""
+    public_instances = []
+    for instance in instances:
+        item = {key: value for key, value in instance.items() if key != "apiKey"}
+        configured = (bool(instance.get("endpoint")) if instance.get("provider") == "searxng"
+                      else bool(instance.get("apiKey")))
+        item["apiKeyConfigured"] = configured
+        item["apiKeyMasked"] = "****已配置****" if instance.get("apiKey") else ""
+        public_instances.append(item)
+    return public_instances
+
+
 @app.get("/api/settings")
 def api_settings_get():
     """返回当前生效配置（.env + 数据库合并）；密钥一律打码。
@@ -1025,7 +1059,14 @@ def api_settings_get():
             key: value for key, value in provider.items() if key != "apiKey"
         }
         public_providers[pid]["apiKeyConfigured"] = bool(provider.get("apiKey"))
+    if getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False):
+        search_instances = list(getattr(_cfg, "SEARCH_INSTANCES", []))
+    else:
+        search_instances = _legacy_search_instances(_cfg)
+    public_instances = _public_search_instances(search_instances)
     merged = {
+        "SEARCH_INSTANCES": json.dumps(public_instances, ensure_ascii=False),
+        "SEARCH_INSTANCES_CONFIGURED": bool(getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False)),
         "SEARXNG_URL": _cfg.SEARXNG_URL,
         "SEARXNG_CONFIGURED": bool(_cfg.SEARXNG_URL.strip()),
         "SEARCH_PROVIDER_ORDER": ",".join(_cfg.SEARCH_PROVIDER_ORDER),
@@ -1059,11 +1100,38 @@ def api_settings_get():
 
 @app.post("/api/search/test")
 def api_search_test():
-    """用当前已保存配置测试一个搜索 Provider；结果只返回前三条摘要。"""
+    """测试已保存或弹窗中的搜索实例；结果只返回前三条摘要且不回传密钥。"""
+    import config as _cfg
     body = request.get_json(silent=True) or {}
     provider = str(body.get("provider") or "").strip().lower()
+    instance_id = str(body.get("instance_id") or "").strip()
     query = str(body.get("query") or "中国 舆情 新闻").strip()[:200]
-    return jsonify(SearchRouter().test(provider, query))
+    draft = body.get("instance")
+    if isinstance(draft, dict):
+        provider = str(draft.get("provider") or provider).strip().lower()
+        if provider not in {"searxng", "keenable", "brave", "tavily"}:
+            return jsonify({"ok": False, "error": "不支持的搜索服务商"}), 400
+        instance_id = str(draft.get("id") or instance_id or f"{provider}-draft").strip()[:80]
+        current_instances = (list(getattr(_cfg, "SEARCH_INSTANCES", []))
+                             if getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False)
+                             else _legacy_search_instances(_cfg))
+        old = next((item for item in current_instances if item.get("id") == instance_id), {})
+        key = str(draft.get("apiKey") or draft.get("api_key") or old.get("apiKey") or "").strip()[:500]
+        endpoint = str(draft.get("endpoint") or "").strip().rstrip("/")[:500]
+        parsed_endpoint = urlsplit(endpoint)
+        if parsed_endpoint.scheme not in {"http", "https"} or not parsed_endpoint.netloc:
+            return jsonify({"ok": False, "error": "接口地址必须是完整的 HTTP/HTTPS 地址"}), 400
+        instance = {
+            "id": instance_id,
+            "provider": provider,
+            "endpoint": endpoint,
+            "apiKey": key,
+            "search_lang": str(draft.get("search_lang") or old.get("search_lang") or "zh-hans")[:32],
+            "country": str(draft.get("country") or old.get("country") or "CN").upper()[:8],
+            "search_depth": str(draft.get("search_depth") or old.get("search_depth") or "basic").lower(),
+        }
+        return jsonify(SearchRouter().test_instance(instance, query))
+    return jsonify(SearchRouter().test(provider, query, instance_id=instance_id))
 
 
 @app.get("/api/auth/status")
@@ -1150,6 +1218,67 @@ def api_settings_save():
     import config as _cfg
     body = request.get_json(silent=True) or {}
     items = dict(body.get("settings") or {})
+    if "SEARCH_INSTANCES" in items:
+        try:
+            incoming = json.loads(str(items["SEARCH_INSTANCES"]))
+        except (TypeError, ValueError):
+            return jsonify({"error": "SEARCH_INSTANCES 必须是合法 JSON"}), 400
+        if not isinstance(incoming, list) or len(incoming) > 32:
+            return jsonify({"error": "SEARCH_INSTANCES 必须是最多 32 个实例的数组"}), 400
+        current = {str(x.get("id")): x for x in getattr(_cfg, "SEARCH_INSTANCES", []) if isinstance(x, dict)}
+        if not getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False):
+            # 首次从旧版设置页迁移时，浏览器只拿到脱敏状态；这里从旧顶层键补回真实密钥。
+            current.update({
+                "searxng-1": {"apiKey": ""},
+                "keenable-1": {"apiKey": _cfg.KEENABLE_API_KEY},
+                "brave-1": {"apiKey": _cfg.BRAVE_API_KEY},
+                "tavily-1": {"apiKey": _cfg.TAVILY_API_KEY},
+            })
+        allowed = {"searxng", "keenable", "brave", "tavily"}
+        cleaned = []
+        seen_ids = set()
+        for index, raw in enumerate(incoming):
+            if not isinstance(raw, dict):
+                return jsonify({"error": f"第 {index + 1} 个搜索实例格式不正确"}), 400
+            provider = str(raw.get("provider") or "").strip().lower()
+            if provider not in allowed:
+                return jsonify({"error": f"不支持的搜索服务商：{provider or '空'}"}), 400
+            instance_id = str(raw.get("id") or f"{provider}-{uuid.uuid4().hex[:8]}").strip()[:80]
+            if not instance_id:
+                return jsonify({"error": f"第 {index + 1} 个搜索实例缺少 ID"}), 400
+            if instance_id in seen_ids:
+                return jsonify({"error": f"搜索实例 ID 重复：{instance_id}"}), 400
+            seen_ids.add(instance_id)
+            old = current.get(instance_id, {})
+            key = str(raw.get("apiKey") or raw.get("api_key") or "").strip()
+            if not key or key.startswith("****"):
+                key = str(old.get("apiKey") or "").strip()
+            try:
+                order = int(raw.get("order", (index + 1) * 10))
+            except (TypeError, ValueError):
+                order = (index + 1) * 10
+            endpoint = str(raw.get("endpoint") or "").strip().rstrip("/")[:500]
+            parsed_endpoint = urlsplit(endpoint)
+            if parsed_endpoint.scheme not in {"http", "https"} or not parsed_endpoint.netloc:
+                return jsonify({"error": f"{str(raw.get('name') or provider)} 的接口地址必须是完整的 HTTP/HTTPS 地址"}), 400
+            item = {
+                "id": instance_id,
+                "provider": provider,
+                "name": str(raw.get("name") or f"{provider} · {index + 1}").strip()[:60],
+                "alias": str(raw.get("alias") or "").strip()[:80],
+                "enabled": bool(raw.get("enabled", True)),
+                "order": max(0, min(9999, order)),
+                "endpoint": endpoint,
+                "apiKey": key[:500],
+            }
+            if provider == "brave":
+                item["search_lang"] = str(raw.get("search_lang") or "zh-hans").strip()[:32] or "zh-hans"
+                item["country"] = str(raw.get("country") or "CN").strip().upper()[:8] or "CN"
+            if provider == "tavily":
+                depth = str(raw.get("search_depth") or "basic").strip().lower()
+                item["search_depth"] = depth if depth in {"basic", "advanced", "fast", "ultra-fast"} else "basic"
+            cleaned.append(item)
+        items["SEARCH_INSTANCES"] = json.dumps(cleaned, ensure_ascii=False)
     # 浏览器拿到的 AI_PROVIDERS 已脱敏；空值或掩码值表示“保持原 Key”，
     # 防止保存其它设置时把数据库中的真实 Key 清空。
     if "AI_PROVIDERS" in items:
@@ -1176,9 +1305,33 @@ def api_settings_save():
         incoming = str(items.get(secret_key) or "").strip()
         if not incoming or incoming.startswith("****"):
             items[secret_key] = current_db.get(secret_key) or getattr(_cfg, secret_key, "")
-    n = db_save(items)
-    reload_config()  # 保存即生效
-    return jsonify({"saved": n, "ok": True})
+    try:
+        n = db_save(items)
+        reload_config()  # 保存即生效
+    except (OSError, sqlite3.Error) as exc:
+        app.logger.exception("保存设置失败")
+        return jsonify({"ok": False, "error": f"设置写入失败：{exc}"}), 500
+
+    response = {"saved": n, "ok": True}
+    if "SEARCH_INSTANCES" in items:
+        # 防止旧进程/旧允许键表把未知设置静默丢弃后仍返回成功。
+        persisted = _cfg.db_settings().get("SEARCH_INSTANCES")
+        try:
+            persisted_matches = json.loads(persisted or "null") == json.loads(items["SEARCH_INSTANCES"])
+        except (TypeError, ValueError):
+            persisted_matches = False
+        if not persisted_matches:
+            return jsonify({
+                "ok": False,
+                "error": "搜索接口配置未写入数据库，请重启后端后重试",
+            }), 500
+        response["search_instances"] = _public_search_instances(
+            list(getattr(_cfg, "SEARCH_INSTANCES", []))
+        )
+        response["search_instances_configured"] = bool(
+            getattr(_cfg, "SEARCH_INSTANCES_CONFIGURED", False)
+        )
+    return jsonify(response)
 
 
 @app.get("/api/ai/providers")

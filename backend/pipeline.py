@@ -491,7 +491,8 @@ def _run_ai_stage(topic: str, items: list[dict], provider: str | None,
 
 def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
                  collect_only: bool = False, save: bool = True,
-                 progress: callable | None = None) -> dict:
+                 progress: callable | None = None,
+                 search_scope: str = "auto") -> dict:
     """progress: callable(step: str, detail: str) 供 Web 页面轮询进度。"""
     t0 = time.time()
     run_token = uuid.uuid4().hex[:8]
@@ -504,6 +505,11 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     # 0) 配置热重载（A4：设置页保存后无需重启即生效）
     from config import reload as reload_config
     reload_config()
+
+    # PANORAMA-1：只做范围判定，不在本阶段改变搜索 Provider 或触发海外补漏。
+    from panorama import classify_scope
+    scope_decision = classify_scope(topic, requested_mode=search_scope)
+    emit("scope", f"检索范围：{scope_decision['decision']}（{scope_decision['scope_type']}）")
 
     # 1) AI 客户端 + 连通性预检（单 token 冒烟，走故障转移链）。
     #    全通道不可用 → 快速失败：不让死通道拖着采集跑完、最终产出四个空章节报告。
@@ -524,6 +530,8 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     emit("keywords", f"关键词扩展：{topic}")
     keywords = expand_keywords(topic, ai, provider)
     emit("keywords", f"生成 {len(keywords)} 个关键词: {'、'.join(keywords[:8])}")
+    # 关键词扩展可能补充英文实体，重新计算一次；仍然只记录决定，不执行补漏。
+    scope_decision = classify_scope(topic, requested_mode=search_scope, keywords=keywords)
 
     # 3) 多信源采集
     emit("collect", "多信源采集（news/微信/主流/视频 4 组）...")
@@ -540,6 +548,7 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
         "body_fetched": materials.get("body_fetched", 0),
         "credibility_dist": materials.get("credibility_dist"),
         "query_log": materials.get("query_log"),
+        "scope_decision": scope_decision,
     }
 
     if save:
@@ -552,6 +561,7 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
     if collect_only or ai is None:
         return {"title": f"“{topic}”舆情存在问题风险分析及对策建议", "intro": "",
                 "sections": [], "stats": stats, "references": _build_references(materials["items"]),
+                "scope_decision": scope_decision,
                 "ai_ready": ai is not None,
                 "ai_warning": "" if ai is not None else "未配置可用分析模型：请在 .env 填写 DEEPSEEK_API_KEY / QWEN_API_KEY，或配置 AI_ROUTER_BASE_URL（本地 9router）后重试。"}
 
@@ -564,6 +574,7 @@ def run_analysis(topic: str, provider: str | None = None, verify: bool = False,
         "sections": [],
         "stats": stats,
         "overview": ai_stage.get("overview") or {},
+        "scope_decision": scope_decision,
     }
     # B1 图表数据（规则统计，零 AI 成本）：信源分布 + 时间趋势
     from collections import Counter
@@ -670,8 +681,11 @@ if __name__ == "__main__":
     ap.add_argument("--provider", default=None, help="deepseek/qwen/router")
     ap.add_argument("--verify", action="store_true", help="开启事实校验轮")
     ap.add_argument("--collect-only", action="store_true", help="仅采集，不调用 AI")
+    ap.add_argument("--search-scope", choices=("auto", "domestic", "panorama"), default="auto",
+                    help="检索范围：自动判断、仅国内或全景检索（PANORAMA-1 仅判定）")
     args = ap.parse_args()
 
     start = time.time()
-    rep = run_analysis(args.topic, provider=args.provider, verify=args.verify, collect_only=args.collect_only)
+    rep = run_analysis(args.topic, provider=args.provider, verify=args.verify,
+                       collect_only=args.collect_only, search_scope=args.search_scope)
     print(f"\n总耗时 {round(time.time()-start, 1)}s | 章节数 {len(rep.get('sections', []))} | AI 可用: {rep.get('ai_ready')}")

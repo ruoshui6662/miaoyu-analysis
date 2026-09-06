@@ -96,6 +96,8 @@ NewsNow 上游仓库公开说明了 `/api/s` 类数据接口、自建方式、�
 
 调用优先级固定为 `SearXNG → Keenable → Brave → Tavily`。第一性原理是先消耗自建基础设施和高免费额度，再使用商业补充与 AI 搜索：SearXNG 边际请求成本最低且可控；Keenable 有较高免费月额度和双时间字段，作为第一外部补漏；Brave 提供独立网页索引；Tavily 的 AI 搜索能力和 credit 成本留到最后。未配置或不可用的服务自动跳过，外部服务没有 API Key 时不发起请求。默认策略为 `failover`，只有前一个服务无结果或失败时才调用下一个；需要交叉检索时切换为 `fanout`，该策略会增加调用量。接口规范以 [Keenable 官方文档](https://docs.keenable.ai/api-reference/search)、[Brave 官方文档](https://api-dashboard.search.brave.com/app/documentation/web-search) 和 [Tavily 官方文档](https://docs.tavily.com/documentation/api-reference/endpoint/search) 为准。
 
+该固定顺序只描述单条普通查询的 Provider 回退，不代表信息覆盖策略。后续多语言、海外官方、专业媒体和学术来源补漏必须由 [`全景检索与自适应补漏开发规划.md`](全景检索与自适应补漏开发规划.md) 的范围分类、查询族和覆盖评估驱动；不得为了“全景”把所有 Provider 默认并发，也不得把付费墙摘要当作已读取正文。
+
 ### 3.5 Keenable Search 接入规范（2026-09-05，已实现）
 
 官方接口为 `POST https://api.keenable.ai/v1/search`，已认证请求使用 `X-API-Key`；无 Key 评估可调用 `/v1/search/public`，但必须提供 `X-Keenable-Title`，且共享每 IP 每小时 1,000 次、最高 10 req/s 的公共限额。生产环境不得把共享公共池当作稳定主链路。接口以 [Keenable Search API](https://docs.keenable.ai/api-reference/search)、[Authentication](https://docs.keenable.ai/authentication)、[Rate limits](https://docs.keenable.ai/rate-limits) 和 [Credits](https://docs.keenable.ai/credits) 为准。
@@ -202,7 +204,7 @@ class SourceAdapter:
 
 ### 6.3 配置形态（设计稿）
 
-后续可用一个 JSON 注册表支持多个 Endpoint/Key：
+当前版本已用一个 JSON 注册表支持多个 Endpoint/Key；它只承载四个内置搜索 Provider 的实例配置，不是任意插件注册表：
 
 ```json
 [
@@ -239,7 +241,7 @@ Key 只保存环境变量名，不把明文 Key 写进注册表。后续设置�
 | API-0 | 中国热榜无 Key 基础链路 | ✅ 已完成 NewsNow（微博/知乎/B站/抖音/百度/头条）主源、5 分钟缓存、单榜健康隔离；保留 TopHub/REBANG 适配位 | 不需要注册；接受公共聚合站缓存与失效风险 |
 | API-1 | 中国热榜公开源接入 | ✅ 已完成首页 JSON 接入与 provider/source_health；TopHub/REBANG HTML 在 NewsNow 缺榜时降级；统一 Mention 入库仍归 G1 | 不需要 |
 
-| API-2 | 多实例/多 Key 轮询 | provider 注册表、round-robin、429 冷却、健康检查、用量统计 | 需要提供想接入的 Key |
+| API-2 | 多实例/多 Key 轮询 | ✅ 已完成首版：四类内置 Provider 实例注册、顺序故障切换、fanout 汇总、设置页脱敏；429 冷却、健康检查、用量统计后续补齐 | 需要提供想接入的 Key |
 | API-3 | 效果图数据能力 | trend、evidence、confidence、source_count 等字段填充首页 | 需要确认信源范围与时间窗 |
 | API-4 | 增强源 | Guardian、YouTube、NewsAPI 可选适配器 | 按需注册对应服务 |
 

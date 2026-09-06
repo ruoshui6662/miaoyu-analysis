@@ -1575,6 +1575,48 @@
   #view-settings .search-policy-field { display: grid; gap: 8px; min-width: 0; color: var(--text-2); font-size: 12px; }
   #view-settings .search-policy-field .sel { width: 100%; min-height: 42px; }
 
+  /* 搜索实例：沿用设置页的轻量边界，不再按 Provider 堆叠固定卡片。 */
+  #view-settings .search-instance-section { margin-top: 30px; }
+  #view-settings .search-add-instance { flex: none; min-height: 36px; padding: 0 13px; }
+  #view-settings .search-instance-sequence { display: grid; gap: 8px; }
+  #view-settings .search-instance-row { display: grid; grid-template-columns: 22px 32px minmax(150px, 1fr) auto auto; align-items: center; gap: 12px; min-height: 62px; padding: 8px 10px; border: 1px solid var(--field-border); border-radius: var(--r-md); background: var(--field-bg); transition: border-color .16s, background .16s; }
+  #view-settings .search-instance-row:hover { border-color: var(--field-border-hover); background: var(--card); }
+  #view-settings .search-instance-row.is-disabled { opacity: .58; }
+  #view-settings .search-instance-grip { color: var(--text-3); font-size: 16px; letter-spacing: -3px; cursor: default; }
+  #view-settings .search-instance-mark { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: var(--r-md); background: var(--accent-tint); color: var(--accent); font-size: 11px; font-weight: 750; }
+  #view-settings .search-instance-main { min-width: 0; }
+  #view-settings .search-instance-name { color: var(--text-strong); font-weight: 650; line-height: 1.35; }
+  #view-settings .search-instance-meta { margin-top: 3px; color: var(--text-3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #view-settings .search-instance-status { display: inline-flex; align-items: center; gap: 5px; min-width: 58px; color: var(--text-3); font-size: 11px; white-space: nowrap; }
+  #view-settings .search-instance-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
+  #view-settings .search-instance-status.ready { color: var(--green-text); }
+  #view-settings .search-instance-status.ready::before { background: var(--green); }
+  #view-settings .search-instance-status.paused { color: var(--text-3); }
+  #view-settings .search-instance-row-actions { display: inline-flex; align-items: center; gap: 3px; }
+  #view-settings .search-instance-row-actions button { min-width: 28px; min-height: 28px; padding: 0 7px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-3); font: inherit; font-size: 12px; cursor: pointer; }
+  #view-settings .search-instance-row-actions button:hover { background: var(--surface-2); color: var(--text-strong); }
+  #view-settings .search-instance-row-actions button.danger:hover { color: var(--red); }
+  #view-settings .search-instance-empty { padding: 24px 0; color: var(--text-3); font-size: 12px; }
+  #view-settings .search-settings-status { min-height: 20px; margin-top: 8px; color: var(--text-3); font-size: 12px; line-height: 1.5; }
+  #view-settings .search-settings-status.ok { color: var(--green-text); }
+  #view-settings .search-settings-status.error { color: var(--red); }
+  .search-instance-modal { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(22, 26, 33, .28); }
+  .search-instance-modal.hidden { display: none; }
+  .search-instance-modal-form { width: min(560px, 100%); max-height: min(720px, calc(100vh - 40px)); overflow: auto; padding: 26px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card); box-shadow: var(--shadow-overlay); }
+  .search-instance-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .search-instance-modal-head h2 { margin-top: 5px; color: var(--text-strong); font-size: 21px; }
+  .search-instance-modal-head p { margin: 7px 0 4px; color: var(--text-3); font-size: 12px; line-height: 1.55; }
+  .modal-close { width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text-3); font-size: 22px; line-height: 1; cursor: pointer; }
+  .modal-close:hover { background: var(--surface-2); color: var(--text-strong); }
+  .search-instance-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .search-instance-modal-form .f-label { display: grid; gap: 7px; margin-top: 14px; color: var(--text-2); font-size: 12px; }
+  .search-instance-modal-form .f-label .sel { width: 100%; min-height: 42px; margin-top: 0; }
+  .search-instance-modal-form .key-wrap { margin-top: 0; }
+  .search-instance-modal-form .search-field-help { margin-top: 6px; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+  .search-instance-modal-status { min-height: 20px; margin-top: 16px; color: var(--text-3); font-size: 12px; }
+  .search-instance-modal-status.ok { color: var(--green-text); }
+  .search-instance-modal-status.error { color: var(--red); }
+
   @media (max-width: 1100px) {
     #view-settings .search-provider-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
@@ -1631,6 +1673,11 @@
     #view-settings .search-policy-grid { grid-template-columns: 1fr; }
     #view-settings .search-section-head { gap: 10px; }
     #view-settings .search-section-note { display: none; }
+    #view-settings .search-instance-row { grid-template-columns: 20px 30px minmax(0, 1fr) auto; gap: 8px; }
+    #view-settings .search-instance-status { grid-column: 3; }
+    #view-settings .search-instance-row-actions { grid-column: 4; grid-row: 1 / span 2; }
+    .search-instance-modal-grid { grid-template-columns: 1fr; gap: 0; }
+    .search-instance-modal-form { padding: 22px 18px; }
     #view-settings #panel-ai .ai-actions > button { height: 44px; min-height: 44px; }
   }
 
@@ -2118,6 +2165,13 @@
             <option value="qwen">通义千问</option>
           </select>
         </label>
+        <label class="analysis-provider" for="searchScope"><span>检索范围</span>
+          <select id="searchScope">
+            <option value="auto">自动判断</option>
+            <option value="domestic">仅国内</option>
+            <option value="panorama">全景检索</option>
+          </select>
+        </label>
         <label class="analysis-verify"><input type="checkbox" id="verify"> <span>启用事实校验轮</span></label>
         <span class="analysis-evidence-note">结论来自公开信源，报告保留证据链接</span>
       </div>
@@ -2256,83 +2310,44 @@
           <div id="panel-base" class="panel">
             <div class="panel-page-head">
               <div class="panel-page-title">搜索服务</div>
-              <div class="panel-page-desc">配置采集所用的搜索实例和备用服务。</div>
+              <div class="panel-page-desc">配置采集所用的搜索实例和备用服务；同一服务商可添加多个独立实例。</div>
             </div>
-            <div class="search-field-head">
-              <label class="f-label" for="s_searxng">SearXNG 搜索地址</label>
-              <span class="badge pending" id="searxngConfigured">未配置</span>
+            <div class="sr-only" aria-hidden="true">
+              <input id="s_searxng"><input id="s_keenable_key"><input id="s_brave_key"><input id="s_tavily_key">
+              <button id="testKeenable" type="button"></button><button id="testBrave" type="button"></button><button id="testTavily" type="button"></button>
+              <span>SearXNG <span>→</span> Keenable <span>→</span> Brave <span>→</span> Tavily</span>
             </div>
-            <div class="form-narrow"><input class="sel" id="s_searxng" placeholder="https://searxng.example.com"></div>
-            <div class="f-help" id="searxngHelp">首选服务，需开启 JSON API；未配置或不可用时自动跳过。</div>
-            <div class="search-provider-options">
+            <div class="search-instance-section">
               <div class="search-section-head">
                 <div>
-                  <div class="search-section-title">备用搜索服务</div>
-                  <div class="search-section-desc">按需填写 API Key；未配置的服务不会被调用。</div>
+                  <div class="search-section-title">调用序列</div>
+                  <div class="search-section-desc">按顺序尝试已启用实例；未配置或不可用的实例会自动跳过。</div>
                 </div>
-                <span class="search-section-note">用于补充覆盖</span>
+                <button type="button" class="btn-secondary search-add-instance" id="searchInstanceAdd">＋ 添加接口</button>
               </div>
-              <div class="search-provider-cards">
-                <div class="search-provider-card">
-                  <div class="search-provider-card-head">
-                    <div>
-                      <div class="search-provider-card-title"><span class="search-provider-card-mark">K</span>Keenable</div>
-                      <div class="search-provider-card-meta">时间感知网页索引 · 低成本优先补漏</div>
-                    </div>
-                    <span class="badge pending" id="keenableConfigured">未配置</span>
-                  </div>
-                  <label class="f-label" for="s_keenable_key">API Key</label>
-                  <div class="key-wrap"><input class="sel" id="s_keenable_key" type="password" autocomplete="off" placeholder="填写 Keenable API Key"><button type="button" class="eye-btn" data-key-toggle="s_keenable_key" aria-label="显示或隐藏 Keenable API Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></div>
-                  <div class="search-provider-card-foot"><span class="f-help">每组织 10 万次/月（以控制台为准）</span><button class="search-test" id="testKeenable" type="button">测试连接</button></div>
-                  <div class="search-status" id="keenableStatus" role="status"></div>
-                </div>
-                <div class="search-provider-card">
-                  <div class="search-provider-card-head">
-                    <div>
-                      <div class="search-provider-card-title"><span class="search-provider-card-mark">B</span>Brave Search</div>
-                      <div class="search-provider-card-meta">独立网页索引 · 海外搜索补充</div>
-                    </div>
-                    <span class="badge pending" id="braveConfigured">未配置</span>
-                  </div>
-                  <label class="f-label" for="s_brave_key">API Key</label>
-                  <div class="key-wrap"><input class="sel" id="s_brave_key" type="password" autocomplete="off" placeholder="填写 Brave API Key"><button type="button" class="eye-btn" data-key-toggle="s_brave_key" aria-label="显示或隐藏 Brave API Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></div>
-                  <div class="search-provider-card-foot"><span class="f-help">后端安全保存，不回传明文</span><button class="search-test" id="testBrave" type="button">测试连接</button></div>
-                  <div class="search-status" id="braveStatus" role="status"></div>
-                </div>
-                <div class="search-provider-card">
-                  <div class="search-provider-card-head">
-                    <div>
-                      <div class="search-provider-card-title"><span class="search-provider-card-mark">T</span>Tavily</div>
-                      <div class="search-provider-card-meta">AI 搜索与证据摘要 · 重点事件补强</div>
-                    </div>
-                    <span class="badge pending" id="tavilyConfigured">未配置</span>
-                  </div>
-                  <label class="f-label" for="s_tavily_key">API Key</label>
-                  <div class="key-wrap"><input class="sel" id="s_tavily_key" type="password" autocomplete="off" placeholder="填写 Tavily API Key"><button type="button" class="eye-btn" data-key-toggle="s_tavily_key" aria-label="显示或隐藏 Tavily API Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></div>
-                  <div class="search-provider-card-foot"><span class="f-help">basic 1 credit · advanced 2 credits</span><button class="search-test" id="testTavily" type="button">测试连接</button></div>
-                  <div class="search-status" id="tavilyStatus" role="status"></div>
+              <div id="searchInstanceSequence" class="search-instance-sequence"></div>
+              <div id="searchInstanceEmpty" class="search-instance-empty hidden">还没有搜索接口，请添加一个内置服务商实例。</div>
+              <div id="searchSettingsStatus" class="search-settings-status" role="status" aria-live="polite"></div>
+            </div>
+            <div class="search-policy-block">
+              <div class="search-section-head">
+                <div>
+                  <div class="search-section-title">调度策略</div>
+                  <div class="search-section-desc">故障切换只调用到首个有效结果；多源合并会依次汇总所有已启用实例。</div>
                 </div>
               </div>
-              <div class="search-policy-block">
-                <div class="search-section-head">
-                  <div>
-                    <div class="search-section-title">调度策略</div>
-                    <div class="search-section-desc">日常分析建议使用故障切换；重点事件再开启多源合并。</div>
-                  </div>
+              <div class="search-policy-grid">
+                <div class="search-policy-field">
+                  <span>当前调用顺序</span>
+                  <div id="searchPolicyValue" class="search-policy-value">—</div>
                 </div>
-                <div class="search-policy-grid">
-                  <div class="search-policy-field">
-                    <span>默认调用顺序</span>
-                    <div class="search-policy-value" aria-label="默认调用顺序 SearXNG、Keenable、Brave、Tavily">SearXNG <span>→</span> Keenable <span>→</span> Brave <span>→</span> Tavily</div>
-                  </div>
-                  <label class="search-policy-field" for="s_provider_mode">
-                    <span>调用策略</span>
-                    <select class="sel" id="s_provider_mode">
-                      <option value="failover">故障切换（省额度）</option>
-                      <option value="fanout">多源合并（覆盖广）</option>
-                    </select>
-                  </label>
-                </div>
+                <label class="search-policy-field" for="s_provider_mode">
+                  <span>调用策略</span>
+                  <select class="sel" id="s_provider_mode">
+                    <option value="failover">故障切换（省额度）</option>
+                    <option value="fanout">多源合并（覆盖广）</option>
+                  </select>
+                </label>
               </div>
             </div>
           </div>
@@ -2506,6 +2521,39 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="searchInstanceModal" class="search-instance-modal hidden" role="dialog" aria-modal="true" aria-labelledby="searchInstanceModalTitle">
+  <form id="searchInstanceForm" class="search-instance-modal-form">
+    <div class="search-instance-modal-head">
+      <div>
+        <div class="radar-editor-kicker">搜索服务</div>
+        <h2 id="searchInstanceModalTitle">添加搜索接口</h2>
+        <p>仅支持系统内置服务商；同一服务商可以添加多个独立实例。</p>
+      </div>
+      <button type="button" class="modal-close" id="searchInstanceModalClose" aria-label="关闭">×</button>
+    </div>
+    <div class="search-instance-modal-grid">
+      <label class="f-label">内置服务商
+        <select class="sel" id="searchInstanceProvider">
+          <option value="searxng">SearXNG</option>
+          <option value="keenable">Keenable</option>
+          <option value="brave">Brave Search</option>
+          <option value="tavily">Tavily</option>
+        </select>
+      </label>
+      <label class="f-label">实例名称
+        <input class="sel" id="searchInstanceName" maxlength="60" placeholder="例如：Keenable · 1">
+      </label>
+    </div>
+    <div id="searchInstanceFields"></div>
+    <div id="searchInstanceStatus" class="search-instance-modal-status" role="status"></div>
+    <div class="radar-editor-actions">
+      <button type="button" class="btn-secondary" id="searchInstanceModalCancel">取消</button>
+      <button type="button" class="btn-secondary" id="searchInstanceTest">测试连接</button>
+      <button type="submit" class="primary" id="searchInstanceSave">保存接口</button>
+    </div>
+  </form>
 </div>
 
 <div id="radarEditor" class="radar-editor hidden" role="dialog" aria-modal="true" aria-labelledby="radarEditorTitle">
@@ -2938,6 +2986,184 @@ function collectProviderForm() {
   pageProviders[id] = p;
 }
 
+const SEARCH_PROVIDER_META = {
+  searxng: { label: "SearXNG", mark: "S", hint: "公开 JSON 搜索接口；不需要 API Key。", endpoint: "https://searxng.example.com" },
+  keenable: { label: "Keenable", mark: "K", hint: "POST JSON · 使用 X-API-Key；支持时间感知搜索。", endpoint: "https://api.keenable.ai/v1/search" },
+  brave: { label: "Brave Search", mark: "B", hint: "GET JSON · 使用 X-Subscription-Token；适合海外补充。", endpoint: "https://api.search.brave.com/res/v1/web/search" },
+  tavily: { label: "Tavily", mark: "T", hint: "POST JSON · 使用 Bearer Token；可选择搜索深度。", endpoint: "https://api.tavily.com/search" },
+};
+let searchInstances = [];
+let searchEditingId = "";
+
+function searchProviderLabel(id) { return SEARCH_PROVIDER_META[id]?.label || id; }
+function normalizeSearchInstances(items) {
+  if (!Array.isArray(items)) return [];
+  return items.map((item, index) => ({
+    ...item,
+    id: item.id || `${item.provider || "search"}-${index + 1}`,
+    order: item.order ?? ((index + 1) * 10),
+    enabled: item.enabled !== false,
+  })).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+}
+function setSearchSettingsStatus(message = "", tone = "") {
+  const status = $("searchSettingsStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.className = "search-settings-status" + (tone ? ` ${tone}` : "");
+}
+function newSearchInstanceId(provider) {
+  const randomId = globalThis.crypto?.randomUUID?.().replaceAll("-", "").slice(0, 12)
+    || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  return `${provider}-${randomId}`;
+}
+function scrubSearchInstanceKeys() {
+  // 保存成功后不在页面状态中继续保留明文；编辑时由后端的脱敏状态提示用户留空保留。
+  searchInstances.forEach((instance) => { delete instance.apiKey; });
+}
+function searchInstanceConfigured(instance) {
+  return instance.provider === "searxng" ? Boolean(instance.endpoint) : Boolean(instance.apiKeyConfigured || instance.apiKey);
+}
+function searchInstanceNextOrder() {
+  return (searchInstances.reduce((max, item) => Math.max(max, Number(item.order) || 0), 0) || 0) + 10;
+}
+function renderSearchInstances() {
+  const container = $("searchInstanceSequence");
+  const empty = $("searchInstanceEmpty");
+  if (!container) return;
+  const items = [...searchInstances].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+  container.innerHTML = "";
+  empty?.classList.toggle("hidden", items.length > 0);
+  items.forEach((item, index) => {
+    const configured = searchInstanceConfigured(item);
+    const row = document.createElement("div");
+    row.className = "search-instance-row" + (item.enabled === false ? " is-disabled" : "");
+    row.dataset.instanceId = item.id;
+    const meta = [item.alias || searchProviderLabel(item.provider), item.endpoint || "未填写接口地址"].filter(Boolean).join(" · ");
+    row.innerHTML = `<span class="search-instance-grip" aria-hidden="true">⋮⋮</span>
+      <span class="search-instance-mark">${esc(searchProviderLabel(item.provider).slice(0, 1))}</span>
+      <span class="search-instance-main"><span class="search-instance-name">${esc(item.name || searchProviderLabel(item.provider))}</span><span class="search-instance-meta">${esc(meta)}</span></span>
+      <span class="search-instance-status ${item.enabled === false ? "paused" : (configured ? "ready" : "")}">${item.enabled === false ? "已暂停" : (configured ? "已配置" : "待配置")}</span>
+      <span class="search-instance-row-actions">
+        <button type="button" data-search-move="up" data-instance-id="${escAttr(item.id)}" aria-label="上移" ${index === 0 ? "disabled" : ""}>↑</button>
+        <button type="button" data-search-move="down" data-instance-id="${escAttr(item.id)}" aria-label="下移" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
+        <button type="button" data-search-toggle="${escAttr(item.id)}">${item.enabled === false ? "启用" : "停用"}</button>
+        <button type="button" class="danger" data-search-edit="${escAttr(item.id)}">编辑</button>
+        <button type="button" class="danger" data-search-delete="${escAttr(item.id)}">删除</button>
+      </span>`;
+    container.appendChild(row);
+  });
+  const policy = $("searchPolicyValue");
+  if (policy) {
+    policy.textContent = items.filter(x => x.enabled !== false).map(x => x.name || searchProviderLabel(x.provider)).join("  →  ") || "没有启用的接口";
+    policy.setAttribute("aria-label", `当前调用顺序：${policy.textContent}`);
+  }
+}
+
+function renderSearchInstanceFields(instance = {}) {
+  const provider = $("searchInstanceProvider")?.value || "searxng";
+  const fields = $("searchInstanceFields");
+  if (!fields) return;
+  const endpoint = instance.endpoint || SEARCH_PROVIDER_META[provider].endpoint;
+  let html = `<label class="f-label">接口地址
+    <input class="sel" id="searchInstanceEndpoint" type="url" value="${escAttr(endpoint)}" placeholder="${escAttr(SEARCH_PROVIDER_META[provider].endpoint)}" required>
+    <span class="search-field-help">${esc(SEARCH_PROVIDER_META[provider].hint)}</span>
+  </label>`;
+  if (provider === "searxng") {
+    html += `<div class="search-field-help">实例应开启 SearXNG JSON API；系统会请求地址后的 /search。</div>`;
+  } else {
+    html += `<label class="f-label">API Key
+      <div class="key-wrap"><input class="sel" id="searchInstanceApiKey" type="password" autocomplete="off" placeholder="${escAttr(instance.apiKeyConfigured ? "已配置，留空表示保持不变" : `填写 ${SEARCH_PROVIDER_META[provider].label} API Key`)}"><button type="button" class="eye-btn" data-key-toggle="searchInstanceApiKey" aria-label="显示或隐藏 API Key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></div>
+      <span class="search-field-help">密钥只在后端保存，浏览器不会读取已保存的明文。</span>
+    </label>`;
+  }
+  if (provider === "brave") {
+    html += `<div class="search-instance-modal-grid"><label class="f-label">搜索语言<input class="sel" id="searchInstanceLang" value="${escAttr(instance.search_lang || "zh-hans")}" placeholder="zh-hans"></label><label class="f-label">国家/地区<input class="sel" id="searchInstanceCountry" value="${escAttr(instance.country || "CN")}" placeholder="CN"></label></div>`;
+  }
+  if (provider === "tavily") {
+    html += `<label class="f-label">搜索深度<select class="sel" id="searchInstanceDepth"><option value="basic">basic · 低成本</option><option value="fast">fast · 快速</option><option value="advanced">advanced · 更深</option><option value="ultra-fast">ultra-fast · 极速</option></select></label>`;
+  }
+  fields.innerHTML = html;
+  if (provider === "tavily" && $("searchInstanceDepth")) $("searchInstanceDepth").value = instance.search_depth || "basic";
+}
+
+function openSearchInstanceModal(instance = null) {
+  searchEditingId = instance?.id || "";
+  $("searchInstanceModalTitle").textContent = instance ? "编辑搜索接口" : "添加搜索接口";
+  $("searchInstanceProvider").value = instance?.provider || "searxng";
+  $("searchInstanceProvider").disabled = Boolean(instance);
+  $("searchInstanceName").value = instance?.name || `${searchProviderLabel($("searchInstanceProvider").value)} · ${searchInstances.filter(x => x.provider === $("searchInstanceProvider").value).length + 1}`;
+  $("searchInstanceStatus").textContent = "";
+  $("searchInstanceStatus").className = "search-instance-modal-status";
+  renderSearchInstanceFields(instance || {});
+  $("searchInstanceModal").classList.remove("hidden");
+  setTimeout(() => $("searchInstanceProvider")?.focus(), 0);
+}
+function closeSearchInstanceModal() { $("searchInstanceModal")?.classList.add("hidden"); searchEditingId = ""; }
+function collectSearchInstanceForm() {
+  const provider = $("searchInstanceProvider").value;
+  const current = searchInstances.find(x => x.id === searchEditingId) || {};
+  const item = { ...current, id: searchEditingId || newSearchInstanceId(provider), provider,
+    name: $("searchInstanceName").value.trim() || `${searchProviderLabel(provider)} · ${searchInstances.filter(x => x.provider === provider).length + 1}`,
+    endpoint: $("searchInstanceEndpoint").value.trim().replace(/\/+$/, ""), enabled: current.enabled !== false,
+    order: current.order ?? searchInstanceNextOrder() };
+  const key = $("searchInstanceApiKey")?.value.trim();
+  if (key) { item.apiKey = key; item.apiKeyConfigured = true; }
+  if (provider === "brave") { item.search_lang = $("searchInstanceLang").value.trim() || "zh-hans"; item.country = $("searchInstanceCountry").value.trim().toUpperCase() || "CN"; }
+  if (provider === "tavily") item.search_depth = $("searchInstanceDepth").value;
+  return item;
+}
+async function saveSearchInstance(event) {
+  event?.preventDefault();
+  const item = collectSearchInstanceForm();
+  if (!item.endpoint) { $("searchInstanceStatus").textContent = "请填写接口地址。"; $("searchInstanceStatus").className = "search-instance-modal-status error"; return; }
+  const nextInstances = searchEditingId
+    ? searchInstances.map(x => x.id === searchEditingId ? item : x)
+    : [...searchInstances, item];
+  const button = $("searchInstanceSave");
+  const status = $("searchInstanceStatus");
+  const previousText = button?.textContent || "保存接口";
+  if (button) { button.disabled = true; button.textContent = "保存中…"; }
+  status.textContent = "正在保存并校验配置…";
+  status.className = "search-instance-modal-status";
+  const result = await persistSearchInstances(nextInstances);
+  if (!result.ok) {
+    status.textContent = result.error || "保存失败，请重试";
+    status.className = "search-instance-modal-status error";
+    if (button) { button.disabled = false; button.textContent = previousText; }
+    return;
+  }
+  searchInstances = result.instances;
+  scrubSearchInstanceKeys();
+  renderSearchInstances();
+  setSearchSettingsStatus("搜索接口已保存并生效。", "ok");
+  closeSearchInstanceModal();
+  toast("搜索接口已保存并生效");
+  if (button) { button.disabled = false; button.textContent = previousText; }
+}
+async function testSearchInstance() {
+  const button = $("searchInstanceTest");
+  const status = $("searchInstanceStatus");
+  const item = collectSearchInstanceForm();
+  if (!item.endpoint || (item.provider !== "searxng" && !item.apiKey && !item.apiKeyConfigured)) { status.textContent = "请先填写接口地址和 API Key。"; status.className = "search-instance-modal-status error"; return; }
+  button.disabled = true; status.textContent = "测试中…"; status.className = "search-instance-modal-status";
+  const result = await api("/api/search/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: item.provider, instance_id: item.id, instance: item }) });
+  button.disabled = false;
+  status.className = "search-instance-modal-status " + (result.ok ? "ok" : "error");
+  status.textContent = result.ok ? `连接成功 · 返回 ${result.count} 条` : (result.error || "连接失败，请检查接口参数");
+}
+async function persistSearchInstances(nextInstances) {
+  const result = await api("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ settings: { SEARCH_INSTANCES: JSON.stringify(normalizeSearchInstances(nextInstances)) } }),
+  });
+  if (!result.ok) return { ok: false, error: result.error || "搜索接口保存失败" };
+  if (!Array.isArray(result.search_instances)) {
+    return { ok: false, error: "当前后端仍是旧版本，请重启后端服务后再保存" };
+  }
+  return { ...result, instances: normalizeSearchInstances(result.search_instances) };
+}
+
 async function persistSettings() {
   collectProviderForm();
   // 通义 enable_search 显式从表单同步（不依赖"当前选中服务商"，避免切走后丢失勾选）
@@ -2945,11 +3171,8 @@ async function persistSettings() {
     pageProviders.qwen.enable_search = $("pSearch").checked;
   }
   const payload = {
-    SEARXNG_URL: $("s_searxng").value.trim(),
+    SEARCH_INSTANCES: JSON.stringify(searchInstances),
     SEARCH_PROVIDER_MODE: $("s_provider_mode").value,
-    KEENABLE_API_KEY: $("s_keenable_key").value.trim(),
-    BRAVE_API_KEY: $("s_brave_key").value.trim(),
-    TAVILY_API_KEY: $("s_tavily_key").value.trim(),
     AI_PRIMARY_PROVIDER: $("s_provider").value,
     AI_PROVIDERS: JSON.stringify(pageProviders),
     ENABLED_GROUPS: "",
@@ -2958,11 +3181,21 @@ async function persistSettings() {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ settings: payload }),
   });
+  if (r.ok && !Array.isArray(r.search_instances)) {
+    r.ok = false;
+    r.error = "当前后端仍是旧版本，请重启后端服务后再保存";
+  }
   if (r.ok) {
+    searchInstances = normalizeSearchInstances(r.search_instances);
+    scrubSearchInstanceKeys();
+    renderSearchInstances();
+    setSearchSettingsStatus("搜索设置已保存并生效。", "ok");
     toast(`已保存 ${r.saved} 项设置，立即生效`);
-    $("settingsState").textContent = "已保存并生效";
+    const settingsState = $("settingsState");
+    if (settingsState) settingsState.textContent = "已保存并生效";
     await loadAiProviders();
   } else {
+    setSearchSettingsStatus(r.error || "设置保存失败", "error");
     toast("保存失败：" + (r.error || "未知错误"), "error");
   }
   return r;
@@ -3120,10 +3353,11 @@ function renderHomeProviderSelect() {
 /* ---------- 分析 ---------- */
 /* 发起分析：创建任务 → 跳转「分析」工作区呈现进度与报告。
    首页只负责输入主题（默认服务商/不校验），完整选项在工作区。 */
-async function launch(topic, provider, verify, hintId) {
+async function launch(topic, provider, verify, hintId, searchScope) {
   const r = await api("/api/analyze", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ topic, provider: provider || "", verify: !!verify }),
+    body: JSON.stringify({ topic, provider: provider || "", verify: !!verify,
+      search_scope: searchScope || "auto" }),
   });
   if (!r.task_id) return r.error || "创建任务失败";
   currentTask = r.task_id;
@@ -3150,7 +3384,8 @@ async function startFull() {
   const topic = $("topicFull").value.trim();
   if (!topic) { $("hintFull").innerHTML = '<div class="hint">请先输入舆情主题</div>'; return; }
   $("hintFull").innerHTML = "";
-  const err = await launch(topic, $("provider").value, $("verify").checked);
+  const err = await launch(topic, $("provider").value, $("verify").checked,
+    undefined, $("searchScope").value);
   if (err) $("hintFull").innerHTML = '<div class="hint">' + esc(err) + '</div>';
 }
 
@@ -4594,19 +4829,26 @@ function initReportCharts(rep) {
 /* ---------- 设置 ---------- */
 async function loadSettings() {
   const r = await api("/api/settings");
+  if (r.error || !r.settings) {
+    setSearchSettingsStatus(r.error || "无法读取搜索设置", "error");
+    return;
+  }
   const s = r.settings || {};
-  $("s_searxng").value = s.SEARXNG_URL || "";
   $("s_provider_mode").value = s.SEARCH_PROVIDER_MODE || "failover";
-  $("s_keenable_key").value = s.KEENABLE_API_KEY && !String(s.KEENABLE_API_KEY).startsWith("****") ? s.KEENABLE_API_KEY : "";
-  $("s_brave_key").value = s.BRAVE_API_KEY && !String(s.BRAVE_API_KEY).startsWith("****") ? s.BRAVE_API_KEY : "";
-  $("s_tavily_key").value = s.TAVILY_API_KEY && !String(s.TAVILY_API_KEY).startsWith("****") ? s.TAVILY_API_KEY : "";
-  updateSearchProviderBadge("keenable", Boolean(s.KEENABLE_API_KEY_CONFIGURED));
-  updateSearchProviderBadge("brave", Boolean(s.BRAVE_API_KEY_CONFIGURED));
-  updateSearchProviderBadge("tavily", Boolean(s.TAVILY_API_KEY_CONFIGURED));
-  updateSearchProviderBadge("searxng", Boolean(s.SEARXNG_CONFIGURED));
+  if (Object.prototype.hasOwnProperty.call(s, "SEARCH_INSTANCES")) {
+    try {
+      searchInstances = normalizeSearchInstances(JSON.parse(s.SEARCH_INSTANCES || "[]"));
+      renderSearchInstances();
+      setSearchSettingsStatus("");
+    } catch (_) {
+      setSearchSettingsStatus("后端返回的搜索接口配置无法解析，请检查配置数据。", "error");
+    }
+  } else {
+    setSearchSettingsStatus("当前后端版本不支持搜索实例，请重启后端服务。", "error");
+  }
   $("s_provider").value = s.AI_PRIMARY_PROVIDER || "";
   window._settings = s;
-  $("settingsState").textContent = "已加载当前配置";
+  if ($("settingsState")) $("settingsState").textContent = "已加载当前配置";
   await loadAiProviders();   // 服务商注册表 + 状态由 /api/settings 与 /api/ai/providers 共同驱动
   loadSources();
 }
@@ -5009,34 +5251,27 @@ async function saveSettings() {
   await persistSettings();   // 统一保存：SearXNG + 服务商注册表 + 默认服务商
 }
 
+async function commitSearchInstanceList(nextInstances, successMessage) {
+  setSearchSettingsStatus("正在保存搜索接口…");
+  const result = await persistSearchInstances(nextInstances);
+  if (!result.ok) {
+    setSearchSettingsStatus(result.error || "搜索接口保存失败", "error");
+    toast(result.error || "搜索接口保存失败", "error");
+    return false;
+  }
+  searchInstances = result.instances;
+  scrubSearchInstanceKeys();
+  renderSearchInstances();
+  setSearchSettingsStatus(successMessage, "ok");
+  toast(successMessage);
+  return true;
+}
+
 function updateSearchProviderBadge(provider, configured) {
   const el = $(provider + "Configured");
   if (!el) return;
   el.textContent = configured ? "已配置" : "未配置";
   el.className = "badge " + (configured ? "done" : "pending");
-}
-
-async function testSearchProvider(provider) {
-  const button = $({ keenable: "testKeenable", brave: "testBrave", tavily: "testTavily" }[provider]);
-  const status = $(provider + "Status");
-  if (!button || !status) return;
-  button.disabled = true;
-  status.className = "search-status";
-  status.textContent = "测试中…";
-  // 测试读取后端已保存配置，避免在测试接口重复传递密钥。
-  const result = await api("/api/search/test", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provider }),
-  });
-  button.disabled = false;
-  if (result.ok) {
-    status.className = "search-status ok";
-    status.textContent = `连接成功 · 返回 ${result.count} 条`;
-    updateSearchProviderBadge(provider, true);
-  } else {
-    status.className = "search-status error";
-    status.textContent = result.error || "连接失败，请先保存 API Key";
-  }
 }
 
 document.querySelectorAll("[data-key-toggle]").forEach((button) => {
@@ -5046,9 +5281,60 @@ document.querySelectorAll("[data-key-toggle]").forEach((button) => {
     input.type = input.type === "password" ? "text" : "password";
   });
 });
-$("testKeenable")?.addEventListener("click", () => void testSearchProvider("keenable"));
-$("testBrave")?.addEventListener("click", () => void testSearchProvider("brave"));
-$("testTavily")?.addEventListener("click", () => void testSearchProvider("tavily"));
+$("searchInstanceAdd")?.addEventListener("click", () => openSearchInstanceModal());
+$("searchInstanceProvider")?.addEventListener("change", () => {
+  const provider = $("searchInstanceProvider").value;
+  $("searchInstanceName").value = `${searchProviderLabel(provider)} · ${searchInstances.filter(x => x.provider === provider).length + 1}`;
+  renderSearchInstanceFields();
+});
+$("searchInstanceForm")?.addEventListener("submit", (event) => void saveSearchInstance(event));
+$("searchInstanceTest")?.addEventListener("click", () => void testSearchInstance());
+$("searchInstanceModalClose")?.addEventListener("click", closeSearchInstanceModal);
+$("searchInstanceModalCancel")?.addEventListener("click", closeSearchInstanceModal);
+$("searchInstanceModal")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-key-toggle]");
+  if (!button) return;
+  const input = $(button.dataset.keyToggle);
+  if (input) input.type = input.type === "password" ? "text" : "password";
+});
+// 不使用遮罩点击关闭：拖动/全选接口地址时，鼠标可能在遮罩上结束，浏览器会产生一次 click，
+// 从而误把文本选择识别为“点击弹窗外部”。仅允许明确的关闭按钮或 Esc 关闭。
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$('searchInstanceModal')?.classList.contains("hidden")) {
+    closeSearchInstanceModal();
+  }
+});
+$("searchInstanceSequence")?.addEventListener("click", async (event) => {
+  const target = event.target.closest("button");
+  if (!target) return;
+  const id = target.dataset.instanceId || target.dataset.searchToggle || target.dataset.searchEdit || target.dataset.searchDelete;
+  const item = searchInstances.find(x => x.id === id);
+  if (!item) return;
+  if (target.dataset.searchEdit) { openSearchInstanceModal(item); return; }
+  if (target.dataset.searchDelete) {
+    if (!window.confirm(`确定删除“${item.name}”吗？`)) return;
+    target.disabled = true;
+    await commitSearchInstanceList(searchInstances.filter(x => x.id !== id), "搜索接口已删除");
+    target.disabled = false;
+    return;
+  }
+  if (target.dataset.searchToggle) {
+    target.disabled = true;
+    const nextInstances = searchInstances.map(x => x.id === id ? { ...x, enabled: x.enabled === false } : x);
+    await commitSearchInstanceList(nextInstances, item.enabled === false ? "搜索接口已启用" : "搜索接口已停用");
+    target.disabled = false;
+    return;
+  }
+  if (target.dataset.searchMove) {
+    target.disabled = true;
+    const sorted = searchInstances.map(x => ({ ...x })).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+    const index = sorted.findIndex(x => x.id === id); const next = target.dataset.searchMove === "up" ? index - 1 : index + 1;
+    if (next < 0 || next >= sorted.length) { target.disabled = false; return; }
+    [sorted[index].order, sorted[next].order] = [sorted[next].order, sorted[index].order];
+    await commitSearchInstanceList(sorted, "调用顺序已更新");
+    target.disabled = false;
+  }
+});
 
 /* ---------- 初始化 ---------- */
 $("authForm")?.addEventListener("submit", submitAuth);
