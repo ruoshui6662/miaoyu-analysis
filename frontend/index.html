@@ -2053,6 +2053,126 @@
     .radar-editor-form { padding: 22px 18px; }
   }
 
+  /* 搜索服务与分析模型：共用同一套主从配置工作台，不改变设置页一级导航。 */
+  #view-settings :is(#panel-base,#panel-ai) .service-layout {
+    grid-template-columns: 208px minmax(0,1fr); gap: 28px; margin-top: 0;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .ai-rail,
+  #view-settings :is(#panel-base,#panel-ai) .ai-panel {
+    min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .ai-rail { padding-right: 20px; }
+  #view-settings :is(#panel-base,#panel-ai) .rail-label {
+    margin: 2px 2px 9px; color: var(--text-3); font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .ai-list { gap: 3px; }
+  #view-settings :is(#panel-base,#panel-ai) .provider-item,
+  #view-settings #panel-base .search-instance-row {
+    min-height: 46px; border: 0; border-radius: var(--r-sm); background: transparent; box-shadow: none;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .provider-item { padding: 6px 9px; }
+  #view-settings :is(#panel-base,#panel-ai) .provider-item:hover,
+  #view-settings #panel-base .search-instance-row:hover { background: var(--surface); }
+  #view-settings :is(#panel-base,#panel-ai) .provider-item.active,
+  #view-settings #panel-base .search-instance-row.active {
+    position: relative; background: var(--accent-tint); box-shadow: none;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .provider-item.active::before,
+  #view-settings #panel-base .search-instance-row.active::before {
+    content: ""; position: absolute; top: 8px; bottom: 8px; left: 0; width: 2px; background: var(--accent);
+  }
+  #view-settings :is(#panel-base,#panel-ai) .plogo,
+  #view-settings #panel-base .search-instance-mark {
+    width: 27px; height: 27px; border-radius: 7px; font-size: 11px;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .rail-add {
+    min-height: 36px; margin-top: 9px; border-radius: var(--r-sm); color: var(--text-2);
+  }
+  #view-settings :is(#panel-base,#panel-ai) .settings-service-help { margin-top: 9px; line-height: 1.55; }
+  #view-settings :is(#panel-base,#panel-ai) .panel-head { min-height: 34px; margin-bottom: 19px; }
+  #view-settings :is(#panel-base,#panel-ai) .panel-logo { width: 32px; height: 32px; border-radius: 8px; font-size: 13px; }
+  #view-settings :is(#panel-base,#panel-ai) .panel-title { font-size: 15px; }
+  #view-settings :is(#panel-base,#panel-ai) .configured-line { margin-top: 2px; font-size: 11px; }
+  #view-settings :is(#panel-base,#panel-ai) .pcard { padding-top: 0; border-top: 0; }
+  #view-settings :is(#panel-base,#panel-ai) .f-label { color: var(--text-2); font-size: 12px; }
+  #view-settings :is(#panel-base,#panel-ai) :is(input.sel,select.sel,.model-select) {
+    min-height: 40px; height: 40px; border-color: var(--field-border); border-radius: var(--r-sm); background: var(--field-bg);
+  }
+  #view-settings :is(#panel-base,#panel-ai) :is(input.sel,select.sel,.model-select):hover { border-color: var(--field-border-hover); }
+  #view-settings :is(#panel-base,#panel-ai) .ai-actions {
+    display: flex; align-items: center; gap: 8px; margin-top: 18px; padding-top: 0; border-top: 0;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .ai-actions > button {
+    box-sizing: border-box; min-width: 0; height: 36px; min-height: 36px; padding: 0 13px; border-radius: var(--r-sm); font-size: 12px;
+  }
+  #view-settings :is(#panel-base,#panel-ai) .ai-actions > button[hidden] { display: none !important; }
+  #view-settings :is(#panel-base,#panel-ai) .ai-actions > .primary { margin-left: 0; min-width: 104px; }
+  #view-settings #panel-base .search-instance-sequence { display: grid; gap: 3px; }
+  #view-settings #panel-base .search-instance-row {
+    position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; padding: 0;
+  }
+  #view-settings #panel-base .search-instance-row.is-disabled { opacity: .62; }
+  #view-settings #panel-base .search-instance-select {
+    display: grid; grid-template-columns: 27px minmax(0,1fr) auto; align-items: center; gap: 9px;
+    min-width: 0; min-height: 46px; padding: 5px 6px 5px 9px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer;
+  }
+  #view-settings #panel-base .search-instance-main { min-width: 0; }
+  #view-settings #panel-base .search-instance-name { display: block; overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  #view-settings #panel-base .search-instance-meta { display: none; }
+  #view-settings #panel-base .search-instance-status { min-width: 0; font-size: 10px; }
+  #view-settings #panel-base .search-instance-row-actions {
+    position: absolute; top: calc(100% - 3px); right: 2px; z-index: 3; display: none; padding: 4px;
+    border-radius: var(--r-sm); background: var(--card); box-shadow: var(--shadow-overlay);
+  }
+  #view-settings #panel-base .search-instance-row:hover .search-instance-row-actions,
+  #view-settings #panel-base .search-instance-row:focus-within .search-instance-row-actions { display: inline-flex; }
+  #view-settings #panel-base .search-instance-row-actions button { min-width: 28px; min-height: 28px; padding: 0 6px; }
+  #view-settings #panel-base .search-instance-empty { padding: 12px 4px; }
+  #view-settings #panel-base .search-instance-editor { min-height: 330px; }
+  #view-settings #panel-base .settings-service-form-grid { grid-template-columns: minmax(0,.75fr) minmax(0,1.25fr); gap: 12px; margin-top: 0; }
+  #view-settings #panel-base .settings-service-form.is-editing #searchInstanceProviderField { display: none; }
+  #view-settings #panel-base .settings-service-form.is-editing .search-instance-name-field { grid-column: 1 / -1; }
+  #view-settings #panel-base .settings-service-form .f-label { display: grid; gap: 7px; margin-top: 14px; }
+  #view-settings #panel-base .settings-service-form-grid .f-label { margin-top: 0; }
+  #view-settings #panel-base .settings-service-form .key-wrap { margin-top: 0; }
+  #view-settings #panel-base .search-field-help { margin-top: 6px; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+  #view-settings #panel-base .search-instance-modal-status { min-height: 18px; margin-top: 8px; font-size: 11px; }
+  #view-settings #panel-base .search-settings-status { min-height: 18px; margin: 10px 0 0 236px; }
+  #view-settings #panel-base .search-policy-block { margin-top: 28px; padding-top: 0; }
+  #view-settings #panel-base .search-policy-grid { gap: 20px; }
+  #view-settings #panel-base .search-policy-field { gap: 7px; }
+
+  @media (max-width: 960px) {
+    #view-settings :is(#panel-base,#panel-ai) .service-layout { grid-template-columns: 1fr; gap: 22px; }
+    #view-settings :is(#panel-base,#panel-ai) .ai-rail { padding: 0 0 18px; }
+    #view-settings :is(#panel-base,#panel-ai) .ai-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+    #view-settings #panel-base .search-settings-status { margin-left: 0; }
+  }
+  @media (max-width: 600px) {
+    #view-settings :is(#panel-base,#panel-ai) .ai-list { grid-template-columns: 1fr; }
+    #view-settings #panel-base .settings-service-form-grid { grid-template-columns: 1fr; }
+    #view-settings #panel-base .search-instance-row-actions { position: static; display: inline-flex; padding: 0 4px 0 0; background: transparent; box-shadow: none; }
+    #view-settings :is(#panel-base,#panel-ai) .ai-actions { flex-wrap: wrap; }
+    #view-settings :is(#panel-base,#panel-ai) .ai-actions > .primary { margin-left: auto; }
+  }
+
+  /* 设置页操作按钮契约：同一视觉基线，按语义保留两档宽度。 */
+  #view-settings .settings-action {
+    box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    width: auto; min-width: 80px; height: 40px; min-height: 40px; margin: 0; padding: 0 14px;
+    border-radius: var(--r-md); font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1;
+    letter-spacing: 0; white-space: nowrap; vertical-align: middle;
+  }
+  #view-settings .settings-action.primary { min-width: 104px; }
+  #view-settings #fetchModels { min-width: 84px; }
+  #view-settings #radarPreviewButton { min-width: 92px; }
+  #view-settings .settings-action.btn-with-icon svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
+  #view-settings .settings-action[hidden] { display: none !important; }
+  #view-settings .settings-action:disabled { opacity: .5; cursor: not-allowed; }
+  @media (max-width: 600px) {
+    #view-settings .settings-action { height: 40px; min-height: 40px; padding: 0 12px; font-size: 13px; }
+  }
+
     @media (prefers-reduced-motion: reduce) { *,*::before,*::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
   }
 </style>
@@ -2317,18 +2437,52 @@
               <button id="testKeenable" type="button"></button><button id="testBrave" type="button"></button><button id="testTavily" type="button"></button>
               <span>SearXNG <span>→</span> Keenable <span>→</span> Brave <span>→</span> Tavily</span>
             </div>
-            <div class="search-instance-section">
-              <div class="search-section-head">
-                <div>
-                  <div class="search-section-title">调用序列</div>
-                  <div class="search-section-desc">按顺序尝试已启用实例；未配置或不可用的实例会自动跳过。</div>
-                </div>
-                <button type="button" class="btn-secondary search-add-instance" id="searchInstanceAdd">＋ 添加接口</button>
+            <div class="service-layout settings-service-workspace search-service-layout">
+              <div class="ai-rail settings-service-rail">
+                <div class="rail-label">搜索接口实例</div>
+                <div id="searchInstanceSequence" class="ai-list search-instance-sequence"></div>
+                <div id="searchInstanceEmpty" class="search-instance-empty hidden">还没有搜索接口。</div>
+                <button type="button" class="rail-add search-add-instance" id="searchInstanceAdd">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                  <span>添加搜索接口</span>
+                </button>
+                <p class="f-help settings-service-help">点击实例编辑；列表顺序即调用顺序。</p>
               </div>
-              <div id="searchInstanceSequence" class="search-instance-sequence"></div>
-              <div id="searchInstanceEmpty" class="search-instance-empty hidden">还没有搜索接口，请添加一个内置服务商实例。</div>
-              <div id="searchSettingsStatus" class="search-settings-status" role="status" aria-live="polite"></div>
+
+              <div class="ai-panel settings-service-editor search-instance-editor">
+                <form id="searchInstanceForm" class="settings-service-form">
+                  <div class="panel-head">
+                    <span id="searchInstanceEditorMark" class="plogo panel-logo">S</span>
+                    <div class="panel-title-wrap">
+                      <div class="panel-title" id="searchInstanceModalTitle">实例配置</div>
+                      <div class="configured-line" id="searchInstanceConfiguredLine">选择左侧实例进行编辑</div>
+                    </div>
+                  </div>
+                  <div class="search-instance-modal-grid settings-service-form-grid">
+                    <label class="f-label" id="searchInstanceProviderField">内置服务商
+                      <select class="sel" id="searchInstanceProvider">
+                        <option value="searxng">SearXNG</option>
+                        <option value="keenable">Keenable</option>
+                        <option value="brave">Brave Search</option>
+                        <option value="tavily">Tavily</option>
+                      </select>
+                    </label>
+                    <label class="f-label search-instance-name-field">实例名称
+                      <input class="sel" id="searchInstanceName" maxlength="60" placeholder="例如：Keenable · 1">
+                    </label>
+                  </div>
+                  <div id="searchInstanceFields"></div>
+                  <div class="ai-actions search-instance-actions">
+                    <button type="button" class="btn-secondary settings-action" id="searchInstanceModalCancel" hidden>取消新增</button>
+                    <button type="button" class="btn-secondary settings-action" id="searchInstanceTest">测试连接</button>
+                    <button type="button" class="btn-secondary danger settings-action" id="searchInstanceDelete" hidden>删除接口</button>
+                    <button type="submit" class="primary settings-action" id="searchInstanceSave">保存接口</button>
+                  </div>
+                  <div id="searchInstanceStatus" class="search-instance-modal-status" role="status"></div>
+                </form>
+              </div>
             </div>
+            <div id="searchSettingsStatus" class="search-settings-status" role="status" aria-live="polite"></div>
             <div class="search-policy-block">
               <div class="search-section-head">
                 <div>
@@ -2390,7 +2544,7 @@
                   <div class="model-row">
                     <input class="sel" id="pModel" type="text" placeholder="gpt-4o-mini，或点「获取模型」">
                     <select id="modelSelect" class="model-select" hidden></select>
-                    <button id="fetchModels" class="btn-secondary" type="button">获取模型</button>
+                    <button id="fetchModels" class="btn-secondary settings-action" type="button">获取模型</button>
                     <button id="manualModel" class="btn-ghost-sm" type="button" hidden>手动输入</button>
                   </div>
                   <p class="model-hint" id="modelHint"></p>
@@ -2400,15 +2554,15 @@
                 </div>
 
                 <div class="ai-actions">
-                  <button id="testAi" class="btn-secondary btn-with-icon" type="button">
+                  <button id="testAi" class="btn-secondary btn-with-icon settings-action" type="button">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg>
                     <span>测试连接</span>
                   </button>
-                  <button id="deleteProvider" class="btn-secondary danger btn-with-icon" type="button" hidden>
+                  <button id="deleteProvider" class="btn-secondary danger btn-with-icon settings-action" type="button" hidden>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
                     <span>删除服务商</span>
                   </button>
-                  <button id="saveAndEnable" class="primary" type="button">保存并启用</button>
+                  <button id="saveAndEnable" class="primary settings-action" type="button">保存并启用</button>
                 </div>
                 <div id="aiStatus" class="status-line" role="status"></div>
               </div>
@@ -2449,7 +2603,7 @@
                 <option value="S">S·官方权威</option>
                 <option value="D">D·无法核实</option>
               </select>
-              <button class="primary" type="button" onclick="addSource()">保存来源</button>
+                <button class="primary settings-action" type="button" onclick="addSource()">保存来源</button>
             </div>
             <div class="f-help" style="margin-top:14px">开启的来源会参与后续采集；S/A 级优先作为事实依据。</div>
           </div>
@@ -2480,8 +2634,8 @@
               </div>
               <div id="radarSourcePreview" class="radar-source-preview" role="status"></div>
               <div class="radar-source-form-actions">
-                <button type="button" class="btn-secondary" id="radarPreviewButton" onclick="previewRadarEndpoint()">检测 Feed</button>
-                <button type="submit" class="primary" id="radarSaveSourceButton">保存信源</button>
+                <button type="button" class="btn-secondary settings-action" id="radarPreviewButton" onclick="previewRadarEndpoint()">检测 Feed</button>
+                <button type="submit" class="primary settings-action" id="radarSaveSourceButton">保存信源</button>
               </div>
             </form>
             <section class="radar-source-section" aria-labelledby="radarSourceListTitle">
@@ -2508,52 +2662,19 @@
               <label class="f-label" for="confirmPassword">确认新密码</label>
               <input class="sel" id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
               <div class="account-actions">
-                <button class="primary" type="submit">保存密码</button>
+                <button class="primary settings-action" id="savePasswordButton" type="submit">保存密码</button>
                 <div id="accountStatus" class="account-status" role="status"></div>
               </div>
             </form>
           </div>
 
           <div class="set-footer" id="settingsFooter">
-            <button class="primary" onclick="saveSettings()">保存设置</button>
+            <button class="primary settings-action" onclick="saveSettings()">保存设置</button>
           </div>
         </section>
       </div>
     </div>
   </div>
-</div>
-
-<div id="searchInstanceModal" class="search-instance-modal hidden" role="dialog" aria-modal="true" aria-labelledby="searchInstanceModalTitle">
-  <form id="searchInstanceForm" class="search-instance-modal-form">
-    <div class="search-instance-modal-head">
-      <div>
-        <div class="radar-editor-kicker">搜索服务</div>
-        <h2 id="searchInstanceModalTitle">添加搜索接口</h2>
-        <p>仅支持系统内置服务商；同一服务商可以添加多个独立实例。</p>
-      </div>
-      <button type="button" class="modal-close" id="searchInstanceModalClose" aria-label="关闭">×</button>
-    </div>
-    <div class="search-instance-modal-grid">
-      <label class="f-label">内置服务商
-        <select class="sel" id="searchInstanceProvider">
-          <option value="searxng">SearXNG</option>
-          <option value="keenable">Keenable</option>
-          <option value="brave">Brave Search</option>
-          <option value="tavily">Tavily</option>
-        </select>
-      </label>
-      <label class="f-label">实例名称
-        <input class="sel" id="searchInstanceName" maxlength="60" placeholder="例如：Keenable · 1">
-      </label>
-    </div>
-    <div id="searchInstanceFields"></div>
-    <div id="searchInstanceStatus" class="search-instance-modal-status" role="status"></div>
-    <div class="radar-editor-actions">
-      <button type="button" class="btn-secondary" id="searchInstanceModalCancel">取消</button>
-      <button type="button" class="btn-secondary" id="searchInstanceTest">测试连接</button>
-      <button type="submit" class="primary" id="searchInstanceSave">保存接口</button>
-    </div>
-  </form>
 </div>
 
 <div id="radarEditor" class="radar-editor hidden" role="dialog" aria-modal="true" aria-labelledby="radarEditorTitle">
@@ -3036,19 +3157,20 @@ function renderSearchInstances() {
   items.forEach((item, index) => {
     const configured = searchInstanceConfigured(item);
     const row = document.createElement("div");
-    row.className = "search-instance-row" + (item.enabled === false ? " is-disabled" : "");
+    row.className = "search-instance-row"
+      + (item.enabled === false ? " is-disabled" : "")
+      + (searchEditingId === item.id ? " active" : "");
     row.dataset.instanceId = item.id;
     const meta = [item.alias || searchProviderLabel(item.provider), item.endpoint || "未填写接口地址"].filter(Boolean).join(" · ");
-    row.innerHTML = `<span class="search-instance-grip" aria-hidden="true">⋮⋮</span>
+    row.innerHTML = `<button type="button" class="search-instance-select" data-search-edit="${escAttr(item.id)}" aria-pressed="${searchEditingId === item.id}">
       <span class="search-instance-mark">${esc(searchProviderLabel(item.provider).slice(0, 1))}</span>
       <span class="search-instance-main"><span class="search-instance-name">${esc(item.name || searchProviderLabel(item.provider))}</span><span class="search-instance-meta">${esc(meta)}</span></span>
       <span class="search-instance-status ${item.enabled === false ? "paused" : (configured ? "ready" : "")}">${item.enabled === false ? "已暂停" : (configured ? "已配置" : "待配置")}</span>
+      </button>
       <span class="search-instance-row-actions">
         <button type="button" data-search-move="up" data-instance-id="${escAttr(item.id)}" aria-label="上移" ${index === 0 ? "disabled" : ""}>↑</button>
         <button type="button" data-search-move="down" data-instance-id="${escAttr(item.id)}" aria-label="下移" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
         <button type="button" data-search-toggle="${escAttr(item.id)}">${item.enabled === false ? "启用" : "停用"}</button>
-        <button type="button" class="danger" data-search-edit="${escAttr(item.id)}">编辑</button>
-        <button type="button" class="danger" data-search-delete="${escAttr(item.id)}">删除</button>
       </span>`;
     container.appendChild(row);
   });
@@ -3088,17 +3210,32 @@ function renderSearchInstanceFields(instance = {}) {
 
 function openSearchInstanceModal(instance = null) {
   searchEditingId = instance?.id || "";
-  $("searchInstanceModalTitle").textContent = instance ? "编辑搜索接口" : "添加搜索接口";
+  const provider = instance?.provider || "searxng";
+  $("searchInstanceModalTitle").textContent = instance ? (instance.name || searchProviderLabel(provider)) : "添加搜索接口";
+  $("searchInstanceEditorMark").textContent = SEARCH_PROVIDER_META[provider]?.mark || "S";
+  const configuredLine = $("searchInstanceConfiguredLine");
+  configuredLine.textContent = instance
+    ? (instance.enabled === false ? "已暂停" : (searchInstanceConfigured(instance) ? "已配置" : "待配置"))
+    : "选择内置服务商并填写实例参数";
+  configuredLine.classList.toggle("on", Boolean(instance && instance.enabled !== false && searchInstanceConfigured(instance)));
   $("searchInstanceProvider").value = instance?.provider || "searxng";
   $("searchInstanceProvider").disabled = Boolean(instance);
+  $("searchInstanceProviderField").hidden = Boolean(instance);
+  $("searchInstanceForm").classList.toggle("is-editing", Boolean(instance));
   $("searchInstanceName").value = instance?.name || `${searchProviderLabel($("searchInstanceProvider").value)} · ${searchInstances.filter(x => x.provider === $("searchInstanceProvider").value).length + 1}`;
+  $("searchInstanceModalCancel").hidden = Boolean(instance);
+  $("searchInstanceDelete").hidden = !instance;
+  $("searchInstanceSave").textContent = instance ? "保存接口" : "添加接口";
   $("searchInstanceStatus").textContent = "";
   $("searchInstanceStatus").className = "search-instance-modal-status";
   renderSearchInstanceFields(instance || {});
-  $("searchInstanceModal").classList.remove("hidden");
+  renderSearchInstances();
   setTimeout(() => $("searchInstanceProvider")?.focus(), 0);
 }
-function closeSearchInstanceModal() { $("searchInstanceModal")?.classList.add("hidden"); searchEditingId = ""; }
+function closeSearchInstanceModal() {
+  const first = [...searchInstances].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))[0];
+  openSearchInstanceModal(first || null);
+}
 function collectSearchInstanceForm() {
   const provider = $("searchInstanceProvider").value;
   const current = searchInstances.find(x => x.id === searchEditingId) || {};
@@ -3134,9 +3271,8 @@ async function saveSearchInstance(event) {
   }
   searchInstances = result.instances;
   scrubSearchInstanceKeys();
-  renderSearchInstances();
+  openSearchInstanceModal(searchInstances.find(x => x.id === item.id) || searchInstances[0] || null);
   setSearchSettingsStatus("搜索接口已保存并生效。", "ok");
-  closeSearchInstanceModal();
   toast("搜索接口已保存并生效");
   if (button) { button.disabled = false; button.textContent = previousText; }
 }
@@ -4838,7 +4974,10 @@ async function loadSettings() {
   if (Object.prototype.hasOwnProperty.call(s, "SEARCH_INSTANCES")) {
     try {
       searchInstances = normalizeSearchInstances(JSON.parse(s.SEARCH_INSTANCES || "[]"));
-      renderSearchInstances();
+      const selected = searchInstances.find(x => x.id === searchEditingId)
+        || [...searchInstances].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))[0]
+        || null;
+      openSearchInstanceModal(selected);
       setSearchSettingsStatus("");
     } catch (_) {
       setSearchSettingsStatus("后端返回的搜索接口配置无法解析，请检查配置数据。", "error");
@@ -5261,7 +5400,10 @@ async function commitSearchInstanceList(nextInstances, successMessage) {
   }
   searchInstances = result.instances;
   scrubSearchInstanceKeys();
-  renderSearchInstances();
+  const selected = searchInstances.find(x => x.id === searchEditingId)
+    || [...searchInstances].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))[0]
+    || null;
+  openSearchInstanceModal(selected);
   setSearchSettingsStatus(successMessage, "ok");
   toast(successMessage);
   return true;
@@ -5289,20 +5431,20 @@ $("searchInstanceProvider")?.addEventListener("change", () => {
 });
 $("searchInstanceForm")?.addEventListener("submit", (event) => void saveSearchInstance(event));
 $("searchInstanceTest")?.addEventListener("click", () => void testSearchInstance());
-$("searchInstanceModalClose")?.addEventListener("click", closeSearchInstanceModal);
 $("searchInstanceModalCancel")?.addEventListener("click", closeSearchInstanceModal);
-$("searchInstanceModal")?.addEventListener("click", (event) => {
+$("searchInstanceDelete")?.addEventListener("click", async () => {
+  const item = searchInstances.find(x => x.id === searchEditingId);
+  if (!item || !window.confirm(`确定删除“${item.name}”吗？`)) return;
+  const button = $("searchInstanceDelete");
+  button.disabled = true;
+  await commitSearchInstanceList(searchInstances.filter(x => x.id !== item.id), "搜索接口已删除");
+  button.disabled = false;
+});
+$("searchInstanceForm")?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-key-toggle]");
   if (!button) return;
   const input = $(button.dataset.keyToggle);
   if (input) input.type = input.type === "password" ? "text" : "password";
-});
-// 不使用遮罩点击关闭：拖动/全选接口地址时，鼠标可能在遮罩上结束，浏览器会产生一次 click，
-// 从而误把文本选择识别为“点击弹窗外部”。仅允许明确的关闭按钮或 Esc 关闭。
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !$('searchInstanceModal')?.classList.contains("hidden")) {
-    closeSearchInstanceModal();
-  }
 });
 $("searchInstanceSequence")?.addEventListener("click", async (event) => {
   const target = event.target.closest("button");
