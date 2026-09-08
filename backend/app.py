@@ -428,6 +428,16 @@ def _list_input(value, *, default=None) -> list[str]:
     return list(dict.fromkeys(str(v).strip() for v in values if str(v).strip()))
 
 
+def _radar_scope_input(value, *, default=None) -> list[str]:
+    """规范化雷达来源层；保留 all 作为显式全量选择。"""
+    values = [item.upper() for item in _list_input(value, default=default)]
+    allowed = {"ALL", "L1", "L2", "L3", "L4", "L5", "L6"}
+    values = [item for item in values if item in allowed]
+    if "ALL" in values:
+        return ["all"]
+    return list(dict.fromkeys(values))
+
+
 @app.get("/api/monitor/topics")
 def api_monitor_topics():
     """G2：查看持久化监测主题及订阅状态。"""
@@ -492,8 +502,7 @@ def api_radar_topic_create():
         interval = max(60, min(86400, int(body.get("interval_seconds", 900))))
     except (TypeError, ValueError):
         return jsonify({"error": "interval_seconds 必须是整数"}), 400
-    scope = [str(x).strip().upper() for x in (body.get("source_scope") or ["L1", "L2", "L3"])
-             if str(x).strip().upper() in {"L1", "L2", "L3", "L4", "L5", "L6"}]
+    scope = _radar_scope_input(body.get("source_scope"), default=["L1", "L2", "L3"])
     now = datetime.now(timezone.utc).isoformat()
     topic_id = uuid.uuid4().hex[:12]
     topic_create(topic_id, name, keywords, exclude, now, enabled=True,
@@ -501,12 +510,12 @@ def api_radar_topic_create():
     subscription_id = subscription_upsert(topic_id, interval, True, now)
     return jsonify({"topic_id": topic_id, "subscription_id": subscription_id,
                     "name": name, "keywords": keywords, "exclude_keywords": exclude,
-                    "interval_seconds": interval}), 201
+                    "interval_seconds": interval, "source_scope": scope}), 201
 
 
 @app.get("/api/radar/timeline")
 def api_radar_timeline():
-    from db import radar_stats, radar_timeline, topic_get
+    from db import radar_stats, radar_timeline_page, topic_get
     topic_id = (request.args.get("topic_id") or "").strip()
     topic = topic_get(topic_id)
     if not topic or topic.get("kind") != "radar":
@@ -515,10 +524,11 @@ def api_radar_timeline():
         limit = max(1, min(500, int(request.args.get("limit", 100))))
     except ValueError:
         return jsonify({"error": "limit 必须是整数"}), 400
-    return jsonify({"topic": topic, "items": radar_timeline(
+    page = radar_timeline_page(
         topic_id, limit=limit, before=(request.args.get("before") or "").strip(),
-        source_id=(request.args.get("source_id") or "").strip()),
-        "stats": radar_stats(topic_id)})
+        source_id=(request.args.get("source_id") or "").strip())
+    return jsonify({"topic": topic, "items": page["items"],
+                    "next_cursor": page["next_cursor"], "stats": radar_stats(topic_id)})
 
 
 @app.post("/api/radar/topics/<topic_id>/refresh")
@@ -572,10 +582,14 @@ def api_radar_topic_update(topic_id: str):
     if not name or not keywords:
         return jsonify({"error": "名称和至少一个关键词不能为空"}), 400
     now = datetime.now(timezone.utc).isoformat()
-    if not radar_update_topic(topic_id, name, keywords, exclude, now):
+    scope = None
+    if "source_scope" in body:
+        scope = _radar_scope_input(body.get("source_scope"), default=["L1", "L2", "L3"])
+    if not radar_update_topic(topic_id, name, keywords, exclude, now, source_scope=scope):
         return jsonify({"error": "雷达主题不存在"}), 404
     return jsonify({"ok": True, "topic_id": topic_id, "name": name,
                     "keywords": keywords, "exclude_keywords": exclude,
+                    "source_scope": scope if scope is not None else topic.get("source_scope", []),
                     "updated_at": now})
 
 

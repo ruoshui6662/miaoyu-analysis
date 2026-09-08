@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import threading
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
@@ -19,6 +20,9 @@ from hotlists import fetch_for_sources
 from radar_sources import RadarFeedError, fetch_feed
 
 LOGGER = logging.getLogger("miaoyu.radar")
+
+_RADAR_SCOPE_LEVELS = {f"L{index}" for index in range(1, 7)}
+_BACKOFF_SECONDS = (30, 60, 120, 300, 900)
 
 
 def _now() -> datetime:
@@ -35,6 +39,47 @@ def _source_id(item: dict) -> str:
         return source
     host = urlsplit(str(item.get("url") or "")).netloc.lower()
     return host or "unknown"
+
+
+def _scope_levels(value) -> set[str]:
+    """把主题来源范围规范化；空值沿用当前公开基础链路。"""
+    values = {str(item).strip().upper() for item in (value or []) if str(item).strip()}
+    if "ALL" in values:
+        return set(_RADAR_SCOPE_LEVELS)
+    return values & _RADAR_SCOPE_LEVELS or {"L1", "L2", "L3"}
+
+
+def _item_source_layer(item: dict) -> int:
+    if item.get("source_layer") is not None:
+        try:
+            return int(item["source_layer"])
+        except (TypeError, ValueError):
+            pass
+    # 兼容旧适配器输出：已绑定端点的条目是 L1，其余当前公共聚合源是 L2。
+    return 1 if item.get("source_endpoint_id") is not None else 2
+
+
+def _timestamp_is_due(value: str, now: datetime) -> bool:
+    raw = str(value or "").strip()
+    if not raw:
+        return True
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        # 状态损坏时允许一次修复性请求，避免永久卡死。
+        return True
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed <= now
+
+
+def _retry_seconds(failures: int) -> int:
+    """按规范退避，并加入只向后的轻微抖动，避免同刻重试形成尖峰。"""
+    index = max(0, min(int(failures) - 1, len(_BACKOFF_SECONDS) - 1))
+    base = _BACKOFF_SECONDS[index]
+    if base >= _BACKOFF_SECONDS[-1]:
+        return base
+    return min(_BACKOFF_SECONDS[-1], base + random.uniform(0, base * 0.1))
 
 
 def match_keywords(item: dict, keywords: list[str], excludes: list[str] | None = None) -> dict | None:
@@ -100,19 +145,32 @@ class RadarService:
                 return {"status": "error", "error": "雷达主题不存在", "topic_id": topic_id}
             if not sub:
                 return {"status": "error", "error": "雷达主题没有订阅", "topic_id": topic_id}
-            return self._collect_for_subscriptions([sub])[0]
+            return self._collect_for_subscriptions([sub], force=True)[0]
         finally:
             self._run_lock.release()
 
-    def _collect_for_subscriptions(self, subscriptions: list[dict]) -> list[dict]:
+    def _collect_for_subscriptions(self, subscriptions: list[dict], *, force: bool = False) -> list[dict]:
         started = _now()
         started_at = _iso(started)
         topic_ids = [str(sub["topic_id"]) for sub in subscriptions]
+        topics = {topic_id: db.topic_get(topic_id) for topic_id in topic_ids}
+        scope_by_topic = {
+            topic_id: _scope_levels((topics.get(topic_id) or {}).get("source_scope"))
+            for topic_id in topic_ids
+        }
+        endpoint_ids: set[int] = set()
+        include_public_sources = False
+        for topic_id, scope in scope_by_topic.items():
+            if "L1" in scope:
+                endpoint_ids.update(db.radar_topic_endpoint_ids([topic_id]))
+            if "L2" in scope:
+                include_public_sources = True
         rss_items, rss_warnings = self._fetch_rss_endpoints(
-            db.radar_topic_endpoint_ids(topic_ids), started, started_at,
+            endpoint_ids, started, started_at, force=force,
         )
         active_sources = [s for s in db.list_sources()
-                          if s["enabled"] and s["stype"] in ("hotlist", "feed")]
+                          if include_public_sources and s["enabled"]
+                          and s["stype"] in ("hotlist", "feed")]
         source_types = {s["name"]: ("feed" if s["stype"] == "feed" else "hotlist")
                         for s in active_sources}
         source_warnings: list[str] = []
@@ -121,6 +179,8 @@ class RadarService:
         except Exception as exc:  # noqa: BLE001
             raw_items = []
             source_warnings = [f"雷达信源异常: {str(exc)[:120]}"]
+        for item in raw_items:
+            item.setdefault("source_layer", 2)
         raw_items.extend(rss_items)
         source_warnings.extend(rss_warnings)
         for source in active_sources:
@@ -140,7 +200,7 @@ class RadarService:
         return results
 
     def _fetch_rss_endpoints(self, endpoint_ids: set[int], started: datetime,
-                             started_at: str) -> tuple[list[dict], list[str]]:
+                             started_at: str, *, force: bool = False) -> tuple[list[dict], list[str]]:
         """每个已绑定 RSS 端点只抓一次；失败不影响热榜和其他端点。"""
         if not endpoint_ids:
             return [], []
@@ -153,12 +213,18 @@ class RadarService:
                 continue
             endpoint_id = int(endpoint["id"])
             state = db.radar_endpoint_state(endpoint_id)
+            # 自动调度必须恢复并尊重持久化时间；手动刷新只绕过正常轮询间隔，
+            # 不绕过失败冷却，避免“立即刷新”把坏端点打成重试风暴。
+            if not _timestamp_is_due(state.get("cooldown_until", ""), started):
+                continue
+            if not force and not _timestamp_is_due(state.get("next_fetch_at", ""), started):
+                continue
             run_id = db.radar_sync_run_create(endpoint_id, started_at)
             try:
                 result = fetch_feed(endpoint, state)
                 finished = _now()
                 is_unchanged = result["status"] == "unchanged"
-                last_success = state.get("last_success_at", "") or finished.isoformat()
+                last_success = finished.isoformat()
                 next_fetch = _iso(finished + timedelta(seconds=endpoint["poll_interval_seconds"]))
                 db.radar_endpoint_state_upsert(
                     endpoint_id, status="unchanged" if is_unchanged else "healthy",
@@ -180,6 +246,7 @@ class RadarService:
                     item["source"] = endpoint["source_name"]
                     item["source_endpoint_id"] = endpoint_id
                     item["level"] = endpoint["level"]
+                    item["source_layer"] = 1
                 items.extend(result.get("items", []))
             except RadarFeedError as exc:
                 self._record_rss_failure(endpoint, state, run_id, started_at, started, exc)
@@ -195,7 +262,7 @@ class RadarService:
                             started: datetime, error: RadarFeedError) -> None:
         finished = _now()
         failures = int(state.get("consecutive_failures", 0)) + 1
-        retry_seconds = min(900, 30 * (2 ** min(failures - 1, 5)))
+        retry_seconds = _retry_seconds(failures)
         cooldown = _iso(finished + timedelta(seconds=retry_seconds))
         db.radar_endpoint_state_upsert(
             int(endpoint["id"]), status="cooldown" if failures >= 5 else "degraded",
@@ -217,12 +284,14 @@ class RadarService:
         topic = db.topic_get(sub["topic_id"])
         if not topic:
             return {"status": "error", "topic_id": sub["topic_id"], "error": "主题不存在"}
-        run_id = db.monitor_run_create(sub["id"], topic["id"], started_at,
-                                       db.cursor_get(f"radar:{topic['id']}"))
+        cursor_before = db.cursor_get(f"radar:{topic['id']}")
+        run_id = db.monitor_run_create(sub["id"], topic["id"], started_at, cursor_before)
         count = 0
         new_count = 0
         try:
             for raw in raw_items:
+                if _item_source_layer(raw) not in _scope_levels(topic.get("source_scope")):
+                    continue
                 hit = match_keywords(raw, topic["keywords"], topic.get("exclude_keywords"))
                 if not hit:
                     continue
@@ -248,10 +317,11 @@ class RadarService:
                     "items": count, "new_count": new_count, "source_warnings": source_warnings[:5]}
         except Exception as exc:  # noqa: BLE001
             finished = _now()
-            next_run = _iso(finished + timedelta(seconds=60))
+            next_run = _iso(finished + timedelta(seconds=_retry_seconds(
+                int(sub.get("consecutive_failures", 0)) + 1)))
             db.monitor_run_finish(run_id, status="error", finished_at=_iso(finished),
                                   item_count=count, new_count=new_count,
-                                  cursor_after=started_at, error_message=str(exc))
+                                  cursor_after=cursor_before, error_message=str(exc))
             db.subscription_mark_failure(sub["id"], _iso(finished), next_run, next_run)
             LOGGER.warning("radar_run_failed", extra={"topic_id": topic["id"], "error": str(exc)})
             return {"run_id": run_id, "status": "error", "topic_id": topic["id"],

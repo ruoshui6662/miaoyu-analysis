@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import email.utils
+import hashlib
 import ipaddress
+import json
 import os
 import socket
 from datetime import datetime, timezone
@@ -20,6 +22,9 @@ from config import USER_AGENT
 
 MAX_FEED_BYTES = 2 * 1024 * 1024
 HTTP_TIMEOUT = (5, 20)
+# source_fetch_states.cursor_value 当前为 TEXT；保存解析窗口内的稳定 ID 摘要，
+# 避免依赖 RSS 的排列顺序。完整去重仍由 Mention 的唯一键兜底。
+CURSOR_MAX_IDS = 100
 
 # Some transparent/fake-IP proxies map every public hostname to RFC 2544's
 # 198.18.0.0/15 range. It is not a real public destination, but requests made
@@ -216,6 +221,43 @@ def parse_feed(payload: bytes) -> dict:
     return {"feed_title": feed_title, "items": items}
 
 
+def _external_id_digest(value: str) -> str:
+    """把来源 ID 压缩成固定长度摘要，控制持久化游标的体积。"""
+    return hashlib.sha256(str(value or "").strip().encode("utf-8")).hexdigest()[:16]
+
+
+def _cursor_digests(value: str) -> set[str]:
+    """读取当前格式游标，并兼容历史上直接保存 external_id 的旧值。"""
+    raw = str(value or "").strip()
+    if not raw:
+        return set()
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return {_external_id_digest(raw)}
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        return set()
+    return {str(item) for item in payload.get("ids", []) if str(item).strip()}
+
+
+def _cursor_after(items: list[dict]) -> str:
+    """生成有界、稳定且与 Feed 顺序无关的增量游标。"""
+    digests: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        external_id = str(item.get("external_id") or "").strip()
+        if not external_id:
+            continue
+        digest = _external_id_digest(external_id)
+        if digest in seen:
+            continue
+        seen.add(digest)
+        digests.append(digest)
+        if len(digests) >= CURSOR_MAX_IDS:
+            break
+    return json.dumps({"version": 1, "ids": digests}, separators=(",", ":"))
+
+
 def fetch_feed(endpoint: dict, state: dict | None = None, *, preview_limit: int = 50) -> dict:
     """执行一次条件请求，返回 success/unchanged 及规范化 Feed 条目。"""
     url = validate_endpoint_url(endpoint.get("url", ""))
@@ -256,11 +298,21 @@ def fetch_feed(endpoint: dict, state: dict | None = None, *, preview_limit: int 
                 raise RadarFeedError("feed_too_large", "Feed 超过 2MB 大小限制", http_status=response.status_code)
             chunks.append(chunk)
         parsed = parse_feed(b"".join(chunks))
-        items = parsed["items"][:max(1, min(int(preview_limit), 100))]
-        cursor = items[0].get("external_id") if items else ""
+        all_items = parsed["items"]
+        seen = _cursor_digests(state.get("cursor_value", ""))
+        # Feed 的顺序不是协议级保证；只按稳定 GUID/Atom id 判断是否已见过。
+        # 游标先覆盖完整解析结果，再限制本轮导入数量，避免“截断的旧条目”在
+        # 下一轮被误判为新条目。历史游标仅保存摘要，因此数据库 Mention 唯一键
+        # 仍是最后一道幂等保障。
+        new_items = [
+            item for item in all_items
+            if _external_id_digest(item.get("external_id", "")) not in seen
+        ]
+        items = new_items[:max(1, min(int(preview_limit), 100))]
+        cursor = _cursor_after(all_items)
         return {
             "status": "success", "items": items, "feed_title": parsed["feed_title"],
-            "cursor_after": cursor or "", "etag": response.headers.get("ETag", ""),
+            "cursor_after": cursor, "etag": response.headers.get("ETag", ""),
             "last_modified": response.headers.get("Last-Modified", ""),
             "http_status": response.status_code,
         }

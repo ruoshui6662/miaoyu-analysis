@@ -1054,15 +1054,40 @@ def radar_subscriptions_due(now: str) -> list[dict]:
              "created_at": r[8], "updated_at": r[9]} for r in rows]
 
 
-def radar_timeline(topic_id: str, *, limit: int = 100, before: str = "",
-                   source_id: str = "") -> list[dict]:
-    """按发布时间优先、采集时间兜底读取雷达时间线。before 使用 ISO 时间游标。"""
+def _decode_timeline_cursor(value: str) -> tuple[str, int]:
+    """读取 time+id 游标，并兼容旧版只传 ISO 时间的分页请求。"""
+    raw = str(value or "").strip()
+    if not raw:
+        return "", 0
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return raw, 0
+    if not isinstance(payload, dict):
+        return raw, 0
+    at = str(payload.get("at") or "").strip()
+    try:
+        item_id = int(payload.get("id") or 0)
+    except (TypeError, ValueError):
+        item_id = 0
+    return at, max(0, item_id)
+
+
+def _encode_timeline_cursor(sort_at: str, item_id: int) -> str:
+    return json.dumps({"at": sort_at, "id": int(item_id)}, separators=(",", ":"))
+
+
+def radar_timeline_page(topic_id: str, *, limit: int = 100, before: str = "",
+                        source_id: str = "") -> dict:
+    """按发布时间优先、采集时间兜底读取时间线，并返回稳定的 time+id 游标。"""
+    cursor_at, cursor_id = _decode_timeline_cursor(before)
     conn = _conn()
     try:
+        sort_expr = "COALESCE(NULLIF(m.published_at,''), mt.first_seen_at)"
         query = (
             "SELECT m.id, m.title, m.snippet, m.canonical_url, m.source_id, m.source_type, "
             "m.published_at, m.captured_at, mt.first_seen_at, mt.last_seen_at, "
-            "mt.matched_keywords_json, mt.match_location "
+            "mt.matched_keywords_json, mt.match_location, " + sort_expr + " AS sort_at "
             "FROM mention_topics mt JOIN mentions m ON m.id=mt.mention_id "
             "WHERE mt.topic_id=?"
         )
@@ -1070,14 +1095,21 @@ def radar_timeline(topic_id: str, *, limit: int = 100, before: str = "",
         if source_id:
             query += " AND m.source_id=?"
             params.append(source_id)
-        if before:
-            query += " AND COALESCE(NULLIF(m.published_at,''), mt.first_seen_at) < ?"
-            params.append(before)
-        query += " ORDER BY COALESCE(NULLIF(m.published_at,''), mt.first_seen_at) DESC, m.id DESC LIMIT ?"
-        params.append(max(1, min(int(limit), 500)))
+        if cursor_at:
+            if cursor_id:
+                query += f" AND ({sort_expr} < ? OR ({sort_expr} = ? AND m.id < ?))"
+                params.extend([cursor_at, cursor_at, cursor_id])
+            else:
+                query += f" AND {sort_expr} < ?"
+                params.append(cursor_at)
+        page_limit = max(1, min(int(limit), 500))
+        query += f" ORDER BY {sort_expr} DESC, m.id DESC LIMIT ?"
+        params.append(page_limit + 1)
         rows = conn.execute(query, params).fetchall()
     finally:
         conn.close()
+    has_more = len(rows) > page_limit
+    rows = rows[:page_limit]
     out = []
     for row in rows:
         try:
@@ -1089,7 +1121,16 @@ def radar_timeline(topic_id: str, *, limit: int = 100, before: str = "",
                     "published_at": row[6] or "", "captured_at": row[7] or "",
                     "first_seen_at": row[8] or "", "last_seen_at": row[9] or "",
                     "matched_keywords": matched, "match_location": row[11] or "title"})
-    return out
+    next_cursor = ""
+    if has_more and rows:
+        next_cursor = _encode_timeline_cursor(rows[-1][12] or rows[-1][8] or "", rows[-1][0])
+    return {"items": out, "next_cursor": next_cursor}
+
+
+def radar_timeline(topic_id: str, *, limit: int = 100, before: str = "",
+                   source_id: str = "") -> list[dict]:
+    """兼容旧调用方的时间线列表接口；分页 API 使用 radar_timeline_page。"""
+    return radar_timeline_page(topic_id, limit=limit, before=before, source_id=source_id)["items"]
 
 
 def radar_stats(topic_id: str) -> dict:
@@ -1128,16 +1169,26 @@ def radar_mark_read(topic_id: str, read_at: str) -> bool:
 
 
 def radar_update_topic(topic_id: str, name: str, keywords: list[str],
-                       exclude_keywords: list[str], now: str) -> bool:
-    """更新雷达主题的展示名和关键词，不改变订阅、游标及历史信息。"""
+                       exclude_keywords: list[str], now: str,
+                       source_scope: list[str] | None = None) -> bool:
+    """更新雷达规则；不改变订阅、游标及历史信息。"""
     conn = _conn()
     try:
-        cur = conn.execute(
-            "UPDATE topics SET name=?, keywords_json=?, exclude_keywords_json=?, updated_at=? "
-            "WHERE id=? AND kind='radar'",
-            (name.strip(), json.dumps(keywords, ensure_ascii=False),
-             json.dumps(exclude_keywords, ensure_ascii=False), now, topic_id),
-        )
+        if source_scope is None:
+            cur = conn.execute(
+                "UPDATE topics SET name=?, keywords_json=?, exclude_keywords_json=?, updated_at=? "
+                "WHERE id=? AND kind='radar'",
+                (name.strip(), json.dumps(keywords, ensure_ascii=False),
+                 json.dumps(exclude_keywords, ensure_ascii=False), now, topic_id),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE topics SET name=?, keywords_json=?, exclude_keywords_json=?, "
+                "source_scope_json=?, updated_at=? WHERE id=? AND kind='radar'",
+                (name.strip(), json.dumps(keywords, ensure_ascii=False),
+                 json.dumps(exclude_keywords, ensure_ascii=False),
+                 json.dumps(source_scope, ensure_ascii=False), now, topic_id),
+            )
         conn.commit()
         return cur.rowcount > 0
     finally:
@@ -1461,7 +1512,7 @@ def radar_endpoint_state_upsert(endpoint_id: int, *, status: str, checked_at: st
             "average_update_seconds=excluded.average_update_seconds, last_http_status=excluded.last_http_status, "
             "updated_at=excluded.updated_at",
             (key, display_name, display_type, checked_at, status, int(item_count),
-             error_message[:500], etag[:500], last_modified[:500], cursor_value[:500], last_success_at,
+             error_message[:500], etag[:500], last_modified[:500], cursor_value[:4000], last_success_at,
              next_fetch_at, int(consecutive_failures), cooldown_until, int(average_update_seconds),
              int(last_http_status), checked_at),
         )

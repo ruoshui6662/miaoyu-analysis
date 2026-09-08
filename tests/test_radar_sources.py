@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import db
 from radar_sources import RadarFeedError, _check_resolved_target, fetch_feed, parse_feed, validate_endpoint_url
-from radar import RadarService
+from radar import RadarService, _retry_seconds
 
 
 RSS_XML = '''<?xml version="1.0" encoding="UTF-8"?>
@@ -57,6 +57,33 @@ class RadarSourceTests(unittest.TestCase):
         headers = request.call_args.kwargs["headers"]
         self.assertEqual(headers["If-None-Match"], '"v1"')
         self.assertEqual(headers["If-Modified-Since"], state["last_modified"])
+
+    def test_fetch_cursor_filters_seen_ids_even_when_feed_order_changes(self):
+        payload_one = '''<rss version="2.0"><channel><title>示例</title>
+        <item><title>旧条目</title><link>https://example.test/old</link><guid>old-1</guid></item>
+        <item><title>中间条目</title><link>https://example.test/mid</link><guid>mid-1</guid></item>
+        </channel></rss>'''.encode("utf-8")
+        payload_two = '''<rss version="2.0"><channel><title>示例</title>
+        <item><title>新条目</title><link>https://example.test/new</link><guid>new-1</guid></item>
+        <item><title>旧条目</title><link>https://example.test/old</link><guid>old-1</guid></item>
+        <item><title>中间条目</title><link>https://example.test/mid</link><guid>mid-1</guid></item>
+        </channel></rss>'''.encode("utf-8")
+        endpoint = {"url": "https://example.test/feed.xml"}
+        with patch("radar_sources._check_resolved_target"), patch(
+                "radar_sources.requests.get", side_effect=[
+                    _Response(200, payload_one, {"ETag": '"v1"'}),
+                    _Response(200, payload_two, {"ETag": '"v2"'}),
+                ]):
+            first = fetch_feed(endpoint)
+            second = fetch_feed(endpoint, {"cursor_value": first["cursor_after"]})
+        self.assertEqual([item["external_id"] for item in first["items"]], ["old-1", "mid-1"])
+        self.assertEqual([item["external_id"] for item in second["items"]], ["new-1"])
+        self.assertTrue(first["cursor_after"].startswith('{"version":1'))
+
+    def test_backoff_schedule_has_documented_caps(self):
+        with patch("radar.random.uniform", return_value=0):
+            self.assertEqual([_retry_seconds(i) for i in range(1, 7)],
+                             [30, 60, 120, 300, 900, 900])
 
     def test_endpoint_identity_binding_and_state_are_persistent(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-source-") as tmp:
@@ -123,6 +150,27 @@ class RadarSourceTests(unittest.TestCase):
                 self.assertEqual(db.radar_stats("radar-feed-1")["total"], 1)
                 self.assertEqual(db.radar_endpoint_state(endpoint_id)["status"], "healthy")
                 self.assertEqual(fetch.call_count, 1)
+
+    def test_radar_service_respects_persisted_next_fetch_at(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-next-fetch-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch("radar.fetch_for_sources", return_value=([], [])), \
+                 patch("radar.fetch_feed") as fetch:
+                source_id = db.radar_source_identity_get_or_create("未到期媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", "https://example.test/feed.xml")
+                db.topic_create("radar-next-fetch", "小米", ["小米"], [],
+                                datetime.now(timezone.utc).isoformat(), kind="radar")
+                db.radar_topic_endpoint_bind("radar-next-fetch", endpoint_id)
+                now = datetime.now(timezone.utc).isoformat()
+                db.radar_endpoint_state_upsert(
+                    endpoint_id, status="healthy", checked_at=now,
+                    next_fetch_at="2999-01-01T00:00:00+00:00", cursor_value="old-cursor",
+                )
+                sub = db.subscription_upsert("radar-next-fetch", 900, True, now)
+                result = RadarService()._collect_for_subscriptions([db.subscription_get(sub)])
+                self.assertEqual(result[0]["status"], "success")
+                fetch.assert_not_called()
+                self.assertEqual(db.radar_endpoint_state(endpoint_id)["cursor_value"], "old-cursor")
 
     def test_feed_failure_preserves_cursor_and_enters_backoff(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-feed-fail-") as tmp:
