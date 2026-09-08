@@ -337,7 +337,7 @@ class RadarService:
         new_count = 0
         try:
             for raw in raw_items:
-                if _item_source_layer(raw) not in _scope_levels(topic.get("source_scope")):
+                if f"L{_item_source_layer(raw)}" not in _scope_levels(topic.get("source_scope")):
                     continue
                 hit = match_keywords(raw, topic["keywords"], topic.get("exclude_keywords"))
                 if not hit:

@@ -502,11 +502,16 @@ def api_radar_topic_create():
         interval = max(60, min(86400, int(body.get("interval_seconds", 900))))
     except (TypeError, ValueError):
         return jsonify({"error": "interval_seconds 必须是整数"}), 400
-    scope = _radar_scope_input(body.get("source_scope"), default=["L1", "L2", "L3"])
+    if "source_scope" in body:
+        scope = _radar_scope_input(body.get("source_scope"), default=[])
+        if not scope:
+            return jsonify({"error": "source_scope 至少包含一个有效来源层级"}), 400
+    else:
+        scope = ["L1", "L2", "L3"]
     now = datetime.now(timezone.utc).isoformat()
     topic_id = uuid.uuid4().hex[:12]
     topic_create(topic_id, name, keywords, exclude, now, enabled=True,
-                 kind="radar", source_scope=scope or ["L1", "L2", "L3"])
+                 kind="radar", source_scope=scope)
     subscription_id = subscription_upsert(topic_id, interval, True, now)
     return jsonify({"topic_id": topic_id, "subscription_id": subscription_id,
                     "name": name, "keywords": keywords, "exclude_keywords": exclude,
@@ -606,7 +611,9 @@ def api_radar_topic_update(topic_id: str):
     now = datetime.now(timezone.utc).isoformat()
     scope = None
     if "source_scope" in body:
-        scope = _radar_scope_input(body.get("source_scope"), default=["L1", "L2", "L3"])
+        scope = _radar_scope_input(body.get("source_scope"), default=[])
+        if not scope:
+            return jsonify({"error": "source_scope 至少包含一个有效来源层级"}), 400
     if not radar_update_topic(topic_id, name, keywords, exclude, now, source_scope=scope):
         return jsonify({"error": "雷达主题不存在"}), 404
     return jsonify({"ok": True, "topic_id": topic_id, "name": name,

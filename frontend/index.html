@@ -1965,13 +1965,20 @@
   .radar-empty span { display: block; }
   .radar-editor { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(22, 26, 33, .28); }
   .radar-editor.hidden { display: none; }
-  .radar-editor-form { width: min(460px, 100%); padding: 28px; border-radius: 14px; background: var(--card); box-shadow: 0 18px 60px rgba(16,24,40,.18); }
+  .radar-editor-form { width: min(460px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 28px; border-radius: 14px; background: var(--card); box-shadow: 0 18px 60px rgba(16,24,40,.18); }
   .radar-editor-kicker { color: var(--red); font-size: 12px; font-weight: 650; }
   .radar-editor-form h2 { margin-top: 6px; color: var(--text-strong); font-size: 22px; }
   .radar-editor-form > p { margin: 7px 0 20px; color: var(--text-3); font-size: 12px; line-height: 1.6; }
   .radar-editor-form .f-label { display: block; margin-top: 14px; }
   .radar-editor-form .sel { width: 100%; min-height: 42px; margin-top: 7px; }
   .radar-editor-textarea { min-height: 80px !important; padding: 10px 12px; resize: vertical; }
+  .radar-scope-options { display: grid; gap: 7px; margin-top: 7px; }
+  .radar-scope-option { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--separator); border-radius: 8px; background: var(--surface); color: var(--text-2); font-size: 12px; line-height: 1.45; cursor: pointer; }
+  .radar-scope-option:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 38%, var(--separator)); background: var(--selected); color: var(--text-strong); }
+  .radar-scope-option:has(input:disabled) { cursor: not-allowed; opacity: .62; }
+  .radar-scope-option input { width: 14px; height: 14px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+  .radar-scope-option strong { display: block; font-weight: 620; }
+  .radar-scope-option small { display: block; margin-top: 2px; color: var(--text-3); font-size: 11px; }
   .radar-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
   .radar-editor-actions button { min-height: 40px; padding: 0 14px; border-radius: var(--r-sm); font-size: 13px; }
   /* 雷达设置：以轻量列表呈现可执行端点，避免再叠加大卡片。 */
@@ -2006,6 +2013,8 @@
   #view-settings .radar-source-name { color: var(--text-strong); font-size: 13px; font-weight: 620; }
   #view-settings .radar-source-url { overflow: hidden; margin-top: 4px; color: var(--text-3); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
   #view-settings .radar-source-meta { margin-top: 5px; color: var(--text-3); font-size: 11px; }
+  #view-settings .radar-source-health { overflow: hidden; margin-top: 4px; color: var(--text-3); font-size: 11px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+  #view-settings .radar-source-health span { color: var(--red); }
   #view-settings .radar-source-state { min-width: 72px; text-align: right; }
   #view-settings .radar-source-state .badge { display: inline-flex; }
   #view-settings .radar-source-toggle { width: 44px; height: 36px; flex: none; display: inline-flex; align-items: center; justify-content: flex-end; cursor: pointer; }
@@ -2688,6 +2697,16 @@
     <textarea class="sel radar-editor-textarea" id="radarKeywords" rows="3" placeholder="用逗号或换行分隔，例如：品牌名，新品，发布会" required></textarea>
     <label class="f-label" for="radarExcludes">排除词（可选）</label>
     <input class="sel" id="radarExcludes" placeholder="用逗号分隔，例如：招聘，二手">
+    <span class="f-label">允许读取的来源层</span>
+    <div id="radarScopeOptions" class="radar-scope-options">
+      <label class="radar-scope-option"><input type="checkbox" value="L1"><span><strong>L1 · RSS / Atom</strong><small>读取已登记并绑定到主题的 Feed 端点。</small></span></label>
+      <label class="radar-scope-option"><input type="checkbox" value="L2"><span><strong>L2 · 公共聚合</strong><small>读取当前已有的公开热榜 / feed 聚合。</small></span></label>
+      <label class="radar-scope-option"><input type="checkbox" value="L3" disabled><span><strong>L3 · 网站发现</strong><small>尚未接入采集器，暂不能产生请求。</small></span></label>
+      <label class="radar-scope-option"><input type="checkbox" value="L4" disabled><span><strong>L4 · RSSHub / Bridge</strong><small>尚未接入适配器。</small></span></label>
+      <label class="radar-scope-option"><input type="checkbox" value="L5" disabled><span><strong>L5 · 公共账号 / 官方 API</strong><small>尚未接入适配器。</small></span></label>
+      <label class="radar-scope-option"><input type="checkbox" value="L6" disabled><span><strong>L6 · 搜索补漏</strong><small>后续低频补漏层，当前不会静默调用。</small></span></label>
+    </div>
+    <div class="f-help">未选择任何已实现层级时，保存会被拒绝；未接入层级会保留已有配置，但当前不会发起请求。</div>
     <div class="radar-editor-actions"><button type="button" class="btn-secondary" onclick="closeRadarEditor()">取消</button><button type="submit" class="primary" id="radarSaveButton">保存关键词</button></div>
   </form>
 </div>
@@ -4511,6 +4530,19 @@ function radarRelativeTime(value) {
   return `${Math.floor(minutes / 1440)} 天前`;
 }
 
+function radarScheduleLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || "时间未知").slice(0, 16).replace("T", " ");
+  const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+  if (seconds > 0) {
+    if (seconds < 60) return `${seconds} 秒后`;
+    if (seconds < 3600) return `${Math.ceil(seconds / 60)} 分钟后`;
+    if (seconds < 86400) return `${Math.ceil(seconds / 3600)} 小时后`;
+    return `${Math.ceil(seconds / 86400)} 天后`;
+  }
+  return radarRelativeTime(value);
+}
+
 function radarDayLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value || "时间未知").slice(0, 10);
@@ -4625,6 +4657,12 @@ function openRadarEditor(topicId = "") {
   $("radarName").value = topic?.name || "";
   $("radarKeywords").value = topic ? (topic.keywords || []).join("，") : "";
   $("radarExcludes").value = topic ? (topic.exclude_keywords || []).join("，") : "";
+  const rawScope = Array.isArray(topic?.source_scope) && topic.source_scope.length
+    ? topic.source_scope : ["L1", "L2", "L3"];
+  const scope = new Set(rawScope.map(item => String(item).toUpperCase()));
+  document.querySelectorAll("#radarScopeOptions input").forEach(input => {
+    input.checked = scope.has("ALL") || scope.has(input.value.toUpperCase());
+  });
   $("radarSaveButton").textContent = topic ? "保存修改" : "保存关键词";
   setTimeout(() => $("radarName")?.focus(), 0);
 }
@@ -4637,7 +4675,14 @@ async function saveRadarTopic(event) {
   const editingId = radarEditingId;
   if (button) { button.disabled = true; button.textContent = "保存中…"; }
   const split = value => String(value || "").replaceAll("，", ",").split(/[\n,]/).map(item => item.trim()).filter(Boolean);
-  const payload = { name: $("radarName").value.trim(), keywords: split($("radarKeywords").value), exclude_keywords: split($("radarExcludes").value) };
+  const sourceScope = [...document.querySelectorAll("#radarScopeOptions input:checked")].map(input => input.value);
+  if (!sourceScope.some(level => ["L1", "L2"].includes(level))) {
+    if (button) { button.disabled = false; button.textContent = editingId ? "保存修改" : "保存关键词"; }
+    toast("至少选择一个当前已实现的来源层级", "error");
+    return;
+  }
+  const payloadScope = sourceScope.length === 6 ? ["all"] : sourceScope;
+  const payload = { name: $("radarName").value.trim(), keywords: split($("radarKeywords").value), exclude_keywords: split($("radarExcludes").value), source_scope: payloadScope };
   const data = await api(editingId ? `/api/radar/topics/${encodeURIComponent(editingId)}` : "/api/radar/topics", {
     method: editingId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
   });
@@ -5284,6 +5329,20 @@ function radarStateBadge(endpoint) {
   return `<span class="badge ${cls}" title="${escAttr(title)}">${RADAR_STATE_LABELS[status] || "待首次同步"}</span>`;
 }
 
+function radarHealthDetail(state) {
+  const parts = [];
+  const failures = Number(state?.consecutive_failures || 0);
+  if (state?.status === "cooldown" && state.cooldown_until) {
+    parts.push(`退避至 ${radarScheduleLabel(state.cooldown_until)}`);
+  } else if (state?.next_fetch_at) {
+    parts.push(`下次检查 ${radarScheduleLabel(state.next_fetch_at)}`);
+  }
+  if (failures) parts.push(`连续失败 ${failures} 次`);
+  if (state?.last_http_status) parts.push(`HTTP ${Number(state.last_http_status)}`);
+  if (state?.error_message) parts.push(`<span title="${escAttr(state.error_message)}">${esc(state.error_message.slice(0, 96))}</span>`);
+  return parts.join(" · ") || "等待首次同步";
+}
+
 function renderRadarSourceTopics() {
   const box = $("radarSourceTopics");
   if (!box) return;
@@ -5314,7 +5373,8 @@ function renderRadarSources() {
       <span class="radar-source-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 3.5V12l6 6"></path></svg></span>
       <div class="radar-source-copy"><div class="radar-source-name">${esc(item.source_name)} <span class="badge pending">${esc(String(item.endpoint_type || "rss").toUpperCase())}</span></div>
         <div class="radar-source-url" title="${escAttr(item.url)}">${esc(item.url)}</div>
-        <div class="radar-source-meta">${esc(topics)} · 每 ${Math.round(Number(item.poll_interval_seconds || 900) / 60)} 分钟 · ${esc(checkedAt)}</div></div>
+        <div class="radar-source-meta">${esc(topics)} · 每 ${Math.round(Number(item.poll_interval_seconds || 900) / 60)} 分钟 · ${esc(checkedAt)}</div>
+        <div class="radar-source-health">${radarHealthDetail(state)}</div></div>
       <div class="radar-source-state">${radarStateBadge(item)}</div>
       <label class="radar-source-toggle" title="${item.enabled ? "停用" : "启用"} ${escAttr(item.source_name)}"><input type="checkbox" aria-label="${item.enabled ? "停用" : "启用"} ${escAttr(item.source_name)}" ${item.enabled ? "checked" : ""} onchange="toggleRadarEndpoint(${Number(item.id)}, this.checked)"><span class="radar-source-switch" aria-hidden="true"></span></label>
       <div class="radar-source-actions">
