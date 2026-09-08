@@ -164,6 +164,7 @@ class RadarSourceTests(unittest.TestCase):
                                               datetime.now(timezone.utc).isoformat())
                 result = RadarService()._collect_for_subscriptions([db.subscription_get(sub)])
                 self.assertEqual(result[0]["items"], 1)
+                self.assertEqual(result[0]["result_code"], "matched")
                 self.assertEqual(db.radar_stats("radar-feed-1")["total"], 1)
                 self.assertEqual(db.radar_endpoint_state(endpoint_id)["status"], "healthy")
                 self.assertEqual(fetch.call_count, 1)
@@ -216,8 +217,10 @@ class RadarSourceTests(unittest.TestCase):
                 result = RadarService().run_topic("radar-run-status", run_id)
                 runs = db.monitor_runs("radar-run-status", 10)
                 self.assertEqual(result["run_id"], run_id)
+                self.assertEqual(result["result_code"], "no_sources")
                 self.assertEqual(len(runs), 1)
                 self.assertEqual(runs[0]["status"], "success")
+                self.assertEqual(runs[0]["result_code"], "no_sources")
 
     def test_feed_failure_preserves_cursor_and_enters_backoff(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-feed-fail-") as tmp:

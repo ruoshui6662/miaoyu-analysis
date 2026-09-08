@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS monitor_runs (
   new_count INTEGER NOT NULL DEFAULT 0,
   cursor_before TEXT DEFAULT '',
   cursor_after TEXT DEFAULT '',
+  result_code TEXT NOT NULL DEFAULT '',
   error_message TEXT DEFAULT '',
   FOREIGN KEY(subscription_id) REFERENCES subscriptions(id),
   FOREIGN KEY(topic_id) REFERENCES topics(id)
@@ -314,6 +315,7 @@ def _conn() -> sqlite3.Connection:
     _ensure_column(conn, "topics", "kind", "TEXT NOT NULL DEFAULT 'monitor'")
     _ensure_column(conn, "topics", "source_scope_json", "TEXT NOT NULL DEFAULT '[\"L1\",\"L2\",\"L3\"]'")
     _ensure_column(conn, "topics", "last_read_at", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "monitor_runs", "result_code", "TEXT NOT NULL DEFAULT ''")
     _ensure_column(conn, "mention_topics", "matched_keywords_json", "TEXT NOT NULL DEFAULT '[]'")
     _ensure_column(conn, "mention_topics", "match_location", "TEXT NOT NULL DEFAULT 'title'")
     _ensure_column(conn, "source_fetch_states", "etag", "TEXT NOT NULL DEFAULT ''")
@@ -997,14 +999,14 @@ def monitor_run_create(subscription_id: int, topic_id: str, started_at: str,
 
 def monitor_run_finish(run_id: int, *, status: str, finished_at: str,
                        item_count: int, new_count: int, cursor_after: str = "",
-                       error_message: str = "") -> None:
+                       error_message: str = "", result_code: str = "") -> None:
     conn = _conn()
     try:
         conn.execute(
             "UPDATE monitor_runs SET finished_at=?, status=?, item_count=?, new_count=?, "
-            "cursor_after=?, error_message=? WHERE id=?",
+            "cursor_after=?, result_code=?, error_message=? WHERE id=?",
             (finished_at, status, int(item_count), int(new_count), cursor_after,
-             error_message[:500], run_id),
+             result_code[:40], error_message[:500], run_id),
         )
         conn.commit()
     finally:
@@ -1627,7 +1629,7 @@ def monitor_runs(topic_id: str = "", limit: int = 100) -> list[dict]:
     try:
         query = (
             "SELECT id, subscription_id, topic_id, started_at, finished_at, status, item_count, "
-            "new_count, cursor_before, cursor_after, error_message FROM monitor_runs"
+            "new_count, cursor_before, cursor_after, result_code, error_message FROM monitor_runs"
         )
         params: list = []
         if topic_id:
@@ -1641,7 +1643,8 @@ def monitor_runs(topic_id: str = "", limit: int = 100) -> list[dict]:
     return [{"id": r[0], "subscription_id": r[1], "topic_id": r[2],
              "started_at": r[3], "finished_at": r[4] or "", "status": r[5],
              "item_count": r[6], "new_count": r[7], "cursor_before": r[8] or "",
-             "cursor_after": r[9] or "", "error_message": r[10] or ""} for r in rows]
+             "cursor_after": r[9] or "", "result_code": r[10] or "",
+             "error_message": r[11] or ""} for r in rows]
 
 
 def monitor_runs_window(topic_id: str, since: str, until: str,
@@ -1650,7 +1653,7 @@ def monitor_runs_window(topic_id: str, since: str, until: str,
     try:
         rows = conn.execute(
             "SELECT id, subscription_id, topic_id, started_at, finished_at, status, item_count, "
-            "new_count, cursor_before, cursor_after, error_message FROM monitor_runs "
+            "new_count, cursor_before, cursor_after, result_code, error_message FROM monitor_runs "
             "WHERE topic_id=? AND started_at>=? AND started_at<=? "
             "ORDER BY id DESC LIMIT ?",
             (topic_id, since, until, max(1, min(int(limit), 1000))),
@@ -1660,7 +1663,8 @@ def monitor_runs_window(topic_id: str, since: str, until: str,
     return [{"id": r[0], "subscription_id": r[1], "topic_id": r[2],
              "started_at": r[3], "finished_at": r[4] or "", "status": r[5],
              "item_count": r[6], "new_count": r[7], "cursor_before": r[8] or "",
-             "cursor_after": r[9] or "", "error_message": r[10] or ""} for r in rows]
+             "cursor_after": r[9] or "", "result_code": r[10] or "",
+             "error_message": r[11] or ""} for r in rows]
 
 
 def cursor_get(source_id: str) -> str:

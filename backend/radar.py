@@ -60,6 +60,13 @@ def _item_source_layer(item: dict) -> int:
     return 1 if item.get("source_endpoint_id") is not None else 2
 
 
+def _radar_result_code(item_count: int, source_count: int) -> str:
+    """将执行结果与发现结果分开，避免把 0 条命中解释成一次失败。"""
+    if int(source_count) <= 0:
+        return "no_sources"
+    return "matched" if int(item_count) > 0 else "no_match"
+
+
 def _timestamp_is_due(value: str, now: datetime) -> bool:
     raw = str(value or "").strip()
     if not raw:
@@ -144,15 +151,27 @@ class RadarService:
                 db.monitor_run_finish(
                     run_id, status="error", finished_at=_iso(_now()),
                     item_count=0, new_count=0, cursor_after=cursor,
-                    error_message="已有雷达任务正在运行",
+                    error_message="已有雷达任务正在运行", result_code="busy",
                 )
             return {"status": "skipped", "reason": "already_running", "topic_id": topic_id}
         try:
             sub = db.subscription_get_by_topic(topic_id)
             topic = db.topic_get(topic_id)
             if not topic or topic.get("kind") != "radar":
+                if run_id:
+                    db.monitor_run_finish(
+                        run_id, status="error", finished_at=_iso(_now()),
+                        item_count=0, new_count=0, result_code="error",
+                        error_message="雷达主题不存在",
+                    )
                 return {"status": "error", "error": "雷达主题不存在", "topic_id": topic_id}
             if not sub:
+                if run_id:
+                    db.monitor_run_finish(
+                        run_id, status="error", finished_at=_iso(_now()),
+                        item_count=0, new_count=0, result_code="error",
+                        error_message="雷达主题没有订阅",
+                    )
                 return {"status": "error", "error": "雷达主题没有订阅", "topic_id": topic_id}
             try:
                 return self._collect_for_subscriptions(
@@ -165,7 +184,7 @@ class RadarService:
                     db.monitor_run_finish(
                         run_id, status="error", finished_at=_iso(_now()),
                         item_count=0, new_count=0, cursor_after=cursor,
-                        error_message=str(exc),
+                        error_message=str(exc), result_code="error",
                     )
                 LOGGER.warning("radar_manual_run_failed", extra={
                     "topic_id": topic_id, "error": str(exc),
@@ -180,6 +199,9 @@ class RadarService:
         started_at = _iso(started)
         topic_ids = [str(sub["topic_id"]) for sub in subscriptions]
         topics = {topic_id: db.topic_get(topic_id) for topic_id in topic_ids}
+        topic_endpoint_ids = {
+            topic_id: db.radar_topic_endpoint_ids([topic_id]) for topic_id in topic_ids
+        }
         scope_by_topic = {
             topic_id: _scope_levels((topics.get(topic_id) or {}).get("source_scope"))
             for topic_id in topic_ids
@@ -188,7 +210,7 @@ class RadarService:
         include_public_sources = False
         for topic_id, scope in scope_by_topic.items():
             if "L1" in scope:
-                endpoint_ids.update(db.radar_topic_endpoint_ids([topic_id]))
+                endpoint_ids.update(topic_endpoint_ids[topic_id])
             if "L2" in scope:
                 include_public_sources = True
         rss_items, rss_warnings = self._fetch_rss_endpoints(
@@ -199,16 +221,16 @@ class RadarService:
                           and s["stype"] in ("hotlist", "feed")]
         source_types = {s["name"]: ("feed" if s["stype"] == "feed" else "hotlist")
                         for s in active_sources}
-        source_warnings: list[str] = []
+        public_warnings: list[str] = []
         try:
-            raw_items, source_warnings = fetch_for_sources(active_sources) if active_sources else ([], [])
+            raw_items, public_warnings = fetch_for_sources(active_sources) if active_sources else ([], [])
         except Exception as exc:  # noqa: BLE001
             raw_items = []
-            source_warnings = [f"雷达信源异常: {str(exc)[:120]}"]
+            public_warnings = [f"雷达信源异常: {str(exc)[:120]}"]
         for item in raw_items:
             item.setdefault("source_layer", 2)
         raw_items.extend(rss_items)
-        source_warnings.extend(rss_warnings)
+        source_warnings = public_warnings + rss_warnings
         for source in active_sources:
             warning = next((w for w in source_warnings if source["name"] in w), "")
             db.radar_source_state(
@@ -219,10 +241,25 @@ class RadarService:
                 error_message=warning,
             )
 
+        enabled_rss_ids = {
+            int(endpoint["id"])
+            for endpoint in db.radar_endpoints(enabled_only=True)
+            if endpoint["endpoint_type"] in {"rss", "atom"}
+        }
         results = []
         for sub in subscriptions:
-            results.append(self._ingest_topic(sub, raw_items, source_types, source_warnings,
-                                              started_at, started,
+            topic_id = str(sub["topic_id"])
+            scope = scope_by_topic[topic_id]
+            topic_warnings = []
+            if "L2" in scope:
+                topic_warnings.extend(public_warnings)
+            if "L1" in scope:
+                topic_warnings.extend(rss_warnings)
+            source_count = len(topic_endpoint_ids[topic_id] & enabled_rss_ids)
+            if "L2" in scope:
+                source_count += len(active_sources)
+            results.append(self._ingest_topic(sub, raw_items, source_types, topic_warnings,
+                                              started_at, started, source_configured=source_count,
                                               run_id=(monitor_run_ids or {}).get(str(sub["topic_id"]))))
         return results
 
@@ -327,7 +364,7 @@ class RadarService:
 
     def _ingest_topic(self, sub: dict, raw_items: list[dict], source_types: dict,
                       source_warnings: list[str], started_at: str, started: datetime,
-                      run_id: int | None = None) -> dict:
+                      source_configured: int = 0, run_id: int | None = None) -> dict:
         topic = db.topic_get(sub["topic_id"])
         if not topic:
             return {"status": "error", "topic_id": sub["topic_id"], "error": "主题不存在"}
@@ -356,19 +393,26 @@ class RadarService:
                 new_count += int(created)
             db.cursor_upsert(f"radar:{topic['id']}", started_at, started_at)
             finished = _now()
-            db.monitor_run_finish(run_id, status="success", finished_at=_iso(finished),
-                                  item_count=count, new_count=new_count, cursor_after=started_at)
+            result_code = _radar_result_code(count, source_configured)
+            run_status = "partial" if source_warnings else "success"
+            db.monitor_run_finish(
+                run_id, status=run_status, finished_at=_iso(finished),
+                item_count=count, new_count=new_count, cursor_after=started_at,
+                result_code=result_code, error_message="；".join(source_warnings[:5]),
+            )
             next_run = _iso(finished + timedelta(seconds=sub["interval_seconds"]))
             db.subscription_mark_success(sub["id"], _iso(finished), next_run)
-            return {"run_id": run_id, "status": "success", "topic_id": topic["id"],
-                    "items": count, "new_count": new_count, "source_warnings": source_warnings[:5]}
+            return {"run_id": run_id, "status": run_status, "result_code": result_code,
+                    "topic_id": topic["id"], "items": count, "new_count": new_count,
+                    "source_warnings": source_warnings[:5]}
         except Exception as exc:  # noqa: BLE001
             finished = _now()
             next_run = _iso(finished + timedelta(seconds=_retry_seconds(
                 int(sub.get("consecutive_failures", 0)) + 1)))
             db.monitor_run_finish(run_id, status="error", finished_at=_iso(finished),
                                   item_count=count, new_count=new_count,
-                                  cursor_after=cursor_before, error_message=str(exc))
+                                  cursor_after=cursor_before, result_code="error",
+                                  error_message=str(exc))
             db.subscription_mark_failure(sub["id"], _iso(finished), next_run, next_run)
             LOGGER.warning("radar_run_failed", extra={"topic_id": topic["id"], "error": str(exc)})
             return {"run_id": run_id, "status": "error", "topic_id": topic["id"],

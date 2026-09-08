@@ -506,6 +506,7 @@
     animation: toastIn .2s cubic-bezier(.25, .1, .25, 1);
   }
   .toast.ok::before { content: '✓'; color: var(--green); font-weight: 700; }
+  .toast.warning::before { content: '!'; color: var(--warn); font-weight: 700; }
   .toast.error::before { content: '×'; color: var(--red); font-weight: 700; }
   .toast.leaving { opacity: 0; transition: opacity .25s ease-out; }
   @keyframes toastIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
@@ -2795,7 +2796,7 @@ const CAT_ICON = {
 function toast(msg, tone) {
   const host = $("toastHost");
   const t = document.createElement("div");
-  t.className = "toast " + (tone === "error" ? "error" : "ok");
+  t.className = "toast " + (tone === "error" ? "error" : tone === "warning" ? "warning" : "ok");
   t.textContent = msg;
   host.appendChild(t);
   setTimeout(() => { t.classList.add("leaving"); setTimeout(() => t.remove(), 260); }, 2200);
@@ -4737,7 +4738,19 @@ async function waitRadarRun(topicId, runId) {
     if (run && run.status !== "running") {
       await loadRadarTopics(topicId);
       if (button) { button.disabled = false; button.textContent = "立即刷新"; }
-      toast(run.status === "success" ? "刷新完成" : (run.error_message || "刷新失败"), run.status === "success" ? "success" : "error");
+      if (run.status === "success") {
+        const outcome = run.result_code === "no_sources"
+          ? "刷新完成：尚未配置可用来源"
+          : run.result_code === "no_match"
+            ? "刷新完成：来源已检查，但没有命中新信息"
+            : `刷新完成：命中 ${Number(run.item_count || 0)} 条，新增 ${Number(run.new_count || 0)} 条`;
+        toast(outcome, "success");
+      } else if (run.status === "partial") {
+        const detail = run.error_message || "部分来源采集失败";
+        toast(`刷新部分完成：${Number(run.item_count || 0)} 条命中；${detail}`, "warning");
+      } else {
+        toast(run.error_message || "刷新失败", "error");
+      }
       return run;
     }
     await new Promise(resolve => setTimeout(resolve, 1000));
