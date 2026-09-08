@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import random
 import threading
+import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
@@ -103,6 +104,7 @@ class RadarService:
         self._started = False
         self._start_lock = threading.Lock()
         self._run_lock = threading.Lock()
+        self._lease_owner = f"radar:{uuid.uuid4().hex}"
 
     def start(self) -> None:
         with self._start_lock:
@@ -219,7 +221,24 @@ class RadarService:
                 continue
             if not force and not _timestamp_is_due(state.get("next_fetch_at", ""), started):
                 continue
-            run_id = db.radar_sync_run_create(endpoint_id, started_at)
+            lease_until = _iso(started + timedelta(seconds=120))
+            try:
+                acquired = db.radar_endpoint_lease_acquire(
+                    endpoint_id, self._lease_owner, started_at, lease_until,
+                )
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("radar_endpoint_lease_failed", extra={
+                    "endpoint_id": endpoint_id, "error": str(exc),
+                })
+                warnings.append(f"{endpoint['source_name']} RSS 租约失败")
+                continue
+            if not acquired:
+                continue
+            try:
+                run_id = db.radar_sync_run_create(endpoint_id, started_at)
+            except Exception:
+                db.radar_endpoint_lease_release(endpoint_id, self._lease_owner, _iso(_now()))
+                raise
             try:
                 result = fetch_feed(endpoint, state)
                 finished = _now()
@@ -255,6 +274,8 @@ class RadarService:
                 wrapped = RadarFeedError("adapter_error", f"RSS 适配器异常: {str(exc)[:120]}")
                 self._record_rss_failure(endpoint, state, run_id, started_at, started, wrapped)
                 warnings.append(f"{endpoint['source_name']} RSS 采集失败: {str(exc)[:120]}")
+            finally:
+                db.radar_endpoint_lease_release(endpoint_id, self._lease_owner, _iso(_now()))
         return items, warnings
 
     @staticmethod

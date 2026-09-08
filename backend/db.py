@@ -1521,6 +1521,78 @@ def radar_endpoint_state_upsert(endpoint_id: int, *, status: str, checked_at: st
         conn.close()
 
 
+def radar_endpoint_lease_acquire(endpoint_id: int, owner: str, now: str,
+                                 lease_until: str) -> bool:
+    """以 SQLite 写锁原子领取端点租约，防止多进程重复请求同一上游。"""
+    key = f"endpoint:{int(endpoint_id)}"
+    clean_owner = str(owner or "").strip()
+    if not clean_owner:
+        raise ValueError("端点租约必须有 owner")
+    conn = _conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT lease_owner, lease_until FROM source_fetch_states WHERE source_id=?",
+            (key,),
+        ).fetchone()
+        if row is None:
+            endpoint_meta = conn.execute(
+                "SELECT s.name, e.endpoint_type FROM source_endpoints e "
+                "JOIN sources s ON s.id=e.source_id WHERE e.id=?", (int(endpoint_id),)
+            ).fetchone()
+            if endpoint_meta is None:
+                conn.rollback()
+                return False
+            conn.execute(
+                "INSERT INTO source_fetch_states(source_id, source_name, source_type, status, "
+                "lease_owner, lease_until, updated_at) VALUES(?,?,?,?,?,?,?)",
+                (key, f"{endpoint_meta[0]} · {endpoint_meta[1]}", endpoint_meta[1],
+                 "checking", clean_owner, lease_until, now),
+            )
+            conn.commit()
+            return True
+
+        current_owner = str(row[0] or "")
+        current_until = str(row[1] or "")
+        try:
+            active = bool(current_owner and current_until and
+                          datetime.fromisoformat(current_until.replace("Z", "+00:00")) >
+                          datetime.fromisoformat(now.replace("Z", "+00:00")))
+        except (TypeError, ValueError):
+            active = False
+        if active and current_owner != clean_owner:
+            conn.rollback()
+            return False
+        conn.execute(
+            "UPDATE source_fetch_states SET status='checking', lease_owner=?, lease_until=?, "
+            "updated_at=? WHERE source_id=?",
+            (clean_owner, lease_until, now, key),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def radar_endpoint_lease_release(endpoint_id: int, owner: str, now: str) -> bool:
+    """仅允许租约持有者释放租约；状态本身由成功/失败写入逻辑决定。"""
+    key = f"endpoint:{int(endpoint_id)}"
+    conn = _conn()
+    try:
+        cur = conn.execute(
+            "UPDATE source_fetch_states SET lease_owner='', lease_until=?, updated_at=? "
+            "WHERE source_id=? AND lease_owner=?",
+            ("", now, key, str(owner or "").strip()),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def radar_sync_run_create(endpoint_id: int, started_at: str) -> int:
     conn = _conn()
     try:

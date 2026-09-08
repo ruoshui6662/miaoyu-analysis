@@ -102,6 +102,23 @@ class RadarSourceTests(unittest.TestCase):
                 self.assertEqual(db.radar_endpoint_state(endpoint_id)["etag"], '"v1"')
                 self.assertEqual(db.radar_endpoints()[0]["source_name"], "示例媒体")
 
+    def test_endpoint_lease_prevents_duplicate_workers_and_can_expire(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-lease-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                source_id = db.radar_source_identity_get_or_create("租约媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", "https://example.test/lease.xml")
+                now = "2026-09-07T09:00:00+00:00"
+                future = "2026-09-07T09:02:00+00:00"
+                self.assertTrue(db.radar_endpoint_lease_acquire(endpoint_id, "worker-a", now, future))
+                self.assertFalse(db.radar_endpoint_lease_acquire(endpoint_id, "worker-b", now, future))
+                self.assertEqual(db.radar_endpoint_state(endpoint_id)["lease_owner"], "worker-a")
+                self.assertTrue(db.radar_endpoint_lease_release(endpoint_id, "worker-a", now))
+                self.assertTrue(db.radar_endpoint_lease_acquire(endpoint_id, "worker-b", now, future))
+                self.assertFalse(db.radar_endpoint_lease_release(endpoint_id, "worker-a", now))
+                self.assertTrue(db.radar_endpoint_lease_acquire(
+                    endpoint_id, "worker-c", "2026-09-07T10:00:00+00:00", future,
+                ))
+
     def test_invalid_or_unsafe_feed_is_rejected(self):
         with self.assertRaises(RadarFeedError):
             validate_endpoint_url("ftp://example.test/feed.xml")
@@ -171,6 +188,22 @@ class RadarSourceTests(unittest.TestCase):
                 self.assertEqual(result[0]["status"], "success")
                 fetch.assert_not_called()
                 self.assertEqual(db.radar_endpoint_state(endpoint_id)["cursor_value"], "old-cursor")
+
+    def test_radar_service_skips_endpoint_owned_by_another_worker(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-lease-run-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch("radar.fetch_for_sources", return_value=([], [])), \
+                 patch("radar.fetch_feed") as fetch, \
+                 patch.object(db, "radar_endpoint_lease_acquire", return_value=False):
+                source_id = db.radar_source_identity_get_or_create("占用媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", "https://example.test/feed.xml")
+                db.topic_create("radar-lease-run", "小米", ["小米"], [],
+                                datetime.now(timezone.utc).isoformat(), kind="radar")
+                db.radar_topic_endpoint_bind("radar-lease-run", endpoint_id)
+                now = datetime.now(timezone.utc).isoformat()
+                sub = db.subscription_upsert("radar-lease-run", 900, True, now)
+                RadarService()._collect_for_subscriptions([db.subscription_get(sub)])
+                fetch.assert_not_called()
 
     def test_feed_failure_preserves_cursor_and_enters_backoff(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-feed-fail-") as tmp:
