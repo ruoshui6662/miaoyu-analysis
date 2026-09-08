@@ -4741,6 +4741,8 @@ async function waitRadarRun(topicId, runId) {
       if (run.status === "success") {
         const outcome = run.result_code === "no_sources"
           ? "刷新完成：尚未配置可用来源"
+          : run.result_code === "deferred"
+            ? "刷新暂未执行：来源处于冷却或正被其他任务占用，请稍后再试"
           : run.result_code === "no_match"
             ? "刷新完成：来源已检查，但没有命中新信息"
             : `刷新完成：命中 ${Number(run.item_count || 0)} 条，新增 ${Number(run.new_count || 0)} 条`;

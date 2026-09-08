@@ -60,10 +60,12 @@ def _item_source_layer(item: dict) -> int:
     return 1 if item.get("source_endpoint_id") is not None else 2
 
 
-def _radar_result_code(item_count: int, source_count: int) -> str:
+def _radar_result_code(item_count: int, source_count: int, checked_count: int) -> str:
     """将执行结果与发现结果分开，避免把 0 条命中解释成一次失败。"""
     if int(source_count) <= 0:
         return "no_sources"
+    if int(checked_count) <= 0:
+        return "deferred"
     return "matched" if int(item_count) > 0 else "no_match"
 
 
@@ -213,7 +215,7 @@ class RadarService:
                 endpoint_ids.update(topic_endpoint_ids[topic_id])
             if "L2" in scope:
                 include_public_sources = True
-        rss_items, rss_warnings = self._fetch_rss_endpoints(
+        rss_items, rss_warnings, rss_checked_ids = self._fetch_rss_endpoints(
             endpoint_ids, started, started_at, force=force,
         )
         active_sources = [s for s in db.list_sources()
@@ -256,20 +258,24 @@ class RadarService:
             if "L1" in scope:
                 topic_warnings.extend(rss_warnings)
             source_count = len(topic_endpoint_ids[topic_id] & enabled_rss_ids)
+            checked_count = len(topic_endpoint_ids[topic_id] & rss_checked_ids)
             if "L2" in scope:
                 source_count += len(active_sources)
+                checked_count += len(active_sources)
             results.append(self._ingest_topic(sub, raw_items, source_types, topic_warnings,
                                               started_at, started, source_configured=source_count,
+                                              source_checked=checked_count,
                                               run_id=(monitor_run_ids or {}).get(str(sub["topic_id"]))))
         return results
 
     def _fetch_rss_endpoints(self, endpoint_ids: set[int], started: datetime,
-                             started_at: str, *, force: bool = False) -> tuple[list[dict], list[str]]:
+                             started_at: str, *, force: bool = False) -> tuple[list[dict], list[str], set[int]]:
         """每个已绑定 RSS 端点只抓一次；失败不影响热榜和其他端点。"""
         if not endpoint_ids:
-            return [], []
+            return [], [], set()
         items: list[dict] = []
         warnings: list[str] = []
+        checked_ids: set[int] = set()
         for endpoint in db.radar_endpoints(enabled_only=True):
             if int(endpoint["id"]) not in endpoint_ids:
                 continue
@@ -329,16 +335,19 @@ class RadarService:
                     item["level"] = endpoint["level"]
                     item["source_layer"] = 1
                 items.extend(result.get("items", []))
+                checked_ids.add(endpoint_id)
             except RadarFeedError as exc:
                 self._record_rss_failure(endpoint, state, run_id, started_at, started, exc)
                 warnings.append(f"{endpoint['source_name']} RSS 采集失败: {str(exc)[:120]}")
+                checked_ids.add(endpoint_id)
             except Exception as exc:  # noqa: BLE001
                 wrapped = RadarFeedError("adapter_error", f"RSS 适配器异常: {str(exc)[:120]}")
                 self._record_rss_failure(endpoint, state, run_id, started_at, started, wrapped)
                 warnings.append(f"{endpoint['source_name']} RSS 采集失败: {str(exc)[:120]}")
+                checked_ids.add(endpoint_id)
             finally:
                 db.radar_endpoint_lease_release(endpoint_id, self._lease_owner, _iso(_now()))
-        return items, warnings
+        return items, warnings, checked_ids
 
     @staticmethod
     def _record_rss_failure(endpoint: dict, state: dict, run_id: int, started_at: str,
@@ -364,7 +373,8 @@ class RadarService:
 
     def _ingest_topic(self, sub: dict, raw_items: list[dict], source_types: dict,
                       source_warnings: list[str], started_at: str, started: datetime,
-                      source_configured: int = 0, run_id: int | None = None) -> dict:
+                      source_configured: int = 0, source_checked: int = 0,
+                      run_id: int | None = None) -> dict:
         topic = db.topic_get(sub["topic_id"])
         if not topic:
             return {"status": "error", "topic_id": sub["topic_id"], "error": "主题不存在"}
@@ -393,7 +403,7 @@ class RadarService:
                 new_count += int(created)
             db.cursor_upsert(f"radar:{topic['id']}", started_at, started_at)
             finished = _now()
-            result_code = _radar_result_code(count, source_configured)
+            result_code = _radar_result_code(count, source_configured, source_checked)
             run_status = "partial" if source_warnings else "success"
             db.monitor_run_finish(
                 run_id, status=run_status, finished_at=_iso(finished),

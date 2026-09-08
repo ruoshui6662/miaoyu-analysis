@@ -187,8 +187,32 @@ class RadarSourceTests(unittest.TestCase):
                 sub = db.subscription_upsert("radar-next-fetch", 900, True, now)
                 result = RadarService()._collect_for_subscriptions([db.subscription_get(sub)])
                 self.assertEqual(result[0]["status"], "success")
+                self.assertEqual(result[0]["result_code"], "deferred")
                 fetch.assert_not_called()
                 self.assertEqual(db.radar_endpoint_state(endpoint_id)["cursor_value"], "old-cursor")
+
+    def test_manual_refresh_does_not_bypass_cooldown(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-cooldown-run-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch("radar.fetch_for_sources", return_value=([], [])), \
+                 patch("radar.fetch_feed") as fetch:
+                source_id = db.radar_source_identity_get_or_create("冷却媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", "https://example.test/cooldown.xml")
+                now = datetime.now(timezone.utc).isoformat()
+                db.topic_create("radar-cooldown", "冷却", ["冷却"], [], now,
+                                kind="radar", source_scope=["L1"])
+                db.radar_topic_endpoint_bind("radar-cooldown", endpoint_id)
+                db.radar_endpoint_state_upsert(
+                    endpoint_id, status="cooldown", checked_at=now,
+                    next_fetch_at="2999-01-01T00:00:00+00:00",
+                    cooldown_until="2999-01-01T00:00:00+00:00", consecutive_failures=5,
+                )
+                sub_id = db.subscription_upsert("radar-cooldown", 900, True, now)
+                run_id = db.monitor_run_create(sub_id, "radar-cooldown", now, "")
+                result = RadarService().run_topic("radar-cooldown", run_id)
+                self.assertEqual(result["result_code"], "deferred")
+                self.assertEqual(db.monitor_runs("radar-cooldown", 1)[0]["result_code"], "deferred")
+                fetch.assert_not_called()
 
     def test_radar_service_skips_endpoint_owned_by_another_worker(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-lease-run-") as tmp:
