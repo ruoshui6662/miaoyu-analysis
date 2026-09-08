@@ -533,13 +533,35 @@ def api_radar_timeline():
 
 @app.post("/api/radar/topics/<topic_id>/refresh")
 def api_radar_topic_refresh(topic_id: str):
-    from db import topic_get
+    from db import cursor_get, monitor_run_create, subscription_get_by_topic, topic_get
     from radar import radar_service
     topic = topic_get(topic_id)
     if not topic or topic.get("kind") != "radar":
         return jsonify({"error": "雷达主题不存在"}), 404
-    threading.Thread(target=radar_service.run_topic, args=(topic_id,), daemon=True).start()
-    return jsonify({"accepted": True, "topic_id": topic_id}), 202
+    subscription = subscription_get_by_topic(topic_id)
+    if not subscription:
+        return jsonify({"error": "雷达主题没有订阅"}), 409
+    now = datetime.now(timezone.utc).isoformat()
+    run_id = monitor_run_create(
+        subscription["id"], topic_id, now, cursor_get(f"radar:{topic_id}"),
+    )
+    threading.Thread(
+        target=radar_service.run_topic, args=(topic_id, run_id), daemon=True,
+    ).start()
+    return jsonify({"accepted": True, "topic_id": topic_id, "run_id": run_id}), 202
+
+
+@app.get("/api/radar/topics/<topic_id>/runs")
+def api_radar_topic_runs(topic_id: str):
+    from db import monitor_runs, topic_get
+    topic = topic_get(topic_id)
+    if not topic or topic.get("kind") != "radar":
+        return jsonify({"error": "雷达主题不存在"}), 404
+    try:
+        limit = max(1, min(50, int(request.args.get("limit", 10))))
+    except ValueError:
+        return jsonify({"error": "limit 必须是整数"}), 400
+    return jsonify({"items": monitor_runs(topic_id, limit)})
 
 
 @app.post("/api/radar/topics/<topic_id>/read")

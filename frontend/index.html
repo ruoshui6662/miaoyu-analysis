@@ -4498,6 +4498,7 @@ let radarTopics = [];
 let radarSelectedId = "";
 let radarTimelineRequest = 0;
 let radarEditingId = "";
+let radarRefreshRunId = 0;
 
 function radarRelativeTime(value) {
   if (!value) return "时间未知";
@@ -4672,8 +4673,33 @@ async function refreshRadar() {
   if (button) { button.disabled = true; button.textContent = "刷新中…"; }
   const data = await api(`/api/radar/topics/${encodeURIComponent(radarSelectedId)}/refresh`, { method: "POST" });
   if (!data || data.error) { toast(data?.error || "刷新失败", "error"); if (button) { button.disabled = false; button.textContent = "立即刷新"; } return; }
+  radarRefreshRunId = Number(data.run_id || 0);
   toast("已开始刷新公开信源");
-  setTimeout(async () => { await loadRadarTopics(radarSelectedId); if (button) button.textContent = "立即刷新"; }, 1800);
+  await waitRadarRun(radarSelectedId, radarRefreshRunId);
+}
+
+async function waitRadarRun(topicId, runId) {
+  const button = $("radarRefreshButton");
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
+    const data = await api(`/api/radar/topics/${encodeURIComponent(topicId)}/runs?limit=20`);
+    if (data?.error) {
+      if (button) { button.disabled = false; button.textContent = "立即刷新"; }
+      toast(data.error, "error");
+      return null;
+    }
+    const run = (data?.items || []).find(item => Number(item.id) === Number(runId));
+    if (run && run.status !== "running") {
+      await loadRadarTopics(topicId);
+      if (button) { button.disabled = false; button.textContent = "立即刷新"; }
+      toast(run.status === "success" ? "刷新完成" : (run.error_message || "刷新失败"), run.status === "success" ? "success" : "error");
+      return run;
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  if (button) { button.disabled = false; button.textContent = "立即刷新"; }
+  toast("刷新仍在运行，可稍后查看状态", "info");
+  return null;
 }
 
 async function markRadarRead() {

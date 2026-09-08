@@ -205,6 +205,20 @@ class RadarSourceTests(unittest.TestCase):
                 RadarService()._collect_for_subscriptions([db.subscription_get(sub)])
                 fetch.assert_not_called()
 
+    def test_manual_run_reuses_precreated_monitor_run(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-run-status-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch("radar.fetch_for_sources", return_value=([], [])):
+                now = datetime.now(timezone.utc).isoformat()
+                db.topic_create("radar-run-status", "状态", ["状态"], [], now, kind="radar")
+                sub_id = db.subscription_upsert("radar-run-status", 900, True, now)
+                run_id = db.monitor_run_create(sub_id, "radar-run-status", now, "before")
+                result = RadarService().run_topic("radar-run-status", run_id)
+                runs = db.monitor_runs("radar-run-status", 10)
+                self.assertEqual(result["run_id"], run_id)
+                self.assertEqual(len(runs), 1)
+                self.assertEqual(runs[0]["status"], "success")
+
     def test_feed_failure_preserves_cursor_and_enters_backoff(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-feed-fail-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \

@@ -136,9 +136,16 @@ class RadarService:
         finally:
             self._run_lock.release()
 
-    def run_topic(self, topic_id: str) -> dict:
+    def run_topic(self, topic_id: str, run_id: int | None = None) -> dict:
         """手动刷新一个雷达主题，供页面的“立即刷新”使用。"""
         if not self._run_lock.acquire(blocking=False):
+            if run_id:
+                cursor = db.cursor_get(f"radar:{topic_id}")
+                db.monitor_run_finish(
+                    run_id, status="error", finished_at=_iso(_now()),
+                    item_count=0, new_count=0, cursor_after=cursor,
+                    error_message="已有雷达任务正在运行",
+                )
             return {"status": "skipped", "reason": "already_running", "topic_id": topic_id}
         try:
             sub = db.subscription_get_by_topic(topic_id)
@@ -147,11 +154,28 @@ class RadarService:
                 return {"status": "error", "error": "雷达主题不存在", "topic_id": topic_id}
             if not sub:
                 return {"status": "error", "error": "雷达主题没有订阅", "topic_id": topic_id}
-            return self._collect_for_subscriptions([sub], force=True)[0]
+            try:
+                return self._collect_for_subscriptions(
+                    [sub], force=True,
+                    monitor_run_ids={topic_id: run_id} if run_id else None,
+                )[0]
+            except Exception as exc:  # noqa: BLE001
+                if run_id:
+                    cursor = db.cursor_get(f"radar:{topic_id}")
+                    db.monitor_run_finish(
+                        run_id, status="error", finished_at=_iso(_now()),
+                        item_count=0, new_count=0, cursor_after=cursor,
+                        error_message=str(exc),
+                    )
+                LOGGER.warning("radar_manual_run_failed", extra={
+                    "topic_id": topic_id, "error": str(exc),
+                })
+                return {"status": "error", "topic_id": topic_id, "error": str(exc)[:500]}
         finally:
             self._run_lock.release()
 
-    def _collect_for_subscriptions(self, subscriptions: list[dict], *, force: bool = False) -> list[dict]:
+    def _collect_for_subscriptions(self, subscriptions: list[dict], *, force: bool = False,
+                                   monitor_run_ids: dict[str, int] | None = None) -> list[dict]:
         started = _now()
         started_at = _iso(started)
         topic_ids = [str(sub["topic_id"]) for sub in subscriptions]
@@ -198,7 +222,8 @@ class RadarService:
         results = []
         for sub in subscriptions:
             results.append(self._ingest_topic(sub, raw_items, source_types, source_warnings,
-                                              started_at, started))
+                                              started_at, started,
+                                              run_id=(monitor_run_ids or {}).get(str(sub["topic_id"]))))
         return results
 
     def _fetch_rss_endpoints(self, endpoint_ids: set[int], started: datetime,
@@ -301,12 +326,13 @@ class RadarService:
         )
 
     def _ingest_topic(self, sub: dict, raw_items: list[dict], source_types: dict,
-                      source_warnings: list[str], started_at: str, started: datetime) -> dict:
+                      source_warnings: list[str], started_at: str, started: datetime,
+                      run_id: int | None = None) -> dict:
         topic = db.topic_get(sub["topic_id"])
         if not topic:
             return {"status": "error", "topic_id": sub["topic_id"], "error": "主题不存在"}
         cursor_before = db.cursor_get(f"radar:{topic['id']}")
-        run_id = db.monitor_run_create(sub["id"], topic["id"], started_at, cursor_before)
+        run_id = run_id or db.monitor_run_create(sub["id"], topic["id"], started_at, cursor_before)
         count = 0
         new_count = 0
         try:
