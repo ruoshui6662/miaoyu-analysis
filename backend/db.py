@@ -1565,6 +1565,13 @@ def radar_endpoint_lease_acquire(endpoint_id: int, owner: str, now: str,
         if active and current_owner != clean_owner:
             conn.rollback()
             return False
+        if current_owner and not active:
+            conn.execute(
+                "UPDATE radar_sync_runs SET finished_at=?, status='abandoned', "
+                "error_code='lease_expired', error_message=? "
+                "WHERE endpoint_id=? AND status='running'",
+                (now, "采集租约已过期，由新任务接管", int(endpoint_id)),
+            )
         conn.execute(
             "UPDATE source_fetch_states SET status='checking', lease_owner=?, lease_until=?, "
             "updated_at=? WHERE source_id=?",
@@ -1622,6 +1629,26 @@ def radar_sync_run_finish(run_id: int, *, status: str, finished_at: str,
         conn.commit()
     finally:
         conn.close()
+
+
+def radar_sync_runs_for_endpoint(endpoint_id: int, limit: int = 100) -> list[dict]:
+    """返回端点同步审计记录，供恢复验证和运维观察使用。"""
+    conn = _conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, started_at, finished_at, status, item_count, new_count, http_status, "
+            "error_code, error_message FROM radar_sync_runs WHERE endpoint_id=? "
+            "ORDER BY id DESC LIMIT ?",
+            (int(endpoint_id), max(1, min(int(limit), 500))),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [{
+        "id": row[0], "started_at": row[1], "finished_at": row[2] or "",
+        "status": row[3], "item_count": int(row[4] or 0), "new_count": int(row[5] or 0),
+        "http_status": int(row[6] or 0), "error_code": row[7] or "",
+        "error_message": row[8] or "",
+    } for row in rows]
 
 
 def monitor_runs(topic_id: str = "", limit: int = 100) -> list[dict]:

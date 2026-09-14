@@ -1,4 +1,5 @@
 import os
+import multiprocessing
 import socket
 import tempfile
 import threading
@@ -25,6 +26,16 @@ ATOM_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <entry><title>公开更新</title><id>tag:example.test,2026:item-1</id>
 <link href="https://example.test/atom-1"/><updated>2026-09-05T09:00:00Z</updated>
 <summary>Atom 摘要</summary></entry></feed>'''.encode("utf-8")
+
+
+def _acquire_endpoint_lease_in_child(database_path: str, endpoint_id: int, owner: str,
+                                     start, results) -> None:
+    """Windows spawn 子进程：同时竞争同一 SQLite 端点租约。"""
+    db.SETTINGS_DB = Path(database_path)
+    start.wait(timeout=10)
+    results.put(db.radar_endpoint_lease_acquire(
+        endpoint_id, owner, "2026-09-14T09:00:00+00:00", "2026-09-14T09:02:00+00:00",
+    ))
 
 
 class _Response:
@@ -275,6 +286,56 @@ class RadarSourceTests(unittest.TestCase):
                 self.assertFalse(db.radar_endpoint_lease_release(endpoint_id, "worker-a", now))
                 self.assertTrue(db.radar_endpoint_lease_acquire(
                     endpoint_id, "worker-c", "2026-09-07T10:00:00+00:00", future,
+                ))
+
+    def test_two_processes_acquire_exactly_one_endpoint_lease(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-multiprocess-lease-") as tmp:
+            db_path = Path(tmp) / "settings.db"
+            with patch.object(db, "SETTINGS_DB", db_path):
+                source_id = db.radar_source_identity_get_or_create("并发媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(
+                    source_id, "rss", "https://example.test/concurrent.xml",
+                )
+            context = multiprocessing.get_context("spawn")
+            start, results = context.Event(), context.Queue()
+            workers = [
+                context.Process(
+                    target=_acquire_endpoint_lease_in_child,
+                    args=(str(db_path), endpoint_id, owner, start, results),
+                )
+                for owner in ("worker-a", "worker-b")
+            ]
+            for worker in workers:
+                worker.start()
+            start.set()
+            acquired = sorted(results.get(timeout=10) for _ in workers)
+            for worker in workers:
+                worker.join(timeout=10)
+                self.assertEqual(worker.exitcode, 0)
+            self.assertEqual(acquired, [False, True])
+
+    def test_expired_lease_abandons_old_running_sync_run(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-expired-lease-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                source_id = db.radar_source_identity_get_or_create("恢复媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(
+                    source_id, "rss", "https://example.test/recovery.xml",
+                )
+                self.assertTrue(db.radar_endpoint_lease_acquire(
+                    endpoint_id, "worker-a", "2026-09-14T09:00:00+00:00",
+                    "2026-09-14T09:02:00+00:00",
+                ))
+                run_id = db.radar_sync_run_create(endpoint_id, "2026-09-14T09:00:00+00:00")
+                self.assertTrue(db.radar_endpoint_lease_acquire(
+                    endpoint_id, "worker-b", "2026-09-14T09:03:00+00:00",
+                    "2026-09-14T09:05:00+00:00",
+                ))
+                self.assertEqual(db.radar_endpoint_state(endpoint_id)["lease_owner"], "worker-b")
+                runs_for_endpoint = getattr(db, "radar_sync_runs_for_endpoint", lambda _endpoint_id: [])
+                self.assertTrue(any(
+                    run["id"] == run_id and run["status"] == "abandoned"
+                    and run["error_code"] == "lease_expired"
+                    for run in runs_for_endpoint(endpoint_id)
                 ))
 
     def test_invalid_or_unsafe_feed_is_rejected(self):
