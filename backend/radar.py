@@ -145,6 +145,18 @@ class RadarService:
         finally:
             self._run_lock.release()
 
+    @staticmethod
+    def _enabled_radar_subscriptions() -> list[dict]:
+        """读取所有可接收新 Feed 条目的启用雷达主题。"""
+        subscriptions = []
+        for topic in db.radar_topics():
+            if not topic.get("enabled", True):
+                continue
+            subscription = db.subscription_get_by_topic(topic["id"])
+            if subscription and subscription.get("enabled", True):
+                subscriptions.append(subscription)
+        return subscriptions
+
     def run_topic(self, topic_id: str, run_id: int | None = None) -> dict:
         """手动刷新一个雷达主题，供页面的“立即刷新”使用。"""
         if not self._run_lock.acquire(blocking=False):
@@ -200,6 +212,7 @@ class RadarService:
         started = _now()
         started_at = _iso(started)
         topic_ids = [str(sub["topic_id"]) for sub in subscriptions]
+        driver_topic_ids = set(topic_ids)
         topics = {topic_id: db.topic_get(topic_id) for topic_id in topic_ids}
         topic_endpoint_ids = {
             topic_id: db.radar_topic_endpoint_ids([topic_id]) for topic_id in topic_ids
@@ -243,13 +256,36 @@ class RadarService:
                 error_message=warning,
             )
 
+        # 端点 cursor 属于共享 Feed，而不是某个主题。一次抓取后必须把同一批
+        # 条目分发给所有绑定主题，否则错峰到期的主题会只收到后续 304，永久漏检。
+        recipients = list(subscriptions)
+        recipient_ids = set(driver_topic_ids)
+        if rss_checked_ids or include_public_sources:
+            for candidate in self._enabled_radar_subscriptions():
+                candidate_id = str(candidate["topic_id"])
+                if candidate_id in recipient_ids:
+                    continue
+                candidate_topic = db.topic_get(candidate_id) or {}
+                candidate_scope = _scope_levels(candidate_topic.get("source_scope"))
+                candidate_endpoint_ids = db.radar_topic_endpoint_ids([candidate_id])
+                receives_rss = "L1" in candidate_scope and bool(
+                    candidate_endpoint_ids & rss_checked_ids
+                )
+                receives_public = include_public_sources and "L2" in candidate_scope
+                if receives_rss or receives_public:
+                    recipients.append(candidate)
+                    recipient_ids.add(candidate_id)
+                    topics[candidate_id] = candidate_topic
+                    topic_endpoint_ids[candidate_id] = candidate_endpoint_ids
+                    scope_by_topic[candidate_id] = candidate_scope
+
         enabled_rss_ids = {
             int(endpoint["id"])
             for endpoint in db.radar_endpoints(enabled_only=True)
             if endpoint["endpoint_type"] in {"rss", "atom"}
         }
         results = []
-        for sub in subscriptions:
+        for sub in recipients:
             topic_id = str(sub["topic_id"])
             scope = scope_by_topic[topic_id]
             topic_warnings = []
@@ -265,7 +301,8 @@ class RadarService:
             results.append(self._ingest_topic(sub, raw_items, source_types, topic_warnings,
                                               started_at, started, source_configured=source_count,
                                               source_checked=checked_count,
-                                              run_id=(monitor_run_ids or {}).get(str(sub["topic_id"]))))
+                                              run_id=(monitor_run_ids or {}).get(str(sub["topic_id"])),
+                                              advance_subscription=topic_id in driver_topic_ids))
         return results
 
     def _fetch_rss_endpoints(self, endpoint_ids: set[int], started: datetime,
@@ -374,7 +411,8 @@ class RadarService:
     def _ingest_topic(self, sub: dict, raw_items: list[dict], source_types: dict,
                       source_warnings: list[str], started_at: str, started: datetime,
                       source_configured: int = 0, source_checked: int = 0,
-                      run_id: int | None = None) -> dict:
+                      run_id: int | None = None,
+                      advance_subscription: bool = True) -> dict:
         topic = db.topic_get(sub["topic_id"])
         if not topic:
             return {"status": "error", "topic_id": sub["topic_id"], "error": "主题不存在"}
@@ -410,20 +448,22 @@ class RadarService:
                 item_count=count, new_count=new_count, cursor_after=started_at,
                 result_code=result_code, error_message="；".join(source_warnings[:5]),
             )
-            next_run = _iso(finished + timedelta(seconds=sub["interval_seconds"]))
-            db.subscription_mark_success(sub["id"], _iso(finished), next_run)
+            if advance_subscription:
+                next_run = _iso(finished + timedelta(seconds=sub["interval_seconds"]))
+                db.subscription_mark_success(sub["id"], _iso(finished), next_run)
             return {"run_id": run_id, "status": run_status, "result_code": result_code,
                     "topic_id": topic["id"], "items": count, "new_count": new_count,
                     "source_warnings": source_warnings[:5]}
         except Exception as exc:  # noqa: BLE001
             finished = _now()
-            next_run = _iso(finished + timedelta(seconds=_retry_seconds(
-                int(sub.get("consecutive_failures", 0)) + 1)))
             db.monitor_run_finish(run_id, status="error", finished_at=_iso(finished),
                                   item_count=count, new_count=new_count,
                                   cursor_after=cursor_before, result_code="error",
                                   error_message=str(exc))
-            db.subscription_mark_failure(sub["id"], _iso(finished), next_run, next_run)
+            if advance_subscription:
+                next_run = _iso(finished + timedelta(seconds=_retry_seconds(
+                    int(sub.get("consecutive_failures", 0)) + 1)))
+                db.subscription_mark_failure(sub["id"], _iso(finished), next_run, next_run)
             LOGGER.warning("radar_run_failed", extra={"topic_id": topic["id"], "error": str(exc)})
             return {"run_id": run_id, "status": "error", "topic_id": topic["id"],
                     "items": count, "error": str(exc)[:500]}

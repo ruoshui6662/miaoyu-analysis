@@ -121,6 +121,41 @@ class RadarTests(unittest.TestCase):
                 self.assertEqual(db.radar_stats("radar-l1")["total"], 0)
                 self.assertEqual(db.radar_stats("radar-l2")["total"], 1)
 
+    def test_shared_endpoint_fanout_prevents_staggered_topic_miss(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-fanout-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch("radar.fetch_feed", return_value={
+                     "status": "fresh", "items": [{
+                         "title": "第二主题命中", "url": "https://example.test/item-1",
+                         "snippet": "共享 Feed 的新条目", "published": "2026-09-14T08:00:00+00:00",
+                     }], "etag": "etag-1", "last_modified": "",
+                     "cursor_after": "item-1", "http_status": 200,
+                 }) as fetch:
+                now = "2026-09-14T08:00:00+00:00"
+                db.topic_create("radar-first", "第一主题", ["第一"], [], now,
+                                kind="radar", source_scope=["L1"])
+                db.topic_create("radar-second", "第二主题", ["第二"], [], now,
+                                kind="radar", source_scope=["L1"])
+                first_id = db.subscription_upsert("radar-first", 900, True, now)
+                second_id = db.subscription_upsert("radar-second", 900, True, now)
+                future = "2099-01-01T00:00:00+00:00"
+                db.subscription_mark_success(second_id, now, future)
+                source_id = db.radar_source_identity_get_or_create("共享媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(
+                    source_id, "rss", "https://example.test/feed.xml",
+                )
+                db.radar_topic_endpoint_bind("radar-first", endpoint_id)
+                db.radar_topic_endpoint_bind("radar-second", endpoint_id)
+
+                result = RadarService()._collect_for_subscriptions([
+                    db.subscription_get(first_id),
+                ])
+
+                self.assertEqual(result[0]["status"], "success")
+                self.assertEqual(db.radar_stats("radar-second")["total"], 1)
+                self.assertEqual(db.subscription_get(second_id)["next_run_at"], future)
+                self.assertEqual(fetch.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
