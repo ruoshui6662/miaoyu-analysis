@@ -297,7 +297,12 @@ def fetch_feed(endpoint: dict, state: dict | None = None, *, preview_limit: int 
             if size > MAX_FEED_BYTES:
                 raise RadarFeedError("feed_too_large", "Feed 超过 2MB 大小限制", http_status=response.status_code)
             chunks.append(chunk)
-        parsed = parse_feed(b"".join(chunks))
+        try:
+            parsed = parse_feed(b"".join(chunks))
+        except RadarFeedError as exc:
+            # 请求已成功收到响应时，解析失败也要保留真实 HTTP 状态，
+            # 便于来源健康页区分网络不可达和内容格式损坏。
+            raise RadarFeedError(exc.code, str(exc), http_status=response.status_code) from exc
         all_items = parsed["items"]
         seen = _cursor_digests(state.get("cursor_value", ""))
         # Feed 的顺序不是协议级保证；只按稳定 GUID/Atom id 判断是否已见过。

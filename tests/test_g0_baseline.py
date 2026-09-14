@@ -25,6 +25,7 @@ import pipeline  # noqa: E402
 import url_check  # noqa: E402
 import hotlists  # noqa: E402
 import app as app_module  # noqa: E402
+app_module.app.config["MIAOYU_SCHEDULERS_ENABLED"] = False
 import db  # noqa: E402
 import evidence  # noqa: E402
 import events  # noqa: E402
@@ -666,6 +667,19 @@ class RiskNormalizationTests(unittest.TestCase):
 
 
 class SecurityTests(unittest.TestCase):
+    def test_request_skips_background_schedulers_when_explicitly_disabled(self):
+        previous = app_module.app.config.get("MIAOYU_SCHEDULERS_ENABLED", True)
+        app_module.app.config["MIAOYU_SCHEDULERS_ENABLED"] = False
+        try:
+            with patch("monitor.monitor_service.start") as monitor_start, \
+                 patch("radar.radar_service.start") as radar_start:
+                response = make_client().get("/api/metrics")
+        finally:
+            app_module.app.config["MIAOYU_SCHEDULERS_ENABLED"] = previous
+        self.assertEqual(response.status_code, 200)
+        monitor_start.assert_not_called()
+        radar_start.assert_not_called()
+
     def test_config_reload_does_not_overwrite_unmanaged_security_environment(self):
         token = "runtime-admin-token-0123456789abcdef"
         try:

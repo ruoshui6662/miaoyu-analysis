@@ -1,7 +1,10 @@
+import os
 import socket
 import tempfile
+import threading
 import unittest
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
@@ -34,6 +37,53 @@ class _Response:
 
     def close(self):
         pass
+
+
+class _LocalFeedServer:
+    """让 RSS 测试走真实 requests/HTTP 边界，不访问互联网。"""
+
+    def __init__(self, responses: list[tuple[int, bytes, dict[str, str]]]):
+        self._responses = list(responses)
+        self.requests: list[dict[str, str]] = []
+        self._server: ThreadingHTTPServer | None = None
+        self._thread: threading.Thread | None = None
+
+    def __enter__(self):
+        fixture = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                fixture.requests.append({key: value for key, value in self.headers.items()})
+                if not fixture._responses:
+                    self.send_response(500)
+                    self.end_headers()
+                    return
+                status, body, headers = fixture._responses.pop(0)
+                self.send_response(status)
+                for key, value in headers.items():
+                    self.send_header(key, value)
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, _format, *_args):
+                return
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+        return self
+
+    @property
+    def url(self) -> str:
+        assert self._server is not None
+        return f"http://127.0.0.1:{self._server.server_port}/feed.xml"
+
+    def __exit__(self, _exc_type, _exc, _traceback):
+        assert self._server is not None
+        self._server.shutdown()
+        self._server.server_close()
+        assert self._thread is not None
+        self._thread.join(timeout=5)
 
 
 class RadarSourceTests(unittest.TestCase):
@@ -79,6 +129,113 @@ class RadarSourceTests(unittest.TestCase):
         self.assertEqual([item["external_id"] for item in first["items"]], ["old-1", "mid-1"])
         self.assertEqual([item["external_id"] for item in second["items"]], ["new-1"])
         self.assertTrue(first["cursor_after"].startswith('{"version":1'))
+
+    def test_real_http_invalid_xml_keeps_cursor_and_records_response_status(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-invalid-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch("radar.fetch_for_sources", return_value=([], [])), \
+                 _LocalFeedServer([(200, b"<rss>", {
+                     "Content-Type": "application/rss+xml", "ETag": '"broken-v1"',
+                 })]) as server:
+                source_id = db.radar_source_identity_get_or_create("本地验收源", "127.0.0.1")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", server.url)
+                now = datetime.now(timezone.utc).isoformat()
+                db.topic_create("radar-real-http-invalid", "本地验收", ["验收"], [], now,
+                                kind="radar", source_scope=["L1"])
+                db.radar_topic_endpoint_bind("radar-real-http-invalid", endpoint_id)
+                db.radar_endpoint_state_upsert(
+                    endpoint_id, status="healthy", checked_at=now, etag='"old"',
+                    cursor_value="stable-cursor", last_success_at=now,
+                )
+                sub_id = db.subscription_upsert("radar-real-http-invalid", 900, True, now)
+
+                result = RadarService()._collect_for_subscriptions([db.subscription_get(sub_id)])
+                state = db.radar_endpoint_state(endpoint_id)
+
+                self.assertEqual(result[0]["status"], "partial")
+                self.assertEqual(state["cursor_value"], "stable-cursor")
+                self.assertEqual(state["consecutive_failures"], 1)
+                self.assertEqual(state["last_http_status"], 200)
+                self.assertTrue(state["cooldown_until"])
+                self.assertEqual(len(server.requests), 1)
+
+    def test_real_http_feed_keeps_cursor_through_304_after_service_restart(self):
+        last_modified = "Sat, 05 Sep 2026 09:00:00 GMT"
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-304-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch("radar.fetch_for_sources", return_value=([], [])), \
+                 _LocalFeedServer([
+                     (200, RSS_XML, {
+                         "Content-Type": "application/rss+xml", "ETag": '"v1"',
+                         "Last-Modified": last_modified,
+                     }),
+                     (304, b"", {"ETag": '"v1"', "Last-Modified": last_modified}),
+                 ]) as server:
+                source_id = db.radar_source_identity_get_or_create("本地重启源", "127.0.0.1")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", server.url)
+                now = datetime.now(timezone.utc).isoformat()
+                db.topic_create("radar-real-http-304", "小米", ["小米"], [], now,
+                                kind="radar", source_scope=["L1"])
+                db.radar_topic_endpoint_bind("radar-real-http-304", endpoint_id)
+                sub_id = db.subscription_upsert("radar-real-http-304", 900, True, now)
+
+                first = RadarService()._collect_for_subscriptions([db.subscription_get(sub_id)])
+                before_restart = db.radar_endpoint_state(endpoint_id)
+                db.radar_endpoint_state_upsert(
+                    endpoint_id, status=before_restart["status"],
+                    checked_at=before_restart["last_checked_at"], etag=before_restart["etag"],
+                    last_modified=before_restart["last_modified"],
+                    cursor_value=before_restart["cursor_value"],
+                    last_success_at=before_restart["last_success_at"], next_fetch_at="",
+                    consecutive_failures=before_restart["consecutive_failures"],
+                    cooldown_until=before_restart["cooldown_until"],
+                    average_update_seconds=before_restart["average_update_seconds"],
+                    last_http_status=before_restart["last_http_status"],
+                    item_count=before_restart["item_count"], error_message=before_restart["error_message"],
+                )
+
+                second = RadarService()._collect_for_subscriptions([db.subscription_get(sub_id)])
+                after_restart = db.radar_endpoint_state(endpoint_id)
+
+                self.assertEqual(first[0]["result_code"], "matched")
+                self.assertEqual(second[0]["result_code"], "no_match")
+                self.assertEqual(db.radar_stats("radar-real-http-304")["total"], 1)
+                self.assertEqual(after_restart["status"], "unchanged")
+                self.assertEqual(after_restart["cursor_value"], before_restart["cursor_value"])
+                self.assertEqual(server.requests[1]["If-None-Match"], '"v1"')
+                self.assertEqual(server.requests[1]["If-Modified-Since"], last_modified)
+
+    def test_real_http_503_keeps_cursor_and_enters_backoff(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-503-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch("radar.fetch_for_sources", return_value=([], [])), \
+                 _LocalFeedServer([(503, b"temporarily unavailable", {
+                     "Content-Type": "text/plain",
+                 })]) as server:
+                source_id = db.radar_source_identity_get_or_create("本地退避源", "127.0.0.1")
+                endpoint_id = db.radar_endpoint_create(source_id, "rss", server.url)
+                now = datetime.now(timezone.utc).isoformat()
+                db.topic_create("radar-real-http-503", "退避", ["退避"], [], now,
+                                kind="radar", source_scope=["L1"])
+                db.radar_topic_endpoint_bind("radar-real-http-503", endpoint_id)
+                db.radar_endpoint_state_upsert(
+                    endpoint_id, status="healthy", checked_at=now, cursor_value="stable-cursor",
+                    last_success_at=now,
+                )
+                sub_id = db.subscription_upsert("radar-real-http-503", 900, True, now)
+
+                result = RadarService()._collect_for_subscriptions([db.subscription_get(sub_id)])
+                state = db.radar_endpoint_state(endpoint_id)
+
+                self.assertEqual(result[0]["status"], "partial")
+                self.assertEqual(state["cursor_value"], "stable-cursor")
+                self.assertEqual(state["consecutive_failures"], 1)
+                self.assertEqual(state["last_http_status"], 503)
+                self.assertEqual(state["status"], "degraded")
+                self.assertTrue(state["cooldown_until"])
 
     def test_backoff_schedule_has_documented_caps(self):
         with patch("radar.random.uniform", return_value=0):

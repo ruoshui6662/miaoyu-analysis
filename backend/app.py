@@ -78,6 +78,9 @@ try:
 except ValueError:
     _max_body_mb = 10
 app.config["MAX_CONTENT_LENGTH"] = _max_body_mb * 1024 * 1024
+app.config["MIAOYU_SCHEDULERS_ENABLED"] = os.getenv(
+    "MIAOYU_SCHEDULERS_ENABLED", "1"
+).strip().lower() in {"1", "true", "yes", "on"}
 
 FRONTEND = ROOT / "frontend"
 
@@ -102,10 +105,11 @@ def _security_and_scheduler():
             response = jsonify({"error": "需要管理员令牌", "auth": "Bearer token required"})
             response.status_code = 401
             return response
-    from monitor import monitor_service
-    from radar import radar_service
-    monitor_service.start()
-    radar_service.start()
+    if app.config["MIAOYU_SCHEDULERS_ENABLED"]:
+        from monitor import monitor_service
+        from radar import radar_service
+        monitor_service.start()
+        radar_service.start()
 
 
 @app.after_request
