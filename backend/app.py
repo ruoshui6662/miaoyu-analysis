@@ -640,6 +640,13 @@ def api_radar_source_health():
     return jsonify({"items": radar_source_states()})
 
 
+def _public_radar_endpoint(endpoint: dict) -> dict:
+    """将端点内部记录投影为可安全返回给浏览器的字段。"""
+    public = dict(endpoint or {})
+    public.pop("auth_ref", None)
+    return public
+
+
 @app.get("/api/radar/endpoints")
 def api_radar_endpoints():
     """返回设置页可管理的雷达端点及其绑定主题；不返回任何密钥。"""
@@ -650,7 +657,7 @@ def api_radar_endpoints():
     ]
     items = []
     for endpoint in radar_endpoints():
-        item = dict(endpoint)
+        item = _public_radar_endpoint(endpoint)
         bound = []
         for topic in topics:
             if any(int(candidate["id"]) == int(endpoint["id"]) for candidate in radar_topic_endpoints(topic["id"])):
@@ -693,6 +700,8 @@ def api_radar_endpoint_create():
         return jsonify({"error": "当前仅支持 RSS 或 Atom 信源"}), 400
     if not name:
         return jsonify({"error": "信源名称不能为空"}), 400
+    if str(body.get("auth_ref") or "").strip():
+        return jsonify({"error": "RSS/Atom 信源不支持凭据引用"}), 400
     try:
         url = validate_endpoint_url(raw_url)
     except RadarFeedError as exc:
@@ -721,7 +730,7 @@ def api_radar_endpoint_create():
         return jsonify({"error": str(exc) or "保存信源失败"}), 400
     for topic_id in topic_ids:
         radar_topic_endpoint_bind(topic_id, endpoint_id)
-    return jsonify({"ok": True, "endpoint": radar_endpoint_get(endpoint_id),
+    return jsonify({"ok": True, "endpoint": _public_radar_endpoint(radar_endpoint_get(endpoint_id)),
                     "topic_ids": topic_ids}), 201
 
 
@@ -733,6 +742,8 @@ def api_radar_endpoint_update(endpoint_id: int):
     if not endpoint:
         return jsonify({"error": "雷达信源不存在"}), 404
     body = request.get_json(silent=True) or {}
+    if str(body.get("auth_ref") or "").strip():
+        return jsonify({"error": "RSS/Atom 信源不支持凭据引用"}), 400
     if "enabled" in body and not radar_endpoint_set_enabled(endpoint_id, bool(body.get("enabled"))):
         return jsonify({"error": "更新信源状态失败"}), 400
     if "topic_ids" in body:
@@ -746,7 +757,7 @@ def api_radar_endpoint_update(endpoint_id: int):
             radar_topic_endpoint_unbind(topic_id, endpoint_id)
         for topic_id in requested - current:
             radar_topic_endpoint_bind(topic_id, endpoint_id)
-    return jsonify({"ok": True, "endpoint": radar_endpoint_get(endpoint_id)})
+    return jsonify({"ok": True, "endpoint": _public_radar_endpoint(radar_endpoint_get(endpoint_id))})
 
 
 @app.delete("/api/radar/endpoints/<int:endpoint_id>")

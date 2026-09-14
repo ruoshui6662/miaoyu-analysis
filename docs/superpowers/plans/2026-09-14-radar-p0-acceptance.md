@@ -4,7 +4,7 @@
 
 **Goal:** Prove the RSS/Atom incremental contract across a real local HTTP boundary, prevent test requests from starting persistent schedulers, and record a narrow-screen radar UI acceptance result.
 
-**Architecture:** Keep production feed parsing and scheduling behavior unchanged unless an acceptance test identifies a concrete gap. A test-only loopback HTTP server will return controlled 200, 304, malformed XML, and 503 responses while `MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES=1` is scoped to the test. Flask receives one explicit scheduler-enable switch: production defaults to enabled; tests disable it before creating clients so background services cannot retain a patched temporary SQLite path.
+**Architecture:** Keep production feed parsing and scheduling behavior unchanged unless an acceptance test identifies a concrete gap. A test-only loopback HTTP server will return controlled 200, 304, malformed XML, and 503 responses while `MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST=127.0.0.1` is scoped to the test. Flask receives one explicit scheduler-enable switch: production defaults to enabled; tests disable it before creating clients so background services cannot retain a patched temporary SQLite path.
 
 **Tech Stack:** Python 3, unittest, requests, Flask, APScheduler, SQLite, vanilla HTML/CSS/JavaScript.
 

@@ -63,7 +63,7 @@ RadarService
 - 只接受 `http`/`https`，拒绝 URL 用户名/密码、空主机和所有其它协议。
 - 使用 `requests.get(..., allow_redirects=False)`；仅接受 301、302、303、307、308 的绝对或相对 `Location`，最多 3 跳。缺失或无效 Location 作为可解释的 Feed 错误。
 - 每跳在连接前都调用 URL 检查和 DNS 解析复核。解析到回环、私网、链路本地、未指定、保留或多播地址即拒绝。
-- 白名单由 `MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST` 提供，逗号分隔精确主机名、IP 或 CIDR。它只允许命中的目标，不能让任意私网请求通过；旧 `MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES` 仅保留给旧测试兼容，生产文档不再把它作为配置方式。
+- 白名单由 `MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST` 提供，逗号分隔精确主机名、IP 或 CIDR。它只允许命中的目标，不能让任意私网请求通过；旧 `MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES` 不再被读取，防止它成为生产中的全局 SSRF 绕过。
 - 保持现有 2 MiB 压缩响应上限和 `(5, 20)` 连接/读取超时；不保存响应正文。解压后内容大小无法由 `requests` 流层可靠获知，本阶段显式不承诺防御压缩炸弹；若生产出现该证据，再单列硬化任务。
 
 ### 3.3 凭据与脱敏

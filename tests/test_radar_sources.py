@@ -1,4 +1,5 @@
 import os
+import multiprocessing
 import socket
 import tempfile
 import threading
@@ -9,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import db
+import radar_sources
 from radar_sources import RadarFeedError, _check_resolved_target, fetch_feed, parse_feed, validate_endpoint_url
 from radar import RadarService, _retry_seconds
 
@@ -24,6 +26,16 @@ ATOM_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <entry><title>公开更新</title><id>tag:example.test,2026:item-1</id>
 <link href="https://example.test/atom-1"/><updated>2026-09-05T09:00:00Z</updated>
 <summary>Atom 摘要</summary></entry></feed>'''.encode("utf-8")
+
+
+def _acquire_endpoint_lease_in_child(database_path: str, endpoint_id: int, owner: str,
+                                     start, results) -> None:
+    """Windows spawn 子进程：同时竞争同一 SQLite 端点租约。"""
+    db.SETTINGS_DB = Path(database_path)
+    start.wait(timeout=10)
+    results.put(db.radar_endpoint_lease_acquire(
+        endpoint_id, owner, "2026-09-14T09:00:00+00:00", "2026-09-14T09:02:00+00:00",
+    ))
 
 
 class _Response:
@@ -133,7 +145,7 @@ class RadarSourceTests(unittest.TestCase):
     def test_real_http_invalid_xml_keeps_cursor_and_records_response_status(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-invalid-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
-                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "127.0.0.1"}, clear=False), \
                  patch("radar.fetch_for_sources", return_value=([], [])), \
                  _LocalFeedServer([(200, b"<rss>", {
                      "Content-Type": "application/rss+xml", "ETag": '"broken-v1"',
@@ -164,7 +176,7 @@ class RadarSourceTests(unittest.TestCase):
         last_modified = "Sat, 05 Sep 2026 09:00:00 GMT"
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-304-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
-                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "127.0.0.1"}, clear=False), \
                  patch("radar.fetch_for_sources", return_value=([], [])), \
                  _LocalFeedServer([
                      (200, RSS_XML, {
@@ -210,7 +222,7 @@ class RadarSourceTests(unittest.TestCase):
     def test_real_http_503_keeps_cursor_and_enters_backoff(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-503-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
-                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "127.0.0.1"}, clear=False), \
                  patch("radar.fetch_for_sources", return_value=([], [])), \
                  _LocalFeedServer([(503, b"temporarily unavailable", {
                      "Content-Type": "text/plain",
@@ -276,6 +288,56 @@ class RadarSourceTests(unittest.TestCase):
                     endpoint_id, "worker-c", "2026-09-07T10:00:00+00:00", future,
                 ))
 
+    def test_two_processes_acquire_exactly_one_endpoint_lease(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-multiprocess-lease-") as tmp:
+            db_path = Path(tmp) / "settings.db"
+            with patch.object(db, "SETTINGS_DB", db_path):
+                source_id = db.radar_source_identity_get_or_create("并发媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(
+                    source_id, "rss", "https://example.test/concurrent.xml",
+                )
+            context = multiprocessing.get_context("spawn")
+            start, results = context.Event(), context.Queue()
+            workers = [
+                context.Process(
+                    target=_acquire_endpoint_lease_in_child,
+                    args=(str(db_path), endpoint_id, owner, start, results),
+                )
+                for owner in ("worker-a", "worker-b")
+            ]
+            for worker in workers:
+                worker.start()
+            start.set()
+            acquired = sorted(results.get(timeout=10) for _ in workers)
+            for worker in workers:
+                worker.join(timeout=10)
+                self.assertEqual(worker.exitcode, 0)
+            self.assertEqual(acquired, [False, True])
+
+    def test_expired_lease_abandons_old_running_sync_run(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-expired-lease-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                source_id = db.radar_source_identity_get_or_create("恢复媒体", "example.test")
+                endpoint_id = db.radar_endpoint_create(
+                    source_id, "rss", "https://example.test/recovery.xml",
+                )
+                self.assertTrue(db.radar_endpoint_lease_acquire(
+                    endpoint_id, "worker-a", "2026-09-14T09:00:00+00:00",
+                    "2026-09-14T09:02:00+00:00",
+                ))
+                run_id = db.radar_sync_run_create(endpoint_id, "2026-09-14T09:00:00+00:00")
+                self.assertTrue(db.radar_endpoint_lease_acquire(
+                    endpoint_id, "worker-b", "2026-09-14T09:03:00+00:00",
+                    "2026-09-14T09:05:00+00:00",
+                ))
+                self.assertEqual(db.radar_endpoint_state(endpoint_id)["lease_owner"], "worker-b")
+                runs_for_endpoint = getattr(db, "radar_sync_runs_for_endpoint", lambda _endpoint_id: [])
+                self.assertTrue(any(
+                    run["id"] == run_id and run["status"] == "abandoned"
+                    and run["error_code"] == "lease_expired"
+                    for run in runs_for_endpoint(endpoint_id)
+                ))
+
     def test_invalid_or_unsafe_feed_is_rejected(self):
         with self.assertRaises(RadarFeedError):
             validate_endpoint_url("ftp://example.test/feed.xml")
@@ -298,6 +360,61 @@ class RadarSourceTests(unittest.TestCase):
     def test_private_dns_result_is_still_rejected(self, _getaddrinfo):
         with self.assertRaises(RadarFeedError):
             _check_resolved_target("https://example.test/feed.xml")
+
+    def test_private_allowlist_accepts_only_matching_cidr(self):
+        env = {
+            "MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "10.0.0.0/24",
+            "MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            try:
+                allowed_url = validate_endpoint_url("http://10.0.0.9/feed.xml")
+            except RadarFeedError:
+                allowed_url = ""
+            self.assertEqual(allowed_url, "http://10.0.0.9/feed.xml")
+            with self.assertRaisesRegex(RadarFeedError, "内网"):
+                validate_endpoint_url("http://10.0.1.9/feed.xml")
+            allowed = getattr(radar_sources, "_private_target_allowed", lambda *_args: False)
+            self.assertTrue(allowed("10.0.0.9", ["10.0.0.9"]))
+            self.assertFalse(allowed("10.0.1.9", ["10.0.1.9"]))
+
+    def test_legacy_private_bypass_environment_does_not_allow_private_hosts(self):
+        env = {
+            "MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1",
+            "MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            with self.assertRaisesRegex(RadarFeedError, "内网"):
+                validate_endpoint_url("http://127.0.0.1/feed.xml")
+
+    def test_explicit_private_bypass_parameter_does_not_allow_private_hosts(self):
+        with self.assertRaisesRegex(RadarFeedError, "内网"):
+            validate_endpoint_url("http://127.0.0.1/feed.xml", allow_private=True)
+
+    def test_fetch_revalidates_redirect_before_requesting_it(self):
+        endpoint = {"url": "https://public.example/feed.xml"}
+        redirect = _Response(302, headers={"Location": "http://127.0.0.1/private.xml"})
+        with patch("radar_sources._check_resolved_target", side_effect=[
+            None, RadarFeedError("private_address_blocked", "重定向目标被拒绝"),
+        ]), patch("radar_sources.requests.get", return_value=redirect) as get:
+            with self.assertRaises(RadarFeedError) as raised:
+                fetch_feed(endpoint)
+        self.assertEqual(raised.exception.code, "private_address_blocked")
+        self.assertEqual(get.call_count, 1)
+        self.assertFalse(get.call_args.kwargs.get("allow_redirects", True))
+
+    def test_fetch_limits_redirect_chain_to_three_hops(self):
+        endpoint = {"url": "https://public.example/feed.xml"}
+        redirects = [_Response(302, headers={"Location": "/next.xml"}) for _ in range(4)]
+        with patch("radar_sources._check_resolved_target"), patch(
+            "radar_sources.requests.get", side_effect=redirects) as get:
+            with self.assertRaises(RadarFeedError) as raised:
+                fetch_feed(endpoint)
+        self.assertEqual(raised.exception.code, "redirect_limit")
+        self.assertEqual(get.call_count, 4)
+        self.assertTrue(all(
+            call.kwargs.get("allow_redirects") is False for call in get.call_args_list
+        ))
 
     def test_radar_service_ingests_bound_feed_once(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-feed-run-") as tmp:
@@ -383,9 +500,20 @@ class RadarSourceTests(unittest.TestCase):
                                 datetime.now(timezone.utc).isoformat(), kind="radar")
                 db.radar_topic_endpoint_bind("radar-lease-run", endpoint_id)
                 now = datetime.now(timezone.utc).isoformat()
+                db.radar_endpoint_state_upsert(
+                    endpoint_id, status="degraded", checked_at=now, etag='"stable"',
+                    cursor_value="stable-cursor", next_fetch_at="", consecutive_failures=3,
+                    cooldown_until="", error_message="先前失败",
+                )
+                before = db.radar_endpoint_state(endpoint_id)
                 sub = db.subscription_upsert("radar-lease-run", 900, True, now)
                 RadarService()._collect_for_subscriptions([db.subscription_get(sub)])
                 fetch.assert_not_called()
+                after = db.radar_endpoint_state(endpoint_id)
+                self.assertEqual(after["cursor_value"], before["cursor_value"])
+                self.assertEqual(after["consecutive_failures"], before["consecutive_failures"])
+                self.assertEqual(after["next_fetch_at"], before["next_fetch_at"])
+                self.assertEqual(after["cooldown_until"], before["cooldown_until"])
 
     def test_manual_run_reuses_precreated_monitor_run(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-run-status-") as tmp:
