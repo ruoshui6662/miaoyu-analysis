@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import db
+import radar_sources
 from radar_sources import RadarFeedError, _check_resolved_target, fetch_feed, parse_feed, validate_endpoint_url
 from radar import RadarService, _retry_seconds
 
@@ -298,6 +299,48 @@ class RadarSourceTests(unittest.TestCase):
     def test_private_dns_result_is_still_rejected(self, _getaddrinfo):
         with self.assertRaises(RadarFeedError):
             _check_resolved_target("https://example.test/feed.xml")
+
+    def test_private_allowlist_accepts_only_matching_cidr(self):
+        env = {
+            "MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "10.0.0.0/24",
+            "MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            try:
+                allowed_url = validate_endpoint_url("http://10.0.0.9/feed.xml")
+            except RadarFeedError:
+                allowed_url = ""
+            self.assertEqual(allowed_url, "http://10.0.0.9/feed.xml")
+            with self.assertRaisesRegex(RadarFeedError, "内网"):
+                validate_endpoint_url("http://10.0.1.9/feed.xml")
+            allowed = getattr(radar_sources, "_private_target_allowed", lambda *_args: False)
+            self.assertTrue(allowed("10.0.0.9", ["10.0.0.9"]))
+            self.assertFalse(allowed("10.0.1.9", ["10.0.1.9"]))
+
+    def test_fetch_revalidates_redirect_before_requesting_it(self):
+        endpoint = {"url": "https://public.example/feed.xml"}
+        redirect = _Response(302, headers={"Location": "http://127.0.0.1/private.xml"})
+        with patch("radar_sources._check_resolved_target", side_effect=[
+            None, RadarFeedError("private_address_blocked", "重定向目标被拒绝"),
+        ]), patch("radar_sources.requests.get", return_value=redirect) as get:
+            with self.assertRaises(RadarFeedError) as raised:
+                fetch_feed(endpoint)
+        self.assertEqual(raised.exception.code, "private_address_blocked")
+        self.assertEqual(get.call_count, 1)
+        self.assertFalse(get.call_args.kwargs.get("allow_redirects", True))
+
+    def test_fetch_limits_redirect_chain_to_three_hops(self):
+        endpoint = {"url": "https://public.example/feed.xml"}
+        redirects = [_Response(302, headers={"Location": "/next.xml"}) for _ in range(4)]
+        with patch("radar_sources._check_resolved_target"), patch(
+            "radar_sources.requests.get", side_effect=redirects) as get:
+            with self.assertRaises(RadarFeedError) as raised:
+                fetch_feed(endpoint)
+        self.assertEqual(raised.exception.code, "redirect_limit")
+        self.assertEqual(get.call_count, 4)
+        self.assertTrue(all(
+            call.kwargs.get("allow_redirects") is False for call in get.call_args_list
+        ))
 
     def test_radar_service_ingests_bound_feed_once(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-feed-run-") as tmp:

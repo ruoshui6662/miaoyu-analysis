@@ -12,7 +12,7 @@ import json
 import os
 import socket
 from datetime import datetime, timezone
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 from xml.etree import ElementTree as ET
 
 import requests
@@ -22,6 +22,7 @@ from config import USER_AGENT
 
 MAX_FEED_BYTES = 2 * 1024 * 1024
 HTTP_TIMEOUT = (5, 20)
+MAX_REDIRECTS = 3
 # source_fetch_states.cursor_value 当前为 TEXT；保存解析窗口内的稳定 ID 摘要，
 # 避免依赖 RSS 的排列顺序。完整去重仍由 Mention 的唯一键兜底。
 CURSOR_MAX_IDS = 100
@@ -45,6 +46,39 @@ def _private_allowed() -> bool:
     return os.getenv("MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES", "").strip().lower() in {
         "1", "true", "yes", "on",
     }
+
+
+def _private_target_allowed(host: str, addresses: list[str]) -> bool:
+    """仅允许精确匹配管理员私网白名单的主机、IP 或 CIDR。"""
+    entries = {
+        value.strip().lower()
+        for value in os.getenv("MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST", "").split(",")
+        if value.strip()
+    }
+    clean_host = str(host or "").strip().lower()
+    if clean_host and clean_host in entries:
+        return True
+    parsed_addresses = []
+    for address in addresses:
+        try:
+            parsed_addresses.append(ipaddress.ip_address(address))
+        except ValueError:
+            continue
+    for entry in entries:
+        try:
+            network = ipaddress.ip_network(entry, strict=False)
+        except ValueError:
+            continue
+        if any(address in network for address in parsed_addresses):
+            return True
+    return False
+
+
+def _private_access_allowed(host: str, addresses: list[str], allow_private: bool | None) -> bool:
+    if allow_private is True or _private_allowed():
+        # 旧开关只为已有离线回环测试保留；部署配置必须使用精确白名单。
+        return True
+    return _private_target_allowed(host, addresses)
 
 
 def _private_address(host: str) -> bool:
@@ -93,9 +127,7 @@ def validate_endpoint_url(url: str, *, allow_private: bool | None = None) -> str
     host = parts.hostname or ""
     if not host:
         raise RadarFeedError("invalid_url", "地址缺少主机名")
-    if allow_private is None:
-        allow_private = _private_allowed()
-    if _private_address(host) and not allow_private:
+    if _private_address(host) and not _private_access_allowed(host, [host], allow_private):
         raise RadarFeedError("private_address_blocked", "默认禁止访问内网或本机地址")
     return raw
 
@@ -104,13 +136,14 @@ def _check_resolved_target(url: str, *, allow_private: bool | None = None) -> No
     """在发起请求前复核 DNS 结果，降低 DNS rebinding 风险。"""
     raw = validate_endpoint_url(url, allow_private=allow_private)
     host = urlsplit(raw).hostname or ""
-    if allow_private is None:
-        allow_private = _private_allowed()
+    addresses: list[str] = []
     try:
-        addresses = {info[4][0] for info in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)}
+        addresses = list({info[4][0] for info in socket.getaddrinfo(
+            host, None, type=socket.SOCK_STREAM,
+        )})
     except socket.gaierror as exc:
         raise RadarFeedError("dns_failed", f"无法解析信源地址: {host}") from exc
-    if not allow_private:
+    if not _private_access_allowed(host, addresses, allow_private):
         for address in addresses:
             try:
                 ip = ipaddress.ip_address(address)
@@ -121,6 +154,31 @@ def _check_resolved_target(url: str, *, allow_private: bool | None = None) -> No
                     "private_address_blocked",
                     "信源解析到了受限制地址，请检查 DNS/代理设置或管理员白名单",
                 )
+
+
+def _checked_get(url: str, headers: dict[str, str]):
+    """逐跳校验重定向目标，避免 requests 在未校验时自动跟随。"""
+    current_url = validate_endpoint_url(url)
+    for hop in range(MAX_REDIRECTS + 1):
+        _check_resolved_target(current_url)
+        try:
+            response = requests.get(
+                current_url, headers=headers, timeout=HTTP_TIMEOUT,
+                stream=True, allow_redirects=False,
+            )
+        except requests.RequestException as exc:
+            raise RadarFeedError("network_error", f"请求信源失败: {str(exc)[:160]}") from exc
+        if response.status_code not in {301, 302, 303, 307, 308}:
+            return response
+        if hop == MAX_REDIRECTS:
+            response.close()
+            raise RadarFeedError("redirect_limit", "信源重定向次数超过限制")
+        location = str(response.headers.get("Location") or "").strip()
+        response.close()
+        if not location:
+            raise RadarFeedError("invalid_redirect", "信源重定向缺少目标地址")
+        current_url = validate_endpoint_url(urljoin(current_url, location))
+    raise AssertionError("redirect loop must return or raise")
 
 
 def _local_name(tag: str) -> str:
@@ -261,7 +319,6 @@ def _cursor_after(items: list[dict]) -> str:
 def fetch_feed(endpoint: dict, state: dict | None = None, *, preview_limit: int = 50) -> dict:
     """执行一次条件请求，返回 success/unchanged 及规范化 Feed 条目。"""
     url = validate_endpoint_url(endpoint.get("url", ""))
-    _check_resolved_target(url)
     state = state or {}
     headers = {
         "User-Agent": USER_AGENT,
@@ -271,10 +328,7 @@ def fetch_feed(endpoint: dict, state: dict | None = None, *, preview_limit: int 
         headers["If-None-Match"] = str(state["etag"])
     if state.get("last_modified"):
         headers["If-Modified-Since"] = str(state["last_modified"])
-    try:
-        response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT, stream=True)
-    except requests.RequestException as exc:
-        raise RadarFeedError("network_error", f"请求信源失败: {str(exc)[:160]}") from exc
+    response = _checked_get(url, headers)
     try:
         if response.status_code == 304:
             return {
