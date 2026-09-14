@@ -145,7 +145,7 @@ class RadarSourceTests(unittest.TestCase):
     def test_real_http_invalid_xml_keeps_cursor_and_records_response_status(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-invalid-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
-                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "127.0.0.1"}, clear=False), \
                  patch("radar.fetch_for_sources", return_value=([], [])), \
                  _LocalFeedServer([(200, b"<rss>", {
                      "Content-Type": "application/rss+xml", "ETag": '"broken-v1"',
@@ -176,7 +176,7 @@ class RadarSourceTests(unittest.TestCase):
         last_modified = "Sat, 05 Sep 2026 09:00:00 GMT"
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-304-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
-                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "127.0.0.1"}, clear=False), \
                  patch("radar.fetch_for_sources", return_value=([], [])), \
                  _LocalFeedServer([
                      (200, RSS_XML, {
@@ -222,7 +222,7 @@ class RadarSourceTests(unittest.TestCase):
     def test_real_http_503_keeps_cursor_and_enters_backoff(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-real-http-503-") as tmp:
             with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"), \
-                 patch.dict(os.environ, {"MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1"}, clear=False), \
+                 patch.dict(os.environ, {"MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "127.0.0.1"}, clear=False), \
                  patch("radar.fetch_for_sources", return_value=([], [])), \
                  _LocalFeedServer([(503, b"temporarily unavailable", {
                      "Content-Type": "text/plain",
@@ -378,6 +378,19 @@ class RadarSourceTests(unittest.TestCase):
             self.assertTrue(allowed("10.0.0.9", ["10.0.0.9"]))
             self.assertFalse(allowed("10.0.1.9", ["10.0.1.9"]))
 
+    def test_legacy_private_bypass_environment_does_not_allow_private_hosts(self):
+        env = {
+            "MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES": "1",
+            "MIAOYU_RADAR_PRIVATE_SOURCE_ALLOWLIST": "",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            with self.assertRaisesRegex(RadarFeedError, "内网"):
+                validate_endpoint_url("http://127.0.0.1/feed.xml")
+
+    def test_explicit_private_bypass_parameter_does_not_allow_private_hosts(self):
+        with self.assertRaisesRegex(RadarFeedError, "内网"):
+            validate_endpoint_url("http://127.0.0.1/feed.xml", allow_private=True)
+
     def test_fetch_revalidates_redirect_before_requesting_it(self):
         endpoint = {"url": "https://public.example/feed.xml"}
         redirect = _Response(302, headers={"Location": "http://127.0.0.1/private.xml"})
@@ -487,9 +500,20 @@ class RadarSourceTests(unittest.TestCase):
                                 datetime.now(timezone.utc).isoformat(), kind="radar")
                 db.radar_topic_endpoint_bind("radar-lease-run", endpoint_id)
                 now = datetime.now(timezone.utc).isoformat()
+                db.radar_endpoint_state_upsert(
+                    endpoint_id, status="degraded", checked_at=now, etag='"stable"',
+                    cursor_value="stable-cursor", next_fetch_at="", consecutive_failures=3,
+                    cooldown_until="", error_message="先前失败",
+                )
+                before = db.radar_endpoint_state(endpoint_id)
                 sub = db.subscription_upsert("radar-lease-run", 900, True, now)
                 RadarService()._collect_for_subscriptions([db.subscription_get(sub)])
                 fetch.assert_not_called()
+                after = db.radar_endpoint_state(endpoint_id)
+                self.assertEqual(after["cursor_value"], before["cursor_value"])
+                self.assertEqual(after["consecutive_failures"], before["consecutive_failures"])
+                self.assertEqual(after["next_fetch_at"], before["next_fetch_at"])
+                self.assertEqual(after["cooldown_until"], before["cooldown_until"])
 
     def test_manual_run_reuses_precreated_monitor_run(self):
         with tempfile.TemporaryDirectory(prefix="miaoyu-radar-run-status-") as tmp:

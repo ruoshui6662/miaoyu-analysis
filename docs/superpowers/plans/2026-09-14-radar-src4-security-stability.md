@@ -33,7 +33,7 @@
 - Consumes: `fetch_feed(endpoint: dict, state: dict | None, *, preview_limit: int) -> dict` and existing `RadarFeedError`.
 - Produces: `fetch_feed()` that requests with `allow_redirects=False`, validates each redirect target before connection, and rejects a fourth redirect with `redirect_limit`.
 
-- [ ] **Step 1: Add red tests for redirect and allowlist policy**
+- [x] **Step 1: Add red tests for redirect and allowlist policy**
 
 Add tests using `_Response` and patched `radar_sources.requests.get`:
 
@@ -56,13 +56,13 @@ def test_private_allowlist_accepts_only_exact_host_or_cidr(self):
 
 Add a four-redirect fixture assertion for `redirect_limit` and assert each `requests.get` call used `allow_redirects=False`.
 
-- [ ] **Step 2: Run the focused red tests**
+- [x] **Step 2: Run the focused red tests**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_radar_sources.py' -v`
 
 Expected: tests fail because `fetch_feed()` currently follows redirects inside requests and `_private_target_allowed` does not exist.
 
-- [ ] **Step 3: Add minimal checked-request helpers**
+- [x] **Step 3: Add minimal checked-request helpers**
 
 In `backend/radar_sources.py`, add:
 
@@ -107,15 +107,15 @@ def _checked_get(url: str, headers: dict[str, str]) -> tuple[requests.Response, 
     raise AssertionError("redirect loop must return or raise")
 ```
 
-Use `urljoin()` for relative locations; call `_check_resolved_target()` before every `requests.get(..., allow_redirects=False)`; close intermediate responses; reject unsupported/missing locations and a fourth redirect with `RadarFeedError` codes. Keep `MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES` only as a test-compatibility branch and document that production uses the exact allowlist.
+Use `urljoin()` for relative locations; call `_check_resolved_target()` before every `requests.get(..., allow_redirects=False)`; close intermediate responses; reject unsupported/missing locations and a fourth redirect with `RadarFeedError` codes. Remove the legacy global `MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES` bypass; all tests and deployments use the exact allowlist.
 
-- [ ] **Step 4: Run focused adapter tests green**
+- [x] **Step 4: Run focused adapter tests green**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_radar_sources.py' -v`
 
 Expected: new redirect/allowlist cases and existing 200/304/503/cursor cases pass.
 
-- [ ] **Step 5: Commit the HTTP-boundary change**
+- [x] **Step 5: Commit the HTTP-boundary change**
 
 ```powershell
 git add backend/radar_sources.py tests/test_radar_sources.py
@@ -132,7 +132,7 @@ git commit -m "feat: harden radar feed redirects"
 - Consumes: `radar_endpoint_lease_acquire(endpoint_id: int, owner: str, now: str, lease_until: str) -> bool`.
 - Produces: the same boolean interface, atomic closure of expired endpoint `radar_sync_runs` as `abandoned` / `lease_expired`, and `radar_sync_runs_for_endpoint(endpoint_id: int) -> list[dict]` for operational inspection.
 
-- [ ] **Step 1: Add red multiprocess and recovery tests**
+- [x] **Step 1: Add red multiprocess and recovery tests**
 
 Create a module-level child target (required by Windows spawn) that sets `db.SETTINGS_DB`, waits on an `Event`, calls `radar_endpoint_lease_acquire`, and sends its boolean result through a `multiprocessing.Queue`. Add tests:
 
@@ -161,13 +161,13 @@ def test_expired_lease_is_recovered_and_old_running_run_is_abandoned(self):
 
 Add a regression assertion that an unavailable lease causes no `fetch_feed` call, does not increment `consecutive_failures`, and leaves `cursor_value` unchanged.
 
-- [ ] **Step 2: Run the focused red tests**
+- [x] **Step 2: Run the focused red tests**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_radar_sources.py' -v`
 
 Expected: existing acquire logic permits expiry but does not close the old `running` synchronization record; the new assertion fails on that record state.
 
-- [ ] **Step 3: Make expiry recovery atomic in the lease transaction**
+- [x] **Step 3: Make expiry recovery atomic in the lease transaction**
 
 In `backend/db.py`, while `BEGIN IMMEDIATE` is held and an existing lease is recognized as expired, execute:
 
@@ -180,13 +180,13 @@ WHERE endpoint_id=? AND status='running';
 
 Then update lease owner/until and commit. Add `radar_sync_runs_for_endpoint(endpoint_id: int, limit: int = 100) -> list[dict]`, selecting `id`, `started_at`, `finished_at`, `status`, `item_count`, `new_count`, `http_status`, `error_code`, and `error_message`, ordered by descending id. Do not change the public boolean return contract.
 
-- [ ] **Step 4: Run focused lease tests green**
+- [x] **Step 4: Run focused lease tests green**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_radar_sources.py' -v`
 
 Expected: exactly one spawned process holds the lease, expiry recovers it, old running work is visibly abandoned, and existing cursor/backoff semantics still pass.
 
-- [ ] **Step 5: Commit the lease-recovery change**
+- [x] **Step 5: Commit the lease-recovery change**
 
 ```powershell
 git add backend/db.py tests/test_radar_sources.py
@@ -203,7 +203,7 @@ git commit -m "feat: recover expired radar endpoint leases"
 - Consumes: `POST /api/radar/endpoints`, `GET /api/radar/endpoints`, and database endpoint records containing an internal `auth_ref` field.
 - Produces: RSS/Atom create/update paths that reject non-empty `auth_ref`, and every endpoint API dictionary (list/create/update) that omits `auth_ref` before JSON serialization.
 
-- [ ] **Step 1: Add red authenticated API tests**
+- [x] **Step 1: Add red authenticated API tests**
 
 In `tests/test_g0_baseline.py`, use the existing authenticated client helper to assert:
 
@@ -222,13 +222,13 @@ self.assertNotIn("secret-ref", listed.get_data(as_text=True))
 
 Use a temporary `db.SETTINGS_DB`; do not require an external Feed request.
 
-- [ ] **Step 2: Run the focused red API tests**
+- [x] **Step 2: Run the focused red API tests**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_g0_baseline.py' -v`
 
 Expected: the creation request currently ignores/accepts `auth_ref`, and list serialization exposes a seeded internal reference.
 
-- [ ] **Step 3: Enforce public projection and request rejection**
+- [x] **Step 3: Enforce public projection and request rejection**
 
 In `backend/app.py`, add the following helper near the Radar routes:
 
@@ -241,13 +241,13 @@ def _public_radar_endpoint(endpoint: dict) -> dict:
 
 Use it for `GET /api/radar/endpoints`, POST create responses, and PATCH update responses. In both POST and PATCH, reject a supplied non-empty `auth_ref` with a 400 explanation that RSS/Atom does not support credentials. Do not modify existing database values or return them in error messages.
 
-- [ ] **Step 4: Run focused API tests green**
+- [x] **Step 4: Run focused API tests green**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_g0_baseline.py' -v`
 
 Expected: seeded internal data stays in SQLite but never crosses the HTTP response boundary; credential references are rejected at input.
 
-- [ ] **Step 5: Commit the credential-boundary change**
+- [x] **Step 5: Commit the credential-boundary change**
 
 ```powershell
 git add backend/app.py tests/test_g0_baseline.py
@@ -267,21 +267,21 @@ git commit -m "fix: keep radar credential references internal"
 - Consumes: source health fields and `radar_sync_runs` status/error fields.
 - Produces: a dated 24-hour observation checklist with pass/fail thresholds and an honest `🟡` stage status pending real deployment evidence.
 
-- [ ] **Step 1: Add a failing regression test for lease skip state preservation**
+- [x] **Step 1: Add a failing regression test for lease skip state preservation**
 
 Add a test that seeds `cursor_value`, `consecutive_failures`, `next_fetch_at`, then makes `radar_endpoint_lease_acquire` return `False`; assert no fetch and an identical persisted state after collection.
 
-- [ ] **Step 2: Run the red test and implement only if it exposes a gap**
+- [x] **Step 2: Run the red test and implement only if it exposes a gap**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_radar_sources.py' -v`
 
 Expected: either the new test fails because a state write occurs on lease skip, then minimize the responsible `backend/radar.py` change; or it passes as a characterization test and no production change is made.
 
-- [ ] **Step 3: Add the 24-hour checklist and status evidence**
+- [x] **Step 3: Add the 24-hour checklist and status evidence**
 
 Document exactly: two independently started app processes, one configured public Feed, 15-minute interval, 96 expected checks, no simultaneous duplicate `radar_sync_runs`, no `running` record beyond 120 seconds, controlled recovery after one process stop, and no secret/auth-ref text in source-health/API/log samples. Keep RADAR-SRC-4 at 🟡 until the checklist is actually observed.
 
-- [ ] **Step 4: Run all release checks**
+- [x] **Step 4: Run all release checks**
 
 Run: `$env:PYTHONPATH = (Resolve-Path backend).Path; python -m unittest discover -s tests -p 'test_*.py' -q`
 
@@ -291,7 +291,7 @@ Run: `git diff --check`
 
 Expected: complete suite passes, Python sources compile, and no whitespace errors are introduced.
 
-- [ ] **Step 5: Commit documentation and completed plan evidence**
+- [x] **Step 5: Commit documentation and completed plan evidence**
 
 ```powershell
 git add docs/雷达信源管理设计规范.md docs/开发手册.md docs/开发计划-验收清单.md \

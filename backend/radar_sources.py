@@ -42,12 +42,6 @@ class RadarFeedError(RuntimeError):
         self.http_status = int(http_status or 0)
 
 
-def _private_allowed() -> bool:
-    return os.getenv("MIAOYU_RADAR_ALLOW_PRIVATE_SOURCES", "").strip().lower() in {
-        "1", "true", "yes", "on",
-    }
-
-
 def _private_target_allowed(host: str, addresses: list[str]) -> bool:
     """仅允许精确匹配管理员私网白名单的主机、IP 或 CIDR。"""
     entries = {
@@ -75,9 +69,8 @@ def _private_target_allowed(host: str, addresses: list[str]) -> bool:
 
 
 def _private_access_allowed(host: str, addresses: list[str], allow_private: bool | None) -> bool:
-    if allow_private is True or _private_allowed():
-        # 旧开关只为已有离线回环测试保留；部署配置必须使用精确白名单。
-        return True
+    # 参数仅为内部调用兼容保留，不能成为关闭 SSRF 防护的旁路。
+    del allow_private
     return _private_target_allowed(host, addresses)
 
 
