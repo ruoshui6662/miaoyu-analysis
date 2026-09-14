@@ -667,6 +667,24 @@ class RiskNormalizationTests(unittest.TestCase):
 
 
 class SecurityTests(unittest.TestCase):
+    def test_radar_endpoint_api_rejects_and_hides_credential_references(self):
+        with tempfile.TemporaryDirectory(prefix="miaoyu-radar-auth-ref-") as tmp:
+            with patch.object(db, "SETTINGS_DB", Path(tmp) / "settings.db"):
+                source_id = db.radar_source_identity_get_or_create("内部引用源", "example.test")
+                db.radar_endpoint_create(
+                    source_id, "rss", "https://example.test/private.xml", auth_ref="secret-ref",
+                )
+                client = make_client()
+                created = client.post("/api/radar/endpoints", json={
+                    "name": "测试源", "url": "https://example.test/feed.xml",
+                    "auth_ref": "secret-ref",
+                })
+                self.assertEqual(created.status_code, 400)
+                listed = client.get("/api/radar/endpoints")
+                self.assertEqual(listed.status_code, 200)
+                self.assertNotIn("auth_ref", listed.get_data(as_text=True))
+                self.assertNotIn("secret-ref", listed.get_data(as_text=True))
+
     def test_request_skips_background_schedulers_when_explicitly_disabled(self):
         previous = app_module.app.config.get("MIAOYU_SCHEDULERS_ENABLED", True)
         app_module.app.config["MIAOYU_SCHEDULERS_ENABLED"] = False
